@@ -1,0 +1,56 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:f="http://java.sun.com/jsf/core"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:a4j="http://richfaces.org/a4j"
+        xmlns:rich="http://richfaces.org/rich"
+        xmlns:sec="http://www.springframework.org/security/tags"
+        xmlns:c="http://java.sun.com/jsp/jstl/core">
+
+<ui:composition>
+	<div id="head">
+            <div id="head-in">
+		<h1><a href="#{request.contextPath}/"><h:outputText value="${tran.BusinessCardOrganizer}" /></a></h1>
+                
+                
+                
+                <div id="login">
+                    <ul>
+                        <c:choose>
+                            <c:when test="#{sec:areAnyGranted('user, ROLE_USER, ROLE_ADMIN')}">
+                                <li><span class="gray"><h:outputText value="${tran.User}" />: <strong> #{userBean.getLoggedUserName()} </strong>(<a style="padding:0" href="#{request.contextPath}/userManager/editUser.xhtml"><h:outputText value="${tran.edit}" /></a>)</span> | </li>                                
+                                <li><a href="#{request.contextPath}/j_spring_security_logout"><h:outputText value="${tran.LogOut}" /></a></li>                                
+                            </c:when>
+                            <c:otherwise>                                
+                                <li> 
+                                    <a4j:commandLink value="${tran.LogIn}" id="ll" onclick="#{rich:component('logform')}.show();">
+                                        <rich:componentControl event="click" operation="show" target="logform">
+                                            <a4j:param name="event" value="event" noEscape="true" />
+                                            <rich:hashParam>
+                                                <a4j:param noEscape="true" name="top"
+                                                    value="jQuery(#{rich:element('ll')}.parentNode).offset().top + jQuery(#{rich:element('ll')}.parentNode).height()" />
+                                                <a4j:param noEscape="true" name="left" value="jQuery(#{rich:element('ll')}.parentNode).offset().left" />
+                                            </rich:hashParam>
+                                        </rich:componentControl>                                        
+                                    </a4j:commandLink>
+                                    | 
+                                    <ui:insert name="loginform" /> </li> 
+                                <li><a href="#{request.contextPath}/userManager/index.xhtml"><h:outputText value="${tran.SignUp}" /></a></li>                                
+                            </c:otherwise>
+                        </c:choose>
+                    </ul>
+                </div>  
+                
+                <div id="mainmenu">
+                    <ul>       
+                        <li><a href="#{request.contextPath}/"><h:outputText value="${tran.Home}" /></a></li>
+                        <li><a href="#{request.contextPath}/card.xhtml"><h:outputText value="${tran.AddCard}" /></a></li>
+                        <li><a href="#{request.contextPath}/categoryManager/index.xhtml"><h:outputText value="${tran.CategoryManager}" /></a></li>                         
+                    </ul>
+                </div>   
+                
+	</div></div>
+</ui:composition>
+
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:f="http://java.sun.com/jsf/core"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:a4j="http://richfaces.org/a4j"
+	xmlns:rich="http://richfaces.org/rich"
+	xmlns:sec="http://www.springframework.org/security/tags">
+<ui:composition>
+
+	<div id="widecontent">
+            <h2><h:outputText value="${tran.Register}" /></h2>
+            <h:form>
+                <rich:graphValidator  value="#{registerUserBean}" id="gv">
+                <h:panelGrid  id="panel" columns="3" border="0" >    
+                  <!--<rich:validator event="change">  -->                  
+                      <f:facet name="header">     
+                         <h:panelGroup style="display:block;">                                                                      
+                          <rich:messages for="gv" />
+                          <rich:messages globalOnly="true" />
+                         </h:panelGroup>
+                      </f:facet>
+                  
+                      <h:outputLabel for="login" value="${tran.Login}" />
+                      <h:inputText required="true" label="${tran.Login}" id="login" value="#{registerUserBean.newUser.login}" validatorMessage="${tran.TextLengthError}">
+                        <f:validateLength minimum="2" maximum="30" />                        
+                      </h:inputText>
+                      <rich:message ajaxRendered="true" for="login" />
+                      
+                      <h:outputLabel for="password" value="${tran.Password}"  />
+                      <h:inputSecret label="${tran.Password}" required="true"  id="password" value="#{registerUserBean.pass}" validatorMessage="${tran.PasswordLengthError}">                       
+                        <f:validateLength minimum="8" maximum="30" />  
+                      </h:inputSecret>
+                      <rich:message ajaxRendered="true" for="password" />
+                      
+                      <h:outputLabel for="confpass" value="${tran.ConfirmedPassword}"  />
+                      <h:inputSecret label="${tran.ConfirmedPassword}" required="true"  id="confpass" value="#{registerUserBean.confpass}" validatorMessage="${tran.PasswordLengthError}">                        
+                          <f:validateLength minimum="8" maximum="30" />  
+                      </h:inputSecret>
+                      <rich:message ajaxRendered="true" for="confpass" />
+
+                      <h:outputLabel for="fname" value="${tran.FirstName}" />
+                      <h:inputText label="${tran.FirstName}" required="true" id="fname" value="#{registerUserBean.newUser.firstName}" validatorMessage="${tran.TextLengthError}">
+                        <f:validateLength  minimum="2" maximum="30" />                                                
+                      </h:inputText>
+                      <rich:message ajaxRendered="true" for="fname" />
+                      
+                      <h:outputLabel for="sname" value="${tran.Surname}" />
+                      <h:inputText label="${tran.Surname}" required="true" id="sname" value="#{registerUserBean.newUser.surName}" validatorMessage="${tran.TextLengthError}">
+                        <f:validateLength  minimum="2" maximum="30" />                                                
+                      </h:inputText>
+                      <rich:message ajaxRendered="true" for="sname" />
+
+                      <h:outputLabel for="email" value="${tran.Email}" />                  
+                      <h:inputText label="${tran.Email}" required="true" id="email" value="#{registerUserBean.newUser.email}" validatorMessage="${tran.BadEmailFormat}">              
+                        <f:validateRegex pattern="^(([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5}){1,25})+([;.](([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5}){1,25})+)*$"></f:validateRegex>                    
+                      </h:inputText>   
+                      <rich:message ajaxRendered="true" for="email" />
+
+                  <!--</rich:validator>-->
+                  
+                  <rich:notifyMessages stayTime="2000" nonblocking="true" />
+                  <f:facet name="footer">
+                    <h:panelGroup style="display:block; text-align:center">                  
+                      <h:commandButton action="#{registerUserBean.registerUser}" value="${tran.Send}" />
+                    </h:panelGroup>
+                  </f:facet>
+                </h:panelGrid>
+                </rich:graphValidator>
+            </h:form>
+	</div>
+
+	<!-- content -->
+</ui:composition>
+
+</html>

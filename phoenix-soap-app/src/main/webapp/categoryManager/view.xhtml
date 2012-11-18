@@ -1,0 +1,219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:a4j="http://richfaces.org/a4j"
+      xmlns:rich="http://richfaces.org/rich"
+      xmlns:sec="http://www.springframework.org/security/tags"
+      xmlns:c="http://java.sun.com/jsp/jstl/core">
+
+    <ui:composition>
+        <div id="widecontent">
+        <c:choose>
+            <c:when test="#{sec:areAnyGranted('user, ROLE_USER, ROLE_ADMIN')}">       
+                <div id="categoryManager">
+                    <ui:remove><!--<a4j:log />--></ui:remove>
+                    <a4j:status id="ajaxStatus" onstart="#{rich:component('statPane')}.show();" onstop="#{rich:component('statPane')}.hide();" />
+                    <rich:popupPanel id="statPane" autosized="true">
+                        ${tran.pleaseWait}
+                    </rich:popupPanel>
+
+                    <a4j:outputPanel id="categoryForms" layout="block" ajaxRendered="true">
+                        <h2>${tran.categoryManager}</h2><br/>
+                        
+                        <rich:messages ajaxRendered="true" />
+                        <rich:collapsiblePanel header="${tran.FulltextSearch}" expanded="true" switchType="client">
+                            <h:form id="fulltextSearchForm">
+                                <h:inputText value="#{categoryBean.fulltextSearchQuery}" styleClass="fulltextQueryInput"/>
+                                <rich:message for="fulltextSearchQueryInput" ajaxRendered="true"  />
+
+                                <br/>
+                                <h:selectBooleanCheckbox value="#{categoryBean.searchInDescription}" /> ${tran.searchInDescription} <br/>
+                                <h:commandButton action="#{categoryBean.fulltextSearch}" value="${tran.Search}" />&nbsp;
+                                <h:commandButton action="#{categoryBean.getAllCategories}" value="${tran.DisplayAll}" />
+                            </h:form> 
+
+                            <h:form id="form">
+                                <rich:dataTable value="#{categoryBean.searchResult}" 
+                                                var="cat"
+                                                iterationStatusVar="it" 
+                                                id="table" 
+                                                rows="15" 
+                                                styleClass="stable"
+                                                rendered="#{categoryBean.searchResult.isEmpty()==false}">
+                                    <rich:column>
+                                        <f:facet name="header">#</f:facet>
+                                        #{it.index}
+                                    </rich:column>
+                                    <rich:column >
+                                        <f:facet name="header">${tran.categoryPath}</f:facet>
+                                        <h:outputText value="#{cat.path2root}" />
+                                    </rich:column>
+                                    <rich:column >
+                                        <f:facet name="header">${tran.categoryPrivate}</f:facet>
+                                        <h:selectBooleanCheckbox readonly="true" value="#{cat.cat.privateCategory}" disabled="true"  />
+                                    </rich:column>
+                                    <!--<rich:column >
+                                        <f:facet name="header">${tran.categoryCards}</f:facet>
+                                        <h:outputText value="ToDoLINK" />
+                                    </rich:column>-->
+                                    <rich:column>
+                                        <h:commandLink action="#{categoryBean.selectNodeFromTable}">
+                                            <img src="#{resource['img:edit.gif']}" alt="Edit" title="Edit" />
+                                            <a4j:param value="#{cat.cat.id}" assignTo="#{categoryBean.curCategoryId}" />
+                                        </h:commandLink>
+                                    </rich:column>
+                                    <f:facet name="footer">
+                                        <rich:dataScroller page="#{categoryBean.page}" />
+                                    </f:facet>
+                                </rich:dataTable>
+                            </h:form>              
+                        </rich:collapsiblePanel>
+
+                        <h:form id="categorySelect">
+                            <rich:collapsiblePanel header="${tran.CategorySelection}" expanded="true" switchType="client">
+                                <c:choose>
+                                    <c:when test="#{userAgent.phone}">
+                                        <h:selectOneListbox value="#{categoryBean.currentCategoryModel}" styleClass="categoryHtmlCombo" >
+                                            <f:attribute name="selectItems" value="#{categoryBean.selectItems['categories']}"/>
+                                            <f:selectItems  value="#{categoryBean.selectItems['categories']}" itemLabelEscaped="#{false}" />
+                                        </h:selectOneListbox>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <rich:select clientFilterFunction="customFilter" 
+                                                     id="rfSelectCategorySelector"
+                                                     styleClass="categoryCombo"
+                                                     listClass="categoryComboList"
+                                                     enableManualInput="true" 
+                                                     defaultLabel="select category to operate on" 
+                                                     value="#{categoryBean.currentCategoryModel}"
+                                                     >
+                                            <f:attribute name="selectItems" value="#{categoryBean.selectItems['categories']}"/>
+                                            <f:selectItems  value="#{categoryBean.selectItems['categories']}" itemLabelEscaped="#{false}" />
+                                        </rich:select>
+                                    </c:otherwise>
+                                </c:choose>
+                                <br/>
+                                
+                                <input type="button" value="${tran.ClearSelection}" onclick="#{rich:component('rfSelectCategorySelector')}.setValue('');   " />
+                                <h:commandButton action="#{categoryBean.initCategories()}" value="${tran.Reload}"/>
+                                <h:commandButton value="${tran.change}" action="#{categoryBean.changedCurrentCategory()}" />
+                            </rich:collapsiblePanel>    
+                        </h:form>
+
+                        <!--<h:panelGrid id="categoryEditForms" width="100%">-->
+                        <h:form rendered="#{categoryBean.isCategorySelected()}">
+                            <rich:collapsiblePanel header="${tran.Details}" expanded="false" switchType="client">
+                                ${tran.Name}: <br/>
+                                <h:inputText value="#{categoryBean.currentCategoryModel.name}" id="curCategoryName" size="50" required="true" label="${tran.Name}" />
+                                <br/>
+
+                                ${tran.IsPrivate}: 
+                                <h:selectBooleanCheckbox value="#{categoryBean.currentCategoryModel.privateFlag}" /> <br/>
+
+                                ${tran.Description}: <br/>
+                                <h:inputTextarea 
+                                    value="#{categoryBean.currentCategoryModel.description}" 
+                                    id="curCategoryDescription"
+                                    cols="48" />
+                                <br/>
+                                <h:commandButton action="#{categoryBean.updateCategory()}" value="${tran.Save}" ></h:commandButton>
+                                <!--<a4j:commandButton value="Change by ajax" render="categoryForms" action="#{categoryBean.updateCategory()}" />-->
+                            </rich:collapsiblePanel>
+                        </h:form>
+
+                        <h:form rendered="#{categoryBean.isCategorySelected()}">
+                            <rich:collapsiblePanel header="${tran.subcategories}" expanded="false" switchType="client">
+                                ${tran.multipleCategoryInsert}<br/>
+                                ${tran.Name}: <br/>
+                                <h:inputText value="#{categoryBean.newCategory.name}" id="curCategoryName" size="50" required="true" label="${tran.Name}" />
+                                <br/>
+
+                                 ${tran.IsPrivate}: 
+                                <h:selectBooleanCheckbox value="#{categoryBean.newCategory.privateFlag}" /> <br/>
+
+                                 ${tran.Description}: <br/>
+                                <h:inputTextarea 
+                                    value="#{categoryBean.newCategory.description}" 
+                                    id="curCategoryDescription"
+                                    cols="48" />
+                                <br/>
+                                <h:commandButton action="#{categoryBean.addCategory()}" value=" ${tran.Add}" ></h:commandButton>
+                                <!--<a4j:commandButton value="Add by ajax" render="categoryForms" action="#{categoryBean.addCategory()}" />-->
+                            </rich:collapsiblePanel>
+                        </h:form>
+
+                        <c:if test="#{categoryBean.isCategorySelected()}">
+                            <h:form rendered="#{categoryBean.currentCategoryModel.parentId!=null}">
+                                <rich:collapsiblePanel header="${tran.hierarchy}" expanded="false" switchType="client">
+                                     ${tran.MoveToCategory}: <br/>
+                                    <c:choose>
+                                    <c:when test="#{userAgent.phone}">
+                                        <h:selectOneListbox value="#{categoryBean.newParent}" styleClass="categoryHtmlCombo" >
+                                            <f:attribute name="selectItems" value="#{categoryBean.selectItems['parent_change']}"/>
+                                            <f:selectItems  value="#{categoryBean.selectItems['parent_change']}" itemLabelEscaped="#{false}" />
+                                        </h:selectOneListbox>
+                                    </c:when>
+                                    <c:otherwise>
+                                        <rich:select clientFilterFunction="customFilter" 
+                                                     styleClass="categoryCombo"
+                                                     listWidth="400px" 
+                                                     enableManualInput="true" 
+                                                     defaultLabel="select category to operate on"  
+                                                     value="#{categoryBean.newParent}"
+                                                     id="rfSelectNewParentSelector"
+                                                     >
+                                            <f:attribute name="selectItems" value="#{categoryBean.selectItems['parent_change']}"/>
+                                            <f:selectItems  value="#{categoryBean.selectItems['parent_change']}" itemLabelEscaped="#{false}" />
+                                        </rich:select>
+                                    </c:otherwise>
+                                </c:choose>
+                                    
+                                    
+                                     <br/>
+                                    <input type="button" value="${tran.ClearSelection}" onclick="#{rich:component('rfSelectNewParentSelector')}.setValue('');Event.stop(event);" />
+                                    <h:commandButton value="${change}" action="#{categoryBean.changeParent()}" />
+                                    <!--<a4j:commandButton value="Change by ajax" render="categoryForms" action="#{categoryBean.changeParent()}" />-->
+                                </rich:collapsiblePanel>
+                            </h:form>
+                        </c:if> 
+                        
+                        <h:form rendered="#{categoryBean.currentCategoryModel.parentId!=null}">
+                            <!-- is root? if yes, cannot delete -->
+                            <rich:collapsiblePanel header="${tran.Delete}" expanded="false" switchType="client">
+                                ${tran.deleteRecLabel}<br/>
+                                <h:commandButton action="#{categoryBean.deleteCategoryRecursive()}" value="${tran.deleteRecButton}" ></h:commandButton>
+                                <br/><br/>
+
+                                ${tran.deleteHeadLabel} <br/>
+                                <h:commandButton action="#{categoryBean.deleteCategoryHead()}" value="${tran.deleteHeadButton}" ></h:commandButton>
+                            </rich:collapsiblePanel>
+                        </h:form>
+                        
+                        <!-- administrator panel -->
+                        <c:if test="#{sec:areAnyGranted('ROLE_ADMIN')}">
+                            <h:form>
+                                <!-- is root? if yes, cannot delete -->
+                                <rich:collapsiblePanel header="Admin global pannel" expanded="false" switchType="client">
+                                    ${tran.reinitFulltextSearchIndexTitle}
+                                    <h:commandButton action="#{categoryBean.reinitFulltext()}" value="Reinit fulltext" ></h:commandButton>
+                                    <br/>
+                                </rich:collapsiblePanel>
+                            </h:form>
+                        </c:if>
+                        
+                        
+                    </a4j:outputPanel>
+                </div>
+            </c:when>    
+            <c:otherwise>
+                <div>
+                    <h3>You are not allowed here.</h3>
+                    Only logged in users can manage their categories.
+                </div>
+            </c:otherwise>
+        </c:choose>
+            </div>
+    </ui:composition>
+</html>

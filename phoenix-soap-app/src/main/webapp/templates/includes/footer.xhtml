@@ -1,0 +1,30 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:f="http://java.sun.com/jsf/core"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:a4j="http://richfaces.org/a4j"
+	xmlns:rich="http://richfaces.org/rich">
+
+<ui:composition>
+        <div id="foot">
+            <div id="foot-in">     
+                <div class="left">
+                    <p>
+                    <img src="#{resource['img:logosmall2.png']}" alt="Business Card Manager" height="35" width="252" /> <br />
+                          <strong><h:outputText value="${tran.Authors}" />:</strong> Juraj Húska, Oliver Kišš, Dušan Klinec, Miroslav Svítok <br />                     
+                    &copy; 2012, <h:outputText value="${tran.Copyright}" />
+                    </p> 
+                </div>
+                
+                <div class="right" id="bottommenu">
+                    <ul>                        
+                        <li><a href="#{request.contextPath}/categoryManager/index.xhtml"><h:outputText value="${tran.CategoryManager}" /></a> | </li> 
+                        <li><a href="#{request.contextPath}/card.xhtml"><h:outputText value="${tran.AddCard}" /></a></li>
+                    </ul>
+                </div>  
+            </div>
+	</div><!-- /foot -->
+</ui:composition>
+
+</html>

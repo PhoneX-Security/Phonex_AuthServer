@@ -1,0 +1,100 @@
+/* main screen positioning mainly*/
+#dataGrid {
+	position: relative;
+	/*top: 20%;
+	width: 400px;
+	height: 400px;*/
+}
+
+#richDataGrid {	
+}
+
+#scrollerContainer {	
+}
+
+#widecontent textarea,#widecontent input[type="text"],#widecontent input[type="password"],#widecontent select {
+    font-size: 12px;
+    padding: 3px;
+    
+}
+
+#richDataGrid.rf-dg{    
+    border :none;
+    /*background-color: red;*/
+}
+
+.calign table{
+    width:100%;
+}
+
+.calign {
+        text-align: center;
+        width: 100%;
+        background-color: #FFFFFF;
+        border-style: solid;
+        border-width: 1px;
+        color: #BED6F8;
+        padding: 10px 13px;
+        }
+
+#richDataGrid .rf-dg-c{
+    border:none;
+    vertical-align: top;
+    width: 210px;
+}
+#richDataGrid .rf-dg-c .rf-p{
+        padding: 0;   
+        border:none;
+        
+}
+/*iamge card header*/
+#richDataGrid .rf-dg-c .rf-p .rf-p-hdr {
+    /*border-width: 0;*/
+    font-size: 12px;
+    
+    padding: 4px 4px;
+}
+/*iamge card body*/
+#richDataGrid .rf-dg-c .rf-p .rf-p-b{
+    /*padding: 0;*/
+    padding: 0px 0;
+    height: 133px;
+    overflow: hidden;
+        
+    /*border-width: 0;*/
+    background-color: #eeeeee;
+    text-align: center;
+    
+    
+}
+#richDataGrid .rf-dg-c .rf-p .rf-p-b img{
+    margin:4px 0;
+    
+}
+
+
+
+
+
+.pbody {
+	/*width: 170px;
+	height: 80px;*/
+}
+
+.pbody .card {
+	/*width: 170px;
+	height: 80px;*/
+}
+
+#out {
+	border: 0px;
+	background-color: #dfdfdf;
+}
+
+.label {
+	font-weight: bold;
+}
+
+.bigCard {
+	width: 100%;
+}

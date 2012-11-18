@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:a4j="http://richfaces.org/a4j"
+      xmlns:rich="http://richfaces.org/rich"
+      xmlns:sec="http://www.springframework.org/security/tags">
+    <ui:composition>
+        <a4j:outputPanel id="data2" >
+            <div id="content">
+
+
+
+                <a4j:outputPanel  >
+                <div id="main">
+                    <a4j:outputPanel  >
+                    <h:form id="searchFrom" prependId="false">
+                        <h:inputText styleClass="searchInput" value="#{cardBean.searchText}"
+                                     required="true" />
+                        <a4j:commandButton styleClass="searchButton" value="Search"
+                                           render="dataGridToRender" execute="@form" />
+                        <h:selectBooleanCheckbox value="#{cardBean.onlyUserCards}"
+                                                 rendered="#{sec:areAnyGranted('ROLE_USER, ROLE_ADMIN')}" />
+                        <h:outputText value="only in my cards"
+                                      rendered="#{sec:areAnyGranted('ROLE_USER, ROLE_ADMIN')}" />
+                    </h:form>
+                        </a4j:outputPanel>
+                    
+                    <a4j:outputPanel id="dataGridToRender">
+                        <h:form id="myform" prependId="false">
+                            <div id="dataGrid">
+
+                                <rich:dataGrid id="richDataGrid" columns="3" elements="9"
+                                               value="#{cardBean.cards}" var="card">
+
+                                    <h:outputText value="#{card.id}" binding="#{cardBean.outputText}"
+                                                  rendered="false" />
+
+                                    <rich:panel header="#{card.firstName} #{card.secondName}"
+                                                bodyClass="pbody">
+                                        <a4j:outputPanel  layout="block">
+                                            <h:commandButton  styleClass="card"
+                                                               image="img/#{cardBean.renderedCardSmallImage}"
+                                                               action="#{cardBean.selectCard}"
+                                                               >
+                                                <f:param name="selectedImageId" value="#{card.id}"/>
+                                            </h:commandButton>
+                                            
+                                            <a4j:commandButton styleClass="card"
+                                                               image="img/#{cardBean.renderedCardSmallImage}"
+                                                               >
+                                                
+                                                <a4j:ajax event="click" execute="@this" render=":out"
+                                                        listener="#{cardBean.selectCard}" />
+                                                
+                                                <a4j:param name="selectedImageId" value="#{card.id}" />
+                                            </a4j:commandButton>
+                                        </a4j:outputPanel>
+                                    </rich:panel>
+
+                                </rich:dataGrid>
+
+                                
+                            </div>
+                        </h:form>
+                    </a4j:outputPanel>
+                </div>
+                    </a4j:outputPanel>
+                <h:form>
+                    <h:commandButton value="Change" action="#{cardBean.editCard()}" immediate="true"></h:commandButton>
+                </h:form>
+
+
+                <div id="column">
+                    <a4j:outputPanel id="out" layout="block" ajaxRendered="true">
+                    <h:form>
+                        <h:commandButton value="Change1" action="#{cardBean.editCard()}" immediate="true"></h:commandButton>
+                    </h:form>
+
+
+
+                    
+                        <h:form>
+                            <h:commandButton value="Change2p" action="#{cardBean.editCard()}" immediate="true"></h:commandButton>
+                        </h:form>  
+
+                        <a4j:outputPanel id="cardPanel" ajaxRendered="true" layout="block">
+                            <rich:panel rendered="#{cardBean.renderedSelected}">
+                                <h:graphicImage styleClass="bigCard"
+                                                value="img/#{cardBean.selectedCardMediumImage}" />
+                            </rich:panel>
+                        </a4j:outputPanel>	
+                </a4j:outputPanel> 
+                    <a4j:log/>
+                    <a4j:outputPanel ajaxRendered="true">
+                <h:form>
+                    <a4j:commandButton value="ChangeO0" rendered="#{cardBean.renderedSelected}" action="#{cardBean.editCard()}" immediate="true"/>
+                </h:form>
+                    </a4j:outputPanel>
+                    
+                </div>
+
+                
+                       
+                <div class="clear"></div>
+
+            </div>
+
+            <!-- content -->
+        </a4j:outputPanel>
+    </ui:composition>
+
+</html>

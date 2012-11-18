@@ -1,0 +1,35 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:a4j="http://richfaces.org/a4j"
+      xmlns:rich="http://richfaces.org/rich"
+      xmlns:sec="http://www.springframework.org/security/tags"
+      xmlns:c="http://java.sun.com/jsp/jstl/core">
+
+<ui:composition>
+    <rich:popupPanel id="logform" modal="true" autosized="true" resizeable="false" onmaskclick="#{rich:component('logform')}.hide()">
+        <f:facet name="header">
+            <h:outputText value="${tran.LogIn}" />
+        </f:facet>
+        <f:facet name="controls">
+            <h:outputLink value="#" onclick="#{rich:component('logform')}.hide(); return false;">
+                X
+            </h:outputLink>
+        </f:facet>
+        <h:form id="loginForm" prependId="false">
+            <h:panelGrid columns="2">                
+                <h:outputText value="${tran.Login}" />
+                <h:inputText id="j_username" required="true" />
+                <h:outputText value="${tran.Password}" />
+                <h:inputSecret id="j_password" required="true"  />
+            </h:panelGrid>
+            <h:commandButton type="submit" id="login" action="#{userBean.doLogin}" value="${tran.Send}" />        
+        </h:form>
+    </rich:popupPanel>
+</ui:composition>
+    
+    
+
+</html>

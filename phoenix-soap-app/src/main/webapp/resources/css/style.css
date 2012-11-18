@@ -1,0 +1,549 @@
+@charset "UTF-8";
+
+/*
+ * style.css - zakladny styl pre vsetky media
+ * 
+ */
+
+/***************************************************
+ * CSS reset
+ ***************************************************/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, font, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font-size: 100%;
+	vertical-align: baseline;
+	outline: 0;
+}
+
+:focus {
+	outline: 0;
+}
+
+
+
+/***************************************************
+ * Float
+ ***************************************************/
+
+.left {
+	float: left;
+}
+
+.right {
+	float: right;
+}
+
+.clear {
+	display: block;
+	clear: both;
+	height: 0;
+	font-size: 0;
+}
+
+/***************************************************
+ * Hlavne bloky
+ ***************************************************/
+
+html {
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	margin: 0;
+	padding: 0;	
+	font: 12px Verdana, sans-serif;
+	text-align: left;
+	line-height: 1.5;
+        background-color: #f3f3f3;
+}
+
+/***************************************************
+ * Farby
+ ***************************************************/
+
+.black {
+	color: #333;
+}
+
+.white {
+	color: #fff;
+}
+
+.orange {
+	color: #f50;
+}
+
+.blue {
+	color: #cdd;
+}
+
+.darkblue {
+	color: #577;
+}
+.gray{
+    color:#8e8e8e;
+    
+}
+
+/***************************************************
+ * Riadkove prvky
+ ***************************************************/
+
+#page a {
+	color: #0000d8;
+	text-decoration: none;
+}
+
+#page a:hover {
+	color: #0000d8;
+	text-decoration: underline;
+}
+
+strong,
+.strong,
+b,
+.bold {
+	font-weight: bold;
+}
+
+em,
+.em,
+i,
+.italic {
+	font-style: italic;
+}
+
+ins,
+.ins,
+.underline {
+	text-decoration: underline;
+}
+
+del,
+.del {
+	text-decoration: line-through;
+}
+
+abbr,
+.abbr {
+	border-bottom: 1px dotted #333;
+	cursor: help;
+}
+
+code,
+.code {
+	font: 100% "Courier New", Courier, monospace;
+}
+
+.wrap {
+	white-space: normal;
+}
+
+.nowrap {
+	white-space: nowrap;
+}
+
+.capitalize {
+	text-transform: capitalize;
+}
+
+.lowercase {
+	text-transform: lowercase;
+}
+
+.uppercase {
+	text-transform: uppercase;
+}
+
+.smallcaps {
+	font-variant: small-caps;
+}
+
+sub,
+.sub {
+	font-size: 83%;
+	vertical-align: sub;
+}
+
+sup,
+.sup {
+	font-size: 83%;
+	vertical-align: super;
+}
+
+big,
+.big,
+.large {
+	font-size: 125%;
+}
+
+small,
+.small {
+	font-size: 92%;
+}
+
+
+/***************************************************
+ * Odstavce
+ ***************************************************/
+
+p {
+	margin: 1em 0;
+}
+
+blockquote {
+	margin: 1em 4em 1em 4em;
+}
+
+.text-left {
+	text-align: left;
+}
+
+.text-right {
+	text-align: right;
+}
+
+.text-center {
+	text-align: center;
+}
+
+.text-justify {
+	text-align: justify;
+}
+
+/***************************************************
+ * Stlpce
+ ***************************************************/
+
+.columns {
+	margin: 1em 0;
+	width: 100%;
+}
+
+.columns .column {
+	float: left;
+	margin-left: 2%;
+}
+
+.columns .column.first {
+	margin-left: 0 !important;
+}
+
+.columns .column.right {
+	float: right;
+}
+
+.columns .column.c02 {width: 48.9%}
+.columns .column.c03 {width: 31.9%}
+.columns .column.c04 {width: 23.4%}
+
+/***************************************************
+ * Nadpisy
+ ***************************************************/
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.header {
+	margin: 0.8em 0 0.4em;
+	color: #7f6b50;	
+	
+	font-size:16px;
+	font-weight: normal;
+	font-family: Verdana;
+}
+h1,
+h2{
+  font-size:18px;
+}
+
+.header.large {
+	font-size: 150%;
+}
+
+.header.darkblue {
+	color: #577;
+}
+
+/***************************************************
+ * Obrazky
+ ***************************************************/
+
+.img,
+.img-left,
+.img-right,
+.imgs,
+.imgs-left,
+.imgs-right {
+	margin: 1em 0;
+	text-align: center;
+}
+
+.img-left,
+.imgs-left {
+	float: left;
+	margin: 1em 1em 0 0;
+}
+
+.img-right,
+.imgs-right {
+	float: right;
+	margin: 1em 0 0 1em;
+}
+
+.img img,
+.img-left img,
+.img-right img,
+.imgs img,
+.imgs-left img,
+.imgs-right img {
+	margin: 0;
+	
+}
+
+.imgs img  {
+	margin: 0 5px 5px;
+}
+
+.imgs-left img,
+.imgs-right img {
+	margin: 0 0 5px;
+}
+
+.img a:hover img,
+.img-left a:hover img,
+.img-right a:hover img,
+.imgs a:hover img,
+.imgs-left a:hover img,
+.imgs-right a:hover img {
+	border-color: #f00;
+}
+
+.img .alt,
+.img-left .alt,
+.img-right .alt,
+.imgs .alt,
+.imgs-left .alt,
+.imgs-right .alt {
+	margin: 0;
+	text-align: center;
+}
+
+.imgs .alt,
+.imgs-left .alt,
+.imgs-right .alt {
+	margin: -5px 0 0;
+}
+
+/***************************************************
+ * Ooddelovace
+ ***************************************************/
+
+.hr {
+	margin: 1em 0;
+	border-top: 4px solid #cdd;
+	height: 0;
+}
+
+.hr hr {
+	display: none;
+	font-size: 0;
+}
+
+/***************************************************
+ * Zoznamy
+ ***************************************************/
+
+ul,
+ol {
+	margin: 1em 0 1em 2em;
+	list-style: disc outside;
+}
+
+ol {
+	list-style-type: decimal;
+}
+
+ul.spaced li,
+ol.spaced li {
+	margin: 1em 0;
+}
+
+ul.list-disc {
+	list-style-type: disc;
+}
+
+ul.list-circle {
+	list-style-type: circle;
+}
+
+ul.list-square {
+	list-style-type: square;
+}
+
+ul.nobullet {
+	margin-left: 0;
+	padding-left: 0;
+	list-style-type: none;
+}
+
+ol.list-decimal {
+	list-style-type: decimal;
+}
+
+ol.list-lower {
+	list-style-type: lower-alpha;
+}
+
+ol.list-upper {
+	list-style-type: upper-alpha;
+}
+
+ol.list-lower-roman {
+	list-style-type: lower-roman;
+}
+
+ol.list-upper-roman {
+	list-style-type: upper-roman;
+}
+
+ul ul,
+ol ol {
+	margin-bottom: 0.5em;
+}
+
+dl {
+	margin: 1em 0;
+}
+
+dt {
+	margin: 0.3em 0;
+}
+
+dd {
+	margin: 0.3em 0 0.3em 2em;
+}
+
+/***************************************************
+ * Tabulky
+ ***************************************************/
+
+table {
+	margin: 0.5em 0;
+	border-collapse: collapse;
+	border-color: #cdd;
+	font-size: 100%;
+}
+
+caption {
+	margin: 0 0 0.5em;
+	color: #7f6b50;	;
+	font-size: 125%;
+	font-weight: normal;
+}
+
+td,
+th {
+	padding: 4px;
+	border-color: #cdd;
+	font-weight: normal;
+	text-align: left;
+	vertical-align: middle;
+}
+
+th {
+	font-weight: bold;
+}
+
+/***************************************************
+ * Formulare
+ ***************************************************/
+
+fieldset {
+	margin: 1em 0;
+	padding: 1em;
+	border: 1px solid #cdd;
+}
+
+legend {
+	margin: 0 0 0.5em;
+	padding: 0 0.5em;
+	color: #7f6b50;
+ 	font-size: 125%;
+	font-weight: normal;
+}
+
+input,
+button,
+a.button,
+select,
+textarea {
+	/*padding: 4px 6px;*/
+	/*border: 1px solid #cdd;*/
+	background: #fff;
+	color: #333;
+	font: normal 100% Arial, Helvetica, sans-serif;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+	border-color: #333;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+	padding: 0 !important;
+	width: auto !important;
+	border: none !important;
+	background: transparent !important;
+}
+
+input[disabled] {
+	background: #eee;
+	color: #999;
+}
+
+button,
+a.button,
+input[type="submit"],
+input[type="reset"],
+input[type="button"] {
+        margin: 2px 5px 0 0;
+        font-size: 12px;
+	/*overflow: visible;
+	border-color: #871c1a;
+	background: #871c1a;
+	color: #fff;
+	font-weight: bold;
+	text-decoration: none;
+	cursor: pointer;*/
+}
+
+button:hover,
+a.button:hover,
+input[type="submit"]:hover,
+input[type="reset"]:hover,
+input[type="button"]:hover {
+	/*background: #530000;
+	color: #fff;*/
+}
+
+.placeholder{
+   padding-right: 10px;
+}

@@ -1,0 +1,92 @@
+/* 
+    Document   : category
+    Created on : Jan 16, 2012, 3:26:07 AM
+    Author     : ph4r05
+    Description:
+        Purpose of the stylesheet follows.
+*/
+
+.categoryCombo .rf-sel-btn-arrow {
+    width: 32px;
+}
+
+#categoryManager .categoryCombo {
+    width: 50%;
+}
+
+#categoryManager .rf-sel {
+    width: 50%;
+}
+
+.categories .rf-sel-inp,
+.categoryCombo .rf-sel,
+.categoryCombo .rf-sel-inp,
+#categoryManager .rf-sel-inp,
+.rf-sel-opt,
+#categoryManager .categoryHtmlCombo,
+#addcard_container .categoryHtmlCombo {
+    font-family: monospace !important;
+}
+
+#categoryManager .rf-sel-inp,
+.rf-sel-opt {
+    width: 100%;
+}
+
+#categoryManager .rf-sel-cntr {
+    width: 90%;
+}
+
+#categoryManager input.rf-sel-inp {
+    width: 100% !important;
+}
+
+#categoryManager .fulltextQueryInput {
+    width: 50% !important;
+}
+
+#categoryManager .categoryComboList {
+    width: 400px !important;
+}
+
+.categoryComboList .rf-sel-lst-scrl[style] {
+    min-height: 50px !important;
+    max-height: 200px !important;
+    width: 500px !important;
+}
+
+.rf-sel-lst-scrl[style] {
+    min-height: 50px !important;
+    max-height: 200px !important;
+    width: 500px !important;
+}
+
+.categoryHtmlCombo{
+    min-height: 50px;
+    max-height: 200px;
+    height: 200px;
+    width: 500px;
+}
+
+.rf-fu-lst {
+    height: 58px !important;
+}
+
+rf-fu-itm {
+    border: none !important;
+    padding: 8px !important;
+}
+
+.uploadthumbnail {
+    max-height: 100px !important;
+}
+
+rf-fu-itm-lnk {
+    display: none !important;
+}
+
+.rf-fu-hdr {
+    border-width: 0 !important;
+    margin-left: 0 !important;
+    margin-top: 0 !important;
+}
