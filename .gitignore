@@ -12,8 +12,11 @@ phoenix-soap-app/src/test/resources/db.properties
 .classpath
 derby.log
 *.log
+*.log*
+**.log
+**.log*
+**/db.properties
 *.log.*
-t
 **/db.properties
 */db.properties
 phoenix-soap-app/src/main/resources/properties/db.properties
