@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package com.phoenix.soap;
+package com.phoenix.soap.old;
 
 import java.security.cert.X509Certificate;
 

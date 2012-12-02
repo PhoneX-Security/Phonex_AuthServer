@@ -42,18 +42,36 @@
     <listener>
         <listener-class>org.springframework.web.util.Log4jConfigListener</listener-class>
     </listener>
-    <!--<listener>
-        <listener-class>com.sun.xml.ws.transport.http.servlet.WSServletContextListener</listener-class>
-    </listener>
+    
     <servlet>
-        <servlet-name>helloWs</servlet-name>
-        <servlet-class>com.sun.xml.ws.transport.http.servlet.WSServlet</servlet-class>
-        <load-on-startup>1</load-on-startup>
+        <servlet-name>spring-ws</servlet-name>
+        <servlet-class>org.springframework.ws.transport.http.MessageDispatcherServlet</servlet-class>
+        <init-param>
+            <param-name>transformWsdlLocations</param-name>
+            <param-value>true</param-value>
+        </init-param>
     </servlet>
     <servlet-mapping>
-        <servlet-name>helloWs</servlet-name>
-        <url-pattern>/HelloWs</url-pattern>
-    </servlet-mapping>-->
+        <servlet-name>spring-ws</servlet-name>
+        <url-pattern>/*</url-pattern>
+    </servlet-mapping>
+    
+    <!--
+     JAXB servlet is disabled now, we are using contract first Spring servlet
+    <servlet>
+        <servlet-name>jaxws-servlet</servlet-name>
+        <servlet-class>com.sun.xml.ws.transport.http.servlet.WSSpringServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>jaxws-servlet</servlet-name>
+        <url-pattern>/jax/*</url-pattern>
+    </servlet-mapping>
+    -->
+    
+    <!--<listener>
+        <listener-class>com.sun.xml.ws.transport.http.servlet.WSServletContextListener</listener-class>
+    </listener>-->
+    
     <!-- Needed for reques/session scoped entities -->
     <listener>
         <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
@@ -91,13 +109,18 @@
         <servlet-class>javax.faces.webapp.FacesServlet</servlet-class>
         <load-on-startup>1</load-on-startup>
     </servlet>
+    <!--<servlet>
+        <servlet-name>GreetingService</servlet-name>
+        <servlet-class>com.sun.xml.ws.transport.http.servlet.WSSpringServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>-->
     <servlet-mapping>
         <servlet-name>Faces Servlet</servlet-name>
         <url-pattern>*.jsf</url-pattern>
         <url-pattern>*.xhtml</url-pattern>
         <url-pattern>/faces/*</url-pattern>
     </servlet-mapping>
-    <!--   
+    <!-- Image serving servlet is disabled
     <servlet>
     	<servlet-name>imageServlet</servlet-name>
     	<servlet-class>cz.muni.fi.pa165.cards.servlets.ImageServlet</servlet-class>
@@ -114,6 +137,10 @@
         <servlet-name>imageServletFromDatabase</servlet-name>
         <url-pattern>/img/*</url-pattern>
     </servlet-mapping>
+    <!--<servlet-mapping>
+        <servlet-name>GreetingService</servlet-name>
+        <url-pattern>/GreetingService</url-pattern>
+    </servlet-mapping>-->
     <welcome-file-list>
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>

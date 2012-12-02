@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+~ Copyright 2007 the original author or authors.
+~
+~ Licensed under the Apache License, Version 2.0 (the "License");
+~ you may not use this file except in compliance with the License.
+~ You may obtain a copy of the License at
+~
+~      http://www.apache.org/licenses/LICENSE-2.0
+~
+~ Unless required by applicable law or agreed to in writing, software
+~ distributed under the License is distributed on an "AS IS" BASIS,
+~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+~ See the License for the specific language governing permissions and
+~ limitations under the License.
+-->
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://mycompany.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://mycompany.com/hr/schemas">
+    
+    <xs:simpleType name="aliasType">
+        <xs:annotation>
+            <xs:documentation>
+                User alias type
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+            <xs:maxLength value="64"/>
+            <xs:pattern value="[a-zA-Z][a-zA-Z0-9\-\._@]*"/> 
+        </xs:restriction>
+    </xs:simpleType>
+   
+    <xs:simpleType name="enabledDisabledType">
+        <xs:annotation>
+            <xs:documentation>
+                Enabled or disabled state
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="enabled"/>
+            <xs:enumeration value="disabled"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="whitelistActionType">
+        <xs:annotation>
+            <xs:documentation>
+                White list action type - inside whitelist change request
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="remove"/>
+            <xs:enumeration value="enable"/>
+            <xs:enumeration value="disable"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:simpleType name="contactlistActionType">
+        <xs:annotation>
+            <xs:documentation>
+                Action performed on contact list item
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="remove"/>
+            <xs:enumeration value="enable"/>
+            <xs:enumeration value="disable"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="userSIPtype">
+        <xs:annotation>
+            <xs:documentation>
+                User's SIP address type
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string"> 
+            <xs:pattern value="[^@]+@[^\.]+\..+"/> 
+        </xs:restriction> 
+    </xs:simpleType>
+    
+    <xs:simpleType name="userIDtype">
+        <xs:annotation>
+            <xs:documentation>
+                Simple user ID type - unsigned long int
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:unsignedLong"/>
+    </xs:simpleType>
+    
+    <xs:simpleType name="userPresenceStatusType">
+        <xs:annotation>
+            <xs:documentation>
+                User presence type - presence in contact list
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="online"/>
+            <xs:enumeration value="offline"/>
+            <xs:enumeration value="away"/>
+            <xs:enumeration value="dnd"/>
+            <xs:enumeration value="invisible"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:simpleType name="userWhitelistStatusType">
+        <xs:annotation>
+            <xs:documentation>
+                User presence in whitelist type
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="in"/>
+            <xs:enumeration value="notin"/>
+            <xs:enumeration value="disabled"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:simpleType name="whitelistReturnType">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist request response type - integer
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:integer"/>
+    </xs:simpleType>
+    
+    <xs:simpleType name="contactlistReturnType">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist request response type - integer
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:integer"/>
+    </xs:simpleType>
+    
+    <xs:complexType name="aliasListType">
+        <xs:annotation>
+            <xs:documentation>
+                List of aliases
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="alias" type="hr:aliasType" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:complexType name="whitelistRequestElementType">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist request element, inside whitelist request message
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="alias" type="hr:aliasType"/>
+            <xs:element name="action" type="hr:whitelistActionType"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:complexType name="contactlistChangeRequestElementType">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist request element, inside contactlist change request message
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="alias" type="hr:aliasType"/>
+            <xs:element name="action" type="hr:contactlistActionType"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:complexType name="contactListElementType">
+        <xs:annotation>
+            <xs:documentation>
+                One element in contactlist response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="userid" type="hr:userIDtype"/>
+            <xs:element name="alias" type="hr:aliasType"/>
+            <xs:element name="usersip" type="hr:userSIPtype"/>
+            <xs:element name="presenceStatus" type="hr:userPresenceStatusType"/>
+            <xs:element name="contactlistStatus" type="hr:enabledDisabledType"/>
+            <xs:element name="whitelistStatus" type="hr:userWhitelistStatusType"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    
+    
+    <!--
+        ~ Elements definition for messages
+    -->
+    <xs:element name="whitelistRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist change request - add/remove whitelist multiple entries
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="whitelistrequestElement" 
+                            type="hr:whitelistRequestElementType" 
+                            minOccurs="1" 
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="whitelistrequestElement">
+            <xs:selector xpath="whitelistrequestElement"/>
+            <xs:field xpath="@alias"/>
+        </xs:unique>
+    </xs:element>
+    
+    <xs:element name="whitelistResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist change request response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return" 
+                            type="hr:whitelistReturnType" 
+                            minOccurs="1" 
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="contactlistChangeRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist change request - add/remove multiple contactlist entries
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="contactlistChangeRequestElement" 
+                            type="hr:contactlistChangeRequestElementType" 
+                            minOccurs="1"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="uniqueAlias">
+            <xs:selector xpath="contactlistChangeRequestElement"/>
+            <xs:field xpath="@alias"/>
+        </xs:unique>
+    </xs:element>
+    
+    <xs:element name="contactlistChangeResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist change request response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return" 
+                            type="hr:contactlistReturnType" 
+                            minOccurs="1"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="contactlistGetRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Simple get contactlist request, can request whole contact list
+                or only portion of it specifying list of aliases to retrieve
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="alias" type="hr:aliasType" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>   
+        </xs:complexType>
+        <xs:unique name="uniqueAliasClistSchema">
+            <xs:selector xpath="alias"/>
+            <xs:field xpath="@alias"/>
+        </xs:unique>
+    </xs:element>
+
+    <xs:element name="contactlistGetResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Contact list get response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="contactlistEntry" type="hr:contactListElementType" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>   
+        </xs:complexType>
+        <xs:unique name="contactlistEntry">
+            <xs:selector xpath="contactlistEntry"/>
+            <xs:field xpath="@alias"/>
+        </xs:unique>
+    </xs:element>
+
+    
+    
+    <xs:element name="HolidayResponse" nillable="true" type="xs:string"/>
+    <xs:element name="HolidayRequest">
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="Holiday" type="hr:HolidayType"/>
+                <xs:element name="Employee" type="hr:EmployeeType"/>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+    <xs:complexType name="HolidayType">
+        <xs:sequence>
+            <xs:element name="StartDate" type="xs:date"/>
+            <xs:element name="EndDate" type="xs:date"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="EmployeeType">
+        <xs:sequence>
+            <xs:element name="Number" type="xs:integer"/>
+            <xs:element name="FirstName" type="xs:string"/>
+            <xs:element name="LastName" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+</xs:schema>

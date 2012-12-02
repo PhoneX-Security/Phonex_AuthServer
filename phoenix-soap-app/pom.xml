@@ -100,6 +100,12 @@
             <type>jar</type>
         </dependency>
         <dependency>
+            <groupId>org.jdom</groupId>
+            <artifactId>jdom</artifactId>
+            <version>2.0.1</version>
+            <type>jar</type>
+        </dependency>
+        <dependency>
             <groupId>javax</groupId>
             <artifactId>javaee-web-api</artifactId>
             <version>6.0</version>
@@ -182,12 +188,7 @@
             <scope>runtime</scope>
             <version>${org.springframework-ws.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.codehaus.woodstox</groupId>
-            <artifactId>woodstox-core-asl</artifactId>
-            <scope>runtime</scope>
-            <version>${org.springframework-ws.version}</version>
-        </dependency>
+        
         <dependency>
             <groupId>org.springframework.ws</groupId>
             <artifactId>spring-ws-security</artifactId>
@@ -516,6 +517,22 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>jaxb2-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>xjc</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <schemaDirectory>src/main/webapp/WEB-INF</schemaDirectory>
+                    <packageName>com.phoenix.soap.beans</packageName>
+                </configuration>
+            </plugin>
+            
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>2.3.2</version>
@@ -575,72 +592,7 @@
             
             
             
-            <plugin>
-                <groupId>org.jvnet.jax-ws-commons</groupId>
-                <artifactId>jaxws-maven-plugin</artifactId>
-                <version>2.2</version>
-                <executions>
-                    <!--<execution>
-                        <id>generate-wsdl</id>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>wsgen</goal>
-                        </goals>
-                        <configuration>
-                            <sei>com.phoenix.soap.GreetingServiceEndpoint</sei>
-                            <genWsdl>true</genWsdl>
-                        </configuration>
-                    </execution>-->
-                    <!--<execution>
-                        <id>generate-stubs</id>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>wsimport</goal>
-                        </goals>
-                        <configuration>
-                            <wsdlDirectory>target/jaxws/wsgen/wsdl</wsdlDirectory>
-                            <wsdlFiles>                   
-                                <wsdlFile>GreetingServiceEndpoint.wsdl
-                                </wsdlFile>
-                            </wsdlFiles>
-                            
-                            <wsdlLocation>http://localhost:8080/test</wsdlLocation> 
-                        </configuration>
-                    </execution>-->
-                </executions>
-                <configuration>
-                    <!-- The name of your generated source package -->
-                    <packageName>com.phoenix.soap</packageName>
-                </configuration>
-
-                <!-- if you want to use a specific version of JAX-WS, you can do so like this -->
-                <dependencies>
-                    <dependency>
-                        <groupId>com.sun.xml.ws</groupId>
-                        <artifactId>jaxws-tools</artifactId>
-                        <version>2.1.7</version>
-                        <exclusions>
-                            <exclusion>
-                                <groupId>org.jvnet.staxex</groupId>
-                                <artifactId>stax-ex</artifactId>
-                            </exclusion>
-                        </exclusions>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.jvnet.staxex</groupId>
-                        <artifactId>stax-ex</artifactId>
-                        <version>1.2</version>
-                        <exclusions>
-                            <exclusion>
-                                <groupId>javax.xml.stream</groupId>
-                                <artifactId>stax-api</artifactId>
-                            </exclusion>
-                        </exclusions>
-                    </dependency>
-                </dependencies>
-            </plugin>           
-            
+              
         </plugins>
     </build>
-
 </project>
