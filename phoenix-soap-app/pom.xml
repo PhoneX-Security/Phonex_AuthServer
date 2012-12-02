@@ -43,7 +43,6 @@
         <org.springframework.version>3.0.7.RELEASE</org.springframework.version>
         <org.springframework-remoting.version>2.0.8</org.springframework-remoting.version>
         <org.springframework-ws.version>2.1.2.RELEASE-SNAPSHOT</org.springframework-ws.version>
-        <netbeans.hint.deploy.server>Tomcat</netbeans.hint.deploy.server>
         <org.richfaces.bom.version>4.1.0.CR2</org.richfaces.bom.version>
         <spring.security.version>3.1.0.RELEASE</spring.security.version>
         <spring-faces.version>2.3.0.BUILD-SNAPSHOT</spring-faces.version>
@@ -544,6 +543,49 @@
 
     <build>
         <plugins>
+            
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.2</version>
+                <executions>
+                <execution>
+                    <goals>
+                        <goal>java</goal>
+                    </goals>
+                </execution>
+                </executions>
+                <configuration>
+                    
+                    <mainClass>org.apache.openjpa.jdbc.meta.ReverseMappingTool</mainClass>
+                    <commandlineArgs>
+                        -directory src/main/java -accessType fields
+                        -p /tmp/persistence.xml
+                        -ConnectionUserName phoenixdb
+                        -ConnectionPassword LWy66WtENthBxbcc
+                        -ConnectionURL 'jdbc:mysql://localhost:3306/phoenixdb?useUnicode=true&amp;connectionCollation=utf8_general_ci&amp;characterSetResults=utf8&amp;autoReconnect=true&amp;characterEncoding=UTF-8'
+                        -ConnectionDriverName com.mysql.jdbc.Driver
+                        -useGenericCollections true -package com.phoenix.db
+                        -metadata none -annotations true
+                        -innerIdentityClasses false -useBuiltinIdentityClass false
+                        -primaryKeyOnJoin false
+                    </commandlineArgs>
+                    <includePluginDependencies>true</includePluginDependencies>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>javax.validation</groupId>
+                        <artifactId>validation-api</artifactId>
+                        <version>1.0.CR3</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.openjpa</groupId>
+                        <artifactId>openjpa-all</artifactId>
+                        <version>2.0.1</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+            
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>jaxb2-maven-plugin</artifactId>
@@ -616,11 +658,7 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-            
-            
-            
-              
+            </plugin>              
         </plugins>
     </build>
 </project>
