@@ -109,11 +109,6 @@
         <servlet-class>javax.faces.webapp.FacesServlet</servlet-class>
         <load-on-startup>1</load-on-startup>
     </servlet>
-    <!--<servlet>
-        <servlet-name>GreetingService</servlet-name>
-        <servlet-class>com.sun.xml.ws.transport.http.servlet.WSSpringServlet</servlet-class>
-        <load-on-startup>1</load-on-startup>
-    </servlet>-->
     <servlet-mapping>
         <servlet-name>Faces Servlet</servlet-name>
         <url-pattern>*.jsf</url-pattern>
@@ -137,10 +132,6 @@
         <servlet-name>imageServletFromDatabase</servlet-name>
         <url-pattern>/img/*</url-pattern>
     </servlet-mapping>
-    <!--<servlet-mapping>
-        <servlet-name>GreetingService</servlet-name>
-        <url-pattern>/GreetingService</url-pattern>
-    </servlet-mapping>-->
     <welcome-file-list>
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>

@@ -25,9 +25,9 @@
 
     <context:component-scan base-package="com.phoenix.**"/>
     <sws:annotation-driven/>
-    <sws:dynamic-wsdl id="holiday" portTypeName="HumanResource" 
-                      locationUri="http://localhost:8084/tutorial/holidayService/"
-                      targetNamespace="http://mycompany.com/hr/definitions">
+    <sws:dynamic-wsdl id="phoenix" portTypeName="PhoenixPort" 
+                      locationUri="http://localhost:8084/phoenix/phoenixService/phoenix.wsdl"
+                      targetNamespace="http://phoenix.com/hr/definitions">
         <sws:xsd location="/WEB-INF/hr.xsd"/>
     </sws:dynamic-wsdl>
     
@@ -47,6 +47,7 @@
     </bean>
     
     <!-- published will be at:
+        http://localhost:8084/phoenix/phoenixService/phoenix.wsdl
         http://localhost:8084/tutorial/holidayService/holiday.wsdl
     -->
 </beans>

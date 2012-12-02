@@ -16,9 +16,9 @@
 -->
 
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           xmlns:hr="http://mycompany.com/hr/schemas"
+           xmlns:hr="http://phoenix.com/hr/schemas"
            elementFormDefault="qualified"
-           targetNamespace="http://mycompany.com/hr/schemas">
+           targetNamespace="http://phoenix.com/hr/schemas">
     
     <xs:simpleType name="aliasType">
         <xs:annotation>

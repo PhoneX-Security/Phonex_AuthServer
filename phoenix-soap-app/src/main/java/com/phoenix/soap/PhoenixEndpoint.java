@@ -46,7 +46,7 @@ import org.w3c.dom.Text;
 @Endpoint
 public class PhoenixEndpoint {
 
-    private static final String NAMESPACE_URI = "http://mycompany.com/hr/schemas";
+    private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
     private XPathExpression<Element> startDateExpression;
     private XPathExpression<Element> endDateExpression;
     private XPathExpression<Element> firstNameExpression;

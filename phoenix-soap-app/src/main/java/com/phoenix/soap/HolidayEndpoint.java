@@ -60,7 +60,7 @@ import org.w3c.dom.Text;
 @Endpoint
 public class HolidayEndpoint {
 
-    private static final String NAMESPACE_URI = "http://mycompany.com/hr/schemas";
+    private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
 
     private XPathExpression<Element> startDateExpression;
 
