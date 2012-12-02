@@ -10,8 +10,10 @@ package com.phoenix.soap;
  */
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service("greetingService")
+@Transactional
 public class GreetingService {
 
  public String sayHello() {

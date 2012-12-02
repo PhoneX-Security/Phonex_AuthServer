@@ -5,19 +5,13 @@
 package com.phoenix.soap;
 
 import java.security.cert.X509Certificate;
-import javax.annotation.Resource;
-import javax.jws.WebMethod;
-import javax.jws.WebService;
-import javax.ws.rs.core.Context;
-import javax.xml.ws.WebServiceContext;
-import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
 /**
  *
  * @author ph4r05
  */
 //@WebService(name="HelloWsImpl")
-public class HelloWsImpl extends SpringBeanAutowiringSupport  {
+public class HelloWsImpl { // extends SpringBeanAutowiringSupport  {
     //@Context
     javax.servlet.http.HttpServletRequest request;
     /*@Resource
