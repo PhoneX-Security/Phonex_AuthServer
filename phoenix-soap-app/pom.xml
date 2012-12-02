@@ -41,6 +41,8 @@
         <endorsed.dir>${project.build.directory}/endorsed</endorsed.dir>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <org.springframework.version>3.0.7.RELEASE</org.springframework.version>
+        <org.springframework-remoting.version>2.0.8</org.springframework-remoting.version>
+        <org.springframework-ws.version>2.1.2.RELEASE-SNAPSHOT</org.springframework-ws.version>
         <netbeans.hint.deploy.server>Tomcat</netbeans.hint.deploy.server>
         <org.richfaces.bom.version>4.1.0.CR2</org.richfaces.bom.version>
         <spring.security.version>3.1.0.RELEASE</spring.security.version>
@@ -74,9 +76,15 @@
         </dependency>
                 
         <dependency>
+            <groupId>javax.jws</groupId>
+            <artifactId>jsr181-api</artifactId>
+            <version>1.0-MR1</version>
+        </dependency>
+                
+        <dependency>
             <groupId>com.sun.xml.ws</groupId>
             <artifactId>jaxws-rt</artifactId>
-            <version>2.1.3</version>
+            <version>2.2.8-promoted-b146</version>
         </dependency>
                 
         <dependency>
@@ -98,16 +106,16 @@
             <scope>provided</scope>
         </dependency>
 
-
         <!-- Library from java.net, integrate Spring with JAX-WS 
-            Probably is Spring 2.0 only!
+            It is Spring 2.0 only! -> unusable for us...
         -->
-        <!--<dependency>
+        <!--
+        <dependency>
             <groupId>org.jvnet.jax-ws-commons.spring</groupId>
             <artifactId>jaxws-spring</artifactId>
             <version>1.8</version>
-        </dependency>-->
-        
+        </dependency>
+        -->
 
         <dependency>
             <groupId>junit</groupId>
@@ -155,6 +163,41 @@
             <artifactId>jul-to-slf4j</artifactId>
             <version>${org.slf4j.version}</version>
             <scope>runtime</scope>
+        </dependency>
+  
+        <!-- Spring-WS dependencies -->
+        <dependency>
+            <groupId>org.springframework.ws</groupId>
+            <artifactId>spring-xml</artifactId>
+            <version>${org.springframework-ws.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ws</groupId>
+            <artifactId>spring-ws-core</artifactId>
+            <version>${org.springframework-ws.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ws</groupId>
+            <artifactId>spring-ws-support</artifactId>
+            <scope>runtime</scope>
+            <version>${org.springframework-ws.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.woodstox</groupId>
+            <artifactId>woodstox-core-asl</artifactId>
+            <scope>runtime</scope>
+            <version>${org.springframework-ws.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ws</groupId>
+            <artifactId>spring-ws-security</artifactId>
+            <version>${org.springframework-ws.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.ws.security</groupId>
+                    <artifactId>wss4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
   
         <!-- Core utilities used by other modules. Define this if you use Spring 
@@ -256,6 +299,7 @@
             <artifactId>spring-web</artifactId>
             <version>${org.springframework.version}</version>
         </dependency>
+        
 
         <!-- Spring MVC for Servlet Environments (depends on spring-core, spring-beans, 
      			spring-context, spring-web) Define this if you use Spring MVC with a Servlet 
@@ -278,7 +322,7 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-remoting</artifactId>
-            <version>${org.springframework.version}</version>
+            <version>${org.springframework-remoting.version}</version>
         </dependency>
 
         <!-- Support for testing Spring applications with tools such as JUnit and 
@@ -460,6 +504,13 @@
             <artifactId>imgscalr-lib</artifactId>
             <version>4.2</version>
         </dependency>
+        
+        <dependency>
+            <groupId>org.apache.ws.xmlschema</groupId>
+            <artifactId>xmlschema-core</artifactId>
+            <version>2.0.4-SNAPSHOT</version>
+        </dependency>
+        
     </dependencies>
 
     <build>
@@ -504,11 +555,91 @@
                                     <version>6.0</version>
                                     <type>jar</type>
                                 </artifactItem>
+                                <artifactItem>
+                                    <groupId>javax.xml.bind</groupId>
+                                    <artifactId>jaxb-api</artifactId>
+                                    <version>2.2.4</version>
+                                    <type>jar</type>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>javax.xml.ws</groupId>
+                                    <artifactId>jaxws-api</artifactId>
+                                    <version>2.2.8</version>
+                                    <type>jar</type>
+                                </artifactItem>
                             </artifactItems>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
+            
+            
+            
+            <plugin>
+                <groupId>org.jvnet.jax-ws-commons</groupId>
+                <artifactId>jaxws-maven-plugin</artifactId>
+                <version>2.2</version>
+                <executions>
+                    <!--<execution>
+                        <id>generate-wsdl</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>wsgen</goal>
+                        </goals>
+                        <configuration>
+                            <sei>com.phoenix.soap.GreetingServiceEndpoint</sei>
+                            <genWsdl>true</genWsdl>
+                        </configuration>
+                    </execution>-->
+                    <!--<execution>
+                        <id>generate-stubs</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>wsimport</goal>
+                        </goals>
+                        <configuration>
+                            <wsdlDirectory>target/jaxws/wsgen/wsdl</wsdlDirectory>
+                            <wsdlFiles>                   
+                                <wsdlFile>GreetingServiceEndpoint.wsdl
+                                </wsdlFile>
+                            </wsdlFiles>
+                            
+                            <wsdlLocation>http://localhost:8080/test</wsdlLocation> 
+                        </configuration>
+                    </execution>-->
+                </executions>
+                <configuration>
+                    <!-- The name of your generated source package -->
+                    <packageName>com.phoenix.soap</packageName>
+                </configuration>
+
+                <!-- if you want to use a specific version of JAX-WS, you can do so like this -->
+                <dependencies>
+                    <dependency>
+                        <groupId>com.sun.xml.ws</groupId>
+                        <artifactId>jaxws-tools</artifactId>
+                        <version>2.1.7</version>
+                        <exclusions>
+                            <exclusion>
+                                <groupId>org.jvnet.staxex</groupId>
+                                <artifactId>stax-ex</artifactId>
+                            </exclusion>
+                        </exclusions>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.jvnet.staxex</groupId>
+                        <artifactId>stax-ex</artifactId>
+                        <version>1.2</version>
+                        <exclusions>
+                            <exclusion>
+                                <groupId>javax.xml.stream</groupId>
+                                <artifactId>stax-api</artifactId>
+                            </exclusion>
+                        </exclusions>
+                    </dependency>
+                </dependencies>
+            </plugin>           
+            
         </plugins>
     </build>
 
