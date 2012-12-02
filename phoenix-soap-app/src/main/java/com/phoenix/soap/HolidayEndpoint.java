@@ -16,9 +16,6 @@
 
 package com.phoenix.soap;
 
-import com.phoenix.soap.beans.WhitelistRequest;
-import com.phoenix.soap.beans.WhitelistRequestElementType;
-import com.phoenix.soap.beans.WhitelistResponse;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -29,11 +26,12 @@ import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
 
 import com.phoenix.service.HumanResourceService;
-import java.math.BigInteger;
+import com.phoenix.soap.beans.HolidayRequest;
 import java.security.cert.X509Certificate;
 import java.util.Enumeration;
-import java.util.List;
 import javax.net.ssl.X509TrustManager;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import javax.servlet.http.HttpServletRequest;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -46,6 +44,11 @@ import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import org.hibernate.SessionFactory;
+import org.hibernate.Session;
+import org.hibernate.ejb.HibernateEntityManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.w3c.dom.Document;
@@ -59,22 +62,22 @@ import org.w3c.dom.Text;
  */
 @Endpoint
 public class HolidayEndpoint {
-
-    private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
-
-    private XPathExpression<Element> startDateExpression;
-
-    private XPathExpression<Element> endDateExpression;
-
-    private XPathExpression<Element> firstNameExpression;
-
-    private XPathExpression<Element> lastNameExpression;
-
-    private HumanResourceService humanResourceService;
+    private static final Logger log = LoggerFactory.getLogger(HolidayEndpoint.class);
     
+    private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
+    private XPathExpression<Element> startDateExpression;
+    private XPathExpression<Element> endDateExpression;
+    private XPathExpression<Element> firstNameExpression;
+    private XPathExpression<Element> lastNameExpression;
+    private HumanResourceService humanResourceService;
     private final DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
+    private static final String NL = "\r\n";
 
-    private static final String NL="\r\n";    
+    @Autowired
+    private SessionFactory sessionFactory;
+    
+    @PersistenceContext
+    protected EntityManager em;
     
     @Autowired(required=true)
     private HttpServletRequest request;
@@ -95,7 +98,7 @@ public class HolidayEndpoint {
     
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "HolidayRequest")
     @ResponsePayload 
-    public org.w3c.dom.Element handleHolidayRequest(@RequestPayload Element holidayRequest, MessageContext context) throws Exception {
+    public org.w3c.dom.Element handleHolidayRequest(@RequestPayload HolidayRequest holidayRequest, MessageContext context) throws Exception {
         StringBuilder sb = new StringBuilder();
         sb.append("Shit happened? ").append(NL);
         
@@ -109,6 +112,26 @@ public class HolidayEndpoint {
             }
 
             sb.append("ServletRequest: ").append(this.request == null ? "NULL" : "not null").append(";").append(NL);
+            sb.append("EntityManager: ").append(this.em==null ? "NULL" : "not null").append(NL);
+            sb.append("SessionFactory: ").append(this.sessionFactory==null ? "NULL" : "not null").append(NL);
+            if (sessionFactory!=null){
+                Session sess = sessionFactory.openSession();
+                sb.append("HibernateSession: ").append(sess==null ? "NULL" : "not null").append(NL);
+                if (sess!=null){
+                    sb.append("isConnected: ").append(sess.isConnected() ? "connected" : "NOT connected").append(NL);
+                    sb.append("isOpen: ").append(sess.isOpen() ? "Yes" : "NO").append(NL);
+                }
+            }
+            
+            // new way how to get hibernate session
+            HibernateEntityManager hem = em.unwrap(HibernateEntityManager.class);
+            Session hibsess = hem.getSession();
+            sb.append("HibSession: ").append(hibsess==null ? "NULL" : "not null").append(NL);
+            if (hibsess!=null){
+                sb.append("isConnected: ").append(hibsess.isConnected() ? "connected" : "NOT connected").append(NL);
+                sb.append("isOpen: ").append(hibsess.isOpen() ? "Yes" : "NO").append(NL);
+            }
+            
             sb.append("req1: ").append(request.toString()).append(";").append(NL);
             sb.append("Method: ").append(request.getMethod()).append(";").append(NL);
             sb.append("RequestURI: ").append(request.getRequestURI()).append(";").append(NL);
@@ -167,16 +190,18 @@ public class HolidayEndpoint {
             //ctx.getConnection().
             //HttpServletRequest req = ((HttpServletConnection ) ctx.getConnection()).getHttpServletRequest();
 
-            Date startDate = parseDate(startDateExpression, holidayRequest);
-            Date endDate = parseDate(endDateExpression, holidayRequest);
-            String name = firstNameExpression.evaluateFirst(holidayRequest).getText() + " " + lastNameExpression.evaluateFirst(holidayRequest).getText();
-            humanResourceService.bookHoliday(startDate, endDate, name);
+            // Do something request
+//            Date startDate = parseDate(startDateExpression, holidayRequest);
+//            Date endDate = parseDate(endDateExpression, holidayRequest);
+//            String name = firstNameExpression.evaluateFirst(holidayRequest).getText() + " " + lastNameExpression.evaluateFirst(holidayRequest).getText();
+//            humanResourceService.bookHoliday(startDate, endDate, name);
 
 
         } catch (Exception e) {
             sb.append("rootExc: ").append(e.getMessage());
         }
 
+        //return sb.toString();
         DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
         Document document = documentBuilder.newDocument();
         org.w3c.dom.Element responseElement = document.createElementNS(NAMESPACE_URI, "fuck");
@@ -195,4 +220,19 @@ public class HolidayEndpoint {
         }
     }
 
+    public SessionFactory getSessionFactory() {
+        return sessionFactory;
+    }
+
+    public void setSessionFactory(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
+    }
+
+    public EntityManager getEm() {
+        return em;
+    }
+
+    public void setEm(EntityManager em) {
+        this.em = em;
+    }
 }

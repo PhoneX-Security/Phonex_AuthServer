@@ -304,7 +304,8 @@
 
     
     
-    <xs:element name="HolidayResponse" nillable="true" type="xs:string"/>
+    <xs:element name="HolidayResponse2" nillable="true" type="xs:string"/>
+    <xs:element name="HolidayResponse" type="xs:string" />
     <xs:element name="HolidayRequest">
         <xs:complexType>
             <xs:all>
