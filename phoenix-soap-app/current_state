@@ -1,0 +1,7 @@
+- XSD for contactlist/whitelist
+- WSDL generation from XSD
+- JAXB marshaller for endpoints working
+- DB connection with JPA 2
+- Working Hibernate session extraction
+- Generated EJB3 annotated DB entities for server tables
+- Prototype of phoenix remote endpoint
