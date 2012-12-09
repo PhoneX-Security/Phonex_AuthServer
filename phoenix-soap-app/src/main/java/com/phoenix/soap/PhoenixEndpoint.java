@@ -4,9 +4,11 @@
  */
 package com.phoenix.soap;
 
+import com.phoenix.db.extra.ContactlistObjType;
+import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.soap.beans.WhitelistRequest;
-import com.phoenix.soap.beans.WhitelistRequestElementType;
+import com.phoenix.soap.beans.WhitelistRequestElement;
 import com.phoenix.soap.beans.WhitelistResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,22 +17,26 @@ import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
 
 import com.phoenix.service.HumanResourceService;
-import com.phoenix.soap.beans.ContactListElementType;
+import com.phoenix.soap.beans.ContactListElement;
 import com.phoenix.soap.beans.ContactlistChangeRequest;
-import com.phoenix.soap.beans.ContactlistChangeRequestElementType;
+import com.phoenix.soap.beans.ContactlistChangeRequestElement;
 import com.phoenix.soap.beans.ContactlistChangeResponse;
 import com.phoenix.soap.beans.ContactlistGetRequest;
 import com.phoenix.soap.beans.ContactlistGetResponse;
-import com.phoenix.soap.beans.EnabledDisabledType;
-import com.phoenix.soap.beans.UserPresenceStatusType;
-import com.phoenix.soap.beans.UserWhitelistStatusType;
+import com.phoenix.soap.beans.EnabledDisabled;
+import com.phoenix.soap.beans.UserIdentifier;
+import com.phoenix.soap.beans.UserPresenceStatus;
+import com.phoenix.soap.beans.UserWhitelistStatus;
 import java.math.BigInteger;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.logging.Level;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -44,6 +50,7 @@ import org.hibernate.SessionFactory;
 import org.hibernate.ejb.HibernateEntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * Basic phoenix service endpoint for whitelist and contactlist manipulation
@@ -83,6 +90,36 @@ public class PhoenixEndpoint {
     }
 
     /**
+     * Authenticate user from its certificate, returns subscriber data.
+     * @param context
+     * @param request
+     * @return
+     * @throws CertificateException 
+     */
+    public Subscriber authUserFromCert(MessageContext context, HttpServletRequest request) throws CertificateException {
+        try {
+            auth.check(context, this.request);
+                    
+            // auth passed, now extract SIP
+            String sip = auth.getSIPFromCertificate(context, request);
+            if (sip==null){
+                return null;
+            }
+            
+            log.info("Request came from user: [" + sip + "]");
+            Subscriber subs = auth.getLocalUser(sip);
+            if (subs==null){
+                throw new CertificateException("You are not authorized, go away!");
+            }
+            
+            return subs;
+        } catch (CertificateException ex) {
+            log.info("User check failed", ex);
+            throw new CertificateException("You are not authorized, go away!");
+        }
+    }
+    
+    /**
      * Whitelist manipulation request
      * @param request
      * @param context
@@ -98,11 +135,11 @@ public class PhoenixEndpoint {
             throw new CertificateException("You are not authorized, go away!");
         }
         
-        List<WhitelistRequestElementType> whitelistrequestElement =
+        List<WhitelistRequestElement> whitelistrequestElement =
                 request.getWhitelistrequestElement();
 
-        for (WhitelistRequestElementType element : whitelistrequestElement) {
-            log.info("WHreq on: [" + element.getAlias() + "] do [" + element.getAction().value() + "]");
+        for (WhitelistRequestElement element : whitelistrequestElement) {
+            log.info("WHreq on: [" + element.getUser() + "] do [" + element.getAction().value() + "]");
             System.out.println(element.getAction().value());
         }
 
@@ -121,32 +158,80 @@ public class PhoenixEndpoint {
     @PayloadRoot(localPart = "contactlistGetRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
     public ContactlistGetResponse contactlistGetRequest(@RequestPayload ContactlistGetRequest request, MessageContext context) throws CertificateException {
-        try {
-            auth.check(context, this.request);
-        } catch (CertificateException ex) {
-            log.info("User check failed", ex);
-            throw new CertificateException("You are not authorized, go away!");
-        }
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        log.info("User connected: " + owner);
         
-        // analyze request
-        List<String> alias = request.getAlias();
-        if (alias!=null){
+        // subscriber list
+        List<Subscriber> subs = new LinkedList<Subscriber>();
+        
+        // analyze request - extract user identifiers to load from contact list.
+        // At first extract all users with SIP name from local user table and convert
+        // to user ID
+        List<Long> userIDS = null;
+        List<UserIdentifier> alias = request.getUser();
+        if (alias!=null && !alias.isEmpty()){
+            // OK now load only part of contactlist we are interested in...
+            //
+            List<String> userSIP = new ArrayList<String>(alias.size());
+            userIDS = new ArrayList<Long>(alias.size());
+            
             log.info("Alias is not null; size: " + alias.size());
-            for(String al:alias){
+            for(UserIdentifier al:alias){
                 log.info("AliasFromList: " + al);
+                
+                // extract user sip
+                if (al.getUserSIP()!=null){
+                    log.info("UserSIP: " + al.getUserSIP());
+                    userSIP.add(al.getUserSIP());
+                } else if (al.getUserID()!=null){
+                    log.info("UserID: " + al.getUserID());
+                    userIDS.add(al.getUserID());
+                }
             }
+            
+            // now iterave over user SIP and determine their IDs
+            try {
+                // build string with IN (...)
+                String querySIP2ID = "SELECT u FROM Subscriber u WHERE CONCAT(u.username, '@', u.domain) IN :sip";
+                TypedQuery<Subscriber> query = em.createQuery(querySIP2ID, Subscriber.class);
+                query.setParameter("sip", userSIP);
+                // iterate over result set and add ID 
+                List<Subscriber> resultList = query.getResultList();
+                for(Subscriber s : resultList){
+                    userIDS.add(Long.valueOf(s.getId()));
+                }
+            } catch(Exception e){
+                log.warn("Something went wrong during SIP->ID conversion", e);
+            }
+            
+            // now extract all defined subscribers from contact list, if they are in it
+            throw new java.lang.UnsupportedOperationException("Not yet implemented");            
         } else {
             log.info("Alias is empty");
+            
+            // select all entries from user's contactlist
+            // just use hibernate quick'n'dirty way with pure SQL
+            String getContactListQuery = "SELECT s FROM Contactlist cl "
+                    + "JOIN Subscriber s ON cl.obj=s.id "
+                    + "WHERE cl.objType=:objtype AND cl.owner=:owner"
+                    + "ORDER BY s.domain, s.username";
+            Query query = em.createQuery(getContactListQuery);
+            query.setParameter("objtype", ContactlistObjType.INTERNAL_USER);
+            query.setParameter("owner", owner);
+            List resultList = query.getResultList();
+            for(Object o : resultList){
+                log.info("resultlist from obj: " + o.toString());
+            }
         }
         
         // build basic element response
-        ContactListElementType elem = new ContactListElementType();
+        ContactListElement elem = new ContactListElement();
         elem.setAlias("john");
-        elem.setContactlistStatus(EnabledDisabledType.ENABLED);
-        elem.setPresenceStatus(UserPresenceStatusType.DND);
-        elem.setUserid(BigInteger.ZERO);
+        elem.setContactlistStatus(EnabledDisabled.ENABLED);
+        elem.setPresenceStatus(UserPresenceStatus.DND);
+        elem.setUserid(0);
         elem.setUsersip("john@voip.com");
-        elem.setWhitelistStatus(UserWhitelistStatusType.IN);
+        elem.setWhitelistStatus(UserWhitelistStatus.IN);
                 
         // now wrapping container 
         ContactlistGetResponse response = new ContactlistGetResponse();
@@ -172,12 +257,12 @@ public class PhoenixEndpoint {
         }
         
         // analyze request
-        List<ContactlistChangeRequestElementType> elems = request.getContactlistChangeRequestElement();
+        List<ContactlistChangeRequestElement> elems = request.getContactlistChangeRequestElement();
         if (elems!=null){
             log.info("elems is not null; size: " + elems.size());
-            for(ContactlistChangeRequestElementType elem : elems){
+            for(ContactlistChangeRequestElement elem : elems){
                 if (elem==null) continue;
-                log.info("ActionRequest: on [" + elem.getAlias() + "] do: [" + elem.getAction().value() + "]");
+                log.info("ActionRequest: on [" + elem.getUser() + "] do: [" + elem.getAction().value() + "]");
             }
         } else {
             log.info("elems is empty");

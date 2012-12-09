@@ -95,6 +95,12 @@ public class TrustVerifier implements X509TrustManager {
         this.checkTrusted(certs, authType);
     }
     
+    /**
+     * Checks if all certificates in chain are signed by primary CA and still valid.
+     * @param certs
+     * @param authType
+     * @throws CertificateException 
+     */
     public void checkTrusted(java.security.cert.X509Certificate[] certs, String authType) throws CertificateException {
         if (certs == null || certs.length == 0) {
             throw new IllegalArgumentException("null or zero-length certificate chain");
