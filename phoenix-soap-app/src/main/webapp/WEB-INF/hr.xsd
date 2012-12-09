@@ -20,7 +20,7 @@
            elementFormDefault="qualified"
            targetNamespace="http://phoenix.com/hr/schemas">
     
-    <xs:simpleType name="aliasType">
+    <xs:simpleType name="alias">
         <xs:annotation>
             <xs:documentation>
                 User alias type
@@ -33,7 +33,7 @@
         </xs:restriction>
     </xs:simpleType>
    
-    <xs:simpleType name="enabledDisabledType">
+    <xs:simpleType name="enabledDisabled">
         <xs:annotation>
             <xs:documentation>
                 Enabled or disabled state
@@ -45,7 +45,7 @@
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="whitelistActionType">
+    <xs:simpleType name="whitelistAction">
         <xs:annotation>
             <xs:documentation>
                 White list action type - inside whitelist change request
@@ -59,7 +59,7 @@
         </xs:restriction>
     </xs:simpleType>
     
-    <xs:simpleType name="contactlistActionType">
+    <xs:simpleType name="contactlistAction">
         <xs:annotation>
             <xs:documentation>
                 Action performed on contact list item
@@ -73,7 +73,7 @@
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="userSIPtype">
+    <xs:simpleType name="userSIP">
         <xs:annotation>
             <xs:documentation>
                 User's SIP address type
@@ -84,16 +84,16 @@
         </xs:restriction> 
     </xs:simpleType>
     
-    <xs:simpleType name="userIDtype">
+    <xs:simpleType name="userID">
         <xs:annotation>
             <xs:documentation>
                 Simple user ID type - unsigned long int
             </xs:documentation>
         </xs:annotation>
-        <xs:restriction base="xs:unsignedLong"/>
+        <xs:restriction base="xs:unsignedInt"/>
     </xs:simpleType>
     
-    <xs:simpleType name="userPresenceStatusType">
+    <xs:simpleType name="userPresenceStatus">
         <xs:annotation>
             <xs:documentation>
                 User presence type - presence in contact list
@@ -108,7 +108,7 @@
         </xs:restriction>
     </xs:simpleType>
     
-    <xs:simpleType name="userWhitelistStatusType">
+    <xs:simpleType name="userWhitelistStatus">
         <xs:annotation>
             <xs:documentation>
                 User presence in whitelist type
@@ -121,7 +121,7 @@
         </xs:restriction>
     </xs:simpleType>
     
-    <xs:simpleType name="whitelistReturnType">
+    <xs:simpleType name="whitelistReturn">
         <xs:annotation>
             <xs:documentation>
                 Whitelist request response type - integer
@@ -130,7 +130,7 @@
         <xs:restriction base="xs:integer"/>
     </xs:simpleType>
     
-    <xs:simpleType name="contactlistReturnType">
+    <xs:simpleType name="contactlistReturn">
         <xs:annotation>
             <xs:documentation>
                 Contactlist request response type - integer
@@ -139,54 +139,68 @@
         <xs:restriction base="xs:integer"/>
     </xs:simpleType>
     
-    <xs:complexType name="aliasListType">
+    <xs:complexType name="aliasList">
         <xs:annotation>
             <xs:documentation>
                 List of aliases
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
-            <xs:element name="alias" type="hr:aliasType" maxOccurs="unbounded"/>
+            <xs:element name="alias" type="hr:alias" maxOccurs="unbounded"/>
         </xs:sequence>
     </xs:complexType>
     
-    <xs:complexType name="whitelistRequestElementType">
+    <xs:complexType name="userIdentifier">
+        <xs:annotation>
+            <xs:documentation>
+                User identifier for requests.
+                If ID is present, it means that user is INTERNAL only
+                if SIP ID is present, it means that user can be INTERNAL/EXTERNAL
+            </xs:documentation>
+        </xs:annotation>
+        <xs:choice>
+               <xs:element name="userSIP" type="hr:userSIP"/>
+               <xs:element name="userID" type="hr:userID"/>
+            </xs:choice>
+    </xs:complexType>
+    
+    <xs:complexType name="whitelistRequestElement">
         <xs:annotation>
             <xs:documentation>
                 Whitelist request element, inside whitelist request message
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
-            <xs:element name="alias" type="hr:aliasType"/>
-            <xs:element name="action" type="hr:whitelistActionType"/>
+            <xs:element name="user" type="hr:userIdentifier"/>
+            <xs:element name="action" type="hr:whitelistAction"/>
         </xs:sequence>
     </xs:complexType>
     
-    <xs:complexType name="contactlistChangeRequestElementType">
+    <xs:complexType name="contactlistChangeRequestElement">
         <xs:annotation>
             <xs:documentation>
                 Contactlist request element, inside contactlist change request message
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
-            <xs:element name="alias" type="hr:aliasType"/>
-            <xs:element name="action" type="hr:contactlistActionType"/>
+            <xs:element name="user" type="hr:userIdentifier"/>
+            <xs:element name="action" type="hr:contactlistAction"/>
         </xs:sequence>
     </xs:complexType>
     
-    <xs:complexType name="contactListElementType">
+    <xs:complexType name="contactListElement">
         <xs:annotation>
             <xs:documentation>
                 One element in contactlist response
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
-            <xs:element name="userid" type="hr:userIDtype"/>
-            <xs:element name="alias" type="hr:aliasType"/>
-            <xs:element name="usersip" type="hr:userSIPtype"/>
-            <xs:element name="presenceStatus" type="hr:userPresenceStatusType"/>
-            <xs:element name="contactlistStatus" type="hr:enabledDisabledType"/>
-            <xs:element name="whitelistStatus" type="hr:userWhitelistStatusType"/>
+            <xs:element name="userid" type="hr:userID"/>
+            <xs:element name="alias" type="hr:alias"/>
+            <xs:element name="usersip" type="hr:userSIP"/>
+            <xs:element name="presenceStatus" type="hr:userPresenceStatus"/>
+            <xs:element name="contactlistStatus" type="hr:enabledDisabled"/>
+            <xs:element name="whitelistStatus" type="hr:userWhitelistStatus"/>
         </xs:sequence>
     </xs:complexType>
     
@@ -204,14 +218,14 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="whitelistrequestElement" 
-                            type="hr:whitelistRequestElementType" 
+                            type="hr:whitelistRequestElement" 
                             minOccurs="1" 
                             maxOccurs="unbounded"/>
             </xs:sequence>
         </xs:complexType>
         <xs:unique name="whitelistrequestElement">
             <xs:selector xpath="whitelistrequestElement"/>
-            <xs:field xpath="@alias"/>
+            <xs:field xpath="@user"/>
         </xs:unique>
     </xs:element>
     
@@ -224,7 +238,7 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="return" 
-                            type="hr:whitelistReturnType" 
+                            type="hr:whitelistReturn" 
                             minOccurs="1" 
                             maxOccurs="unbounded"/>
             </xs:sequence>
@@ -240,14 +254,14 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="contactlistChangeRequestElement" 
-                            type="hr:contactlistChangeRequestElementType" 
+                            type="hr:contactlistChangeRequestElement" 
                             minOccurs="1"
                             maxOccurs="unbounded"/>
             </xs:sequence>
         </xs:complexType>
         <xs:unique name="uniqueAlias">
             <xs:selector xpath="contactlistChangeRequestElement"/>
-            <xs:field xpath="@alias"/>
+            <xs:field xpath="@user"/>
         </xs:unique>
     </xs:element>
     
@@ -260,7 +274,7 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="return" 
-                            type="hr:contactlistReturnType" 
+                            type="hr:contactlistReturn" 
                             minOccurs="1"
                             maxOccurs="unbounded"/>
             </xs:sequence>
@@ -276,12 +290,12 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="alias" type="hr:aliasType" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="user" type="hr:userIdentifier" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>   
         </xs:complexType>
         <xs:unique name="uniqueAliasClistSchema">
-            <xs:selector xpath="alias"/>
-            <xs:field xpath="@alias"/>
+            <xs:selector xpath="user"/>
+            <xs:field xpath="@user"/>
         </xs:unique>
     </xs:element>
 
@@ -293,12 +307,12 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="contactlistEntry" type="hr:contactListElementType" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="contactlistEntry" type="hr:contactListElement" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>   
         </xs:complexType>
         <xs:unique name="contactlistEntry">
             <xs:selector xpath="contactlistEntry"/>
-            <xs:field xpath="@alias"/>
+            <xs:field xpath="@user"/>
         </xs:unique>
     </xs:element>
 
