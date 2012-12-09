@@ -32,6 +32,40 @@
             <xs:pattern value="[a-zA-Z][a-zA-Z0-9\-\._@]*"/> 
         </xs:restriction>
     </xs:simpleType>
+    
+    <xs:simpleType name="groupID">
+         <xs:annotation>
+            <xs:documentation>
+                Simple group ID type - unsigned int
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:unsignedInt"/>
+    </xs:simpleType>
+    
+    <xs:simpleType name="group">
+        <xs:annotation>
+            <xs:documentation>
+                Group ID - can have subgroups.
+                Example: company.managers.high
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string"> 
+            <xs:pattern value="[^\.][a-zA-Z0-9_\-\.]+"/> 
+        </xs:restriction> 
+    </xs:simpleType>
+    
+    <xs:complexType name="groupRecord">
+        <xs:annotation>
+            <xs:documentation>
+                Group record (in contactlist element for example).
+                This group is intended to be loaded from database.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="groupId" type="hr:groupID" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="groupName" type="hr:group" minOccurs="1" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
    
     <xs:simpleType name="enabledDisabled">
         <xs:annotation>
@@ -87,7 +121,7 @@
     <xs:simpleType name="userID">
         <xs:annotation>
             <xs:documentation>
-                Simple user ID type - unsigned long int
+                Simple user ID type - unsigned int
             </xs:documentation>
         </xs:annotation>
         <xs:restriction base="xs:unsignedInt"/>
@@ -161,6 +195,18 @@
         <xs:choice>
                <xs:element name="userSIP" type="hr:userSIP"/>
                <xs:element name="userID" type="hr:userID"/>
+            </xs:choice>
+    </xs:complexType>
+    
+    <xs:complexType name="groupIdentifier">
+        <xs:annotation>
+            <xs:documentation>
+                Group identifier for request - can be group id or group name
+            </xs:documentation>
+        </xs:annotation>
+        <xs:choice>
+               <xs:element name="groupID" type="hr:groupID"/>
+               <xs:element name="groupName" type="hr:group"/>
             </xs:choice>
     </xs:complexType>
     
