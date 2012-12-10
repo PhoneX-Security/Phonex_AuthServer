@@ -362,7 +362,51 @@
         </xs:unique>
     </xs:element>
 
+    <xs:simpleType name="binaryPayload">
+        <xs:annotation>
+            <xs:documentation>
+                Binary Base64 encoded payload
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:base64Binary"/>
+    </xs:simpleType>
     
+    <xs:element name="binaryMessageUpload">
+        <xs:annotation>
+            <xs:documentation>
+                Type for uploading a binary message to server
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="destination" type="hr:userIdentifier" minOccurs="1" maxOccurs="1"/>
+                <xs:element name="payload" type="hr:binaryPayload" minOccurs="1" maxOccurs="1"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="GetMessages">
+        <xs:annotation>
+            <xs:documentation>
+                Fetches binary messages from server
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType/> 
+    </xs:element>
+    
+    <xs:element name="binaryMessagesResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Response from server - returns binary messages stored on server
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="source" type="hr:userIdentifier" minOccurs="1" maxOccurs="1"/>
+                <xs:element name="payload" type="hr:binaryPayload" minOccurs="1" maxOccurs="1"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
     
     <xs:element name="HolidayResponse2" nillable="true" type="xs:string"/>
     <xs:element name="HolidayResponse" type="xs:string" />
