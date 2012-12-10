@@ -379,8 +379,8 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="destination" type="hr:userIdentifier" minOccurs="1" maxOccurs="1"/>
-                <xs:element name="payload" type="hr:binaryPayload" minOccurs="1" maxOccurs="1"/>
+                <xs:element name="destination" type="hr:userIdentifier" />
+                <xs:element name="payload" type="hr:binaryPayload" />
             </xs:sequence>   
         </xs:complexType>
     </xs:element>
@@ -394,6 +394,18 @@
         <xs:complexType/> 
     </xs:element>
     
+    <xs:complexType name="messageFromUser">
+        <xs:annotation>
+            <xs:documentation>
+                One message from user
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="src" type="hr:userIdentifier"/>
+            <xs:element name="payload" type="hr:binaryPayload"/>
+        </xs:sequence>
+    </xs:complexType>
+    
     <xs:element name="binaryMessagesResponse">
         <xs:annotation>
             <xs:documentation>
@@ -402,9 +414,8 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="source" type="hr:userIdentifier" minOccurs="1" maxOccurs="1"/>
-                <xs:element name="payload" type="hr:binaryPayload" minOccurs="1" maxOccurs="1"/>
-            </xs:sequence>   
+                <xs:element name="msg" type="hr:messageFromUser" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence> 
         </xs:complexType>
     </xs:element>
     
