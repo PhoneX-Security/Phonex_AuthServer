@@ -4,6 +4,7 @@
  */
 package com.phoenix.soap;
 
+import com.phoenix.db.Contactlist;
 import com.phoenix.db.extra.ContactlistObjType;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.EndpointAuth;
@@ -16,7 +17,6 @@ import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
 
-import com.phoenix.service.HumanResourceService;
 import com.phoenix.soap.beans.ContactListElement;
 import com.phoenix.soap.beans.ContactlistChangeRequest;
 import com.phoenix.soap.beans.ContactlistChangeRequestElement;
@@ -35,7 +35,6 @@ import java.util.List;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import org.jdom2.Element;
@@ -50,7 +49,6 @@ import org.hibernate.SessionFactory;
 import org.hibernate.ejb.HibernateEntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * Basic phoenix service endpoint for whitelist and contactlist manipulation
@@ -59,15 +57,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 @Endpoint
 public class PhoenixEndpoint {
     private static final Logger log = LoggerFactory.getLogger(PhoenixEndpoint.class);
-
     private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
-    private XPathExpression<Element> startDateExpression;
-    private XPathExpression<Element> endDateExpression;
-    private XPathExpression<Element> firstNameExpression;
-    private XPathExpression<Element> lastNameExpression;
-    private HumanResourceService humanResourceService;
-    private final DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
-    private static final String NL = "\r\n";
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -84,9 +74,7 @@ public class PhoenixEndpoint {
     @Autowired(required = true)
     private X509TrustManager trustManager;
 
-    @Autowired
-    public PhoenixEndpoint(HumanResourceService humanResourceService) throws JDOMException {
-        this.humanResourceService = humanResourceService;
+    public PhoenixEndpoint() {
     }
 
     /**
@@ -208,34 +196,36 @@ public class PhoenixEndpoint {
             throw new java.lang.UnsupportedOperationException("Not yet implemented");            
         } else {
             log.info("Alias is empty");
+            String getContactListQuery;
             
-            // select all entries from user's contactlist
-            // just use hibernate quick'n'dirty way with pure SQL
-            String getContactListQuery = "SELECT s FROM Contactlist cl "
-                    + "JOIN Subscriber s ON cl.obj=s.id "
-                    + "WHERE cl.objType=:objtype AND cl.owner=:owner"
+            // standard query to CL, for given user, now only internal user
+            getContactListQuery = "SELECT s FROM contactlist cl "
+                    + "LEFT OUTER JOIN cl.obj.intern_user s "
+                    + "WHERE cl.objType=:objtype AND cl.owner=:owner "
                     + "ORDER BY s.domain, s.username";
-            Query query = em.createQuery(getContactListQuery);
+            TypedQuery<Subscriber> query = em.createQuery(getContactListQuery, Subscriber.class);
             query.setParameter("objtype", ContactlistObjType.INTERNAL_USER);
             query.setParameter("owner", owner);
-            List resultList = query.getResultList();
-            for(Object o : resultList){
-                log.info("resultlist from obj: " + o.toString());
+            List<Subscriber> resultList = query.getResultList();
+            for(Subscriber o : resultList){
+                subs.add(o);
             }
         }
-        
-        // build basic element response
-        ContactListElement elem = new ContactListElement();
-        elem.setAlias("john");
-        elem.setContactlistStatus(EnabledDisabled.ENABLED);
-        elem.setPresenceStatus(UserPresenceStatus.DND);
-        elem.setUserid(0);
-        elem.setUsersip("john@voip.com");
-        elem.setWhitelistStatus(UserWhitelistStatus.IN);
                 
         // now wrapping container 
         ContactlistGetResponse response = new ContactlistGetResponse();
-        response.getContactlistEntry().add(elem);
+        for(Subscriber o : subs){
+            ContactListElement elem = new ContactListElement();
+            elem.setAlias(o.getUsername());
+            elem.setContactlistStatus(EnabledDisabled.ENABLED);
+            elem.setPresenceStatus(UserPresenceStatus.ONLINE);
+            elem.setUserid(o.getId());
+            elem.setUsersip(o.getUsername() + "@" + o.getDomain());
+            
+            // whitelist agregation
+            elem.setWhitelistStatus(UserWhitelistStatus.NOCLUE);
+            response.getContactlistEntry().add(elem);
+        }
         
         return response;
     }

@@ -25,7 +25,6 @@ import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
 
-import com.phoenix.service.HumanResourceService;
 import com.phoenix.soap.beans.HolidayRequest;
 import java.security.cert.X509Certificate;
 import java.util.Enumeration;
@@ -69,7 +68,6 @@ public class HolidayEndpoint {
     private XPathExpression<Element> endDateExpression;
     private XPathExpression<Element> firstNameExpression;
     private XPathExpression<Element> lastNameExpression;
-    private HumanResourceService humanResourceService;
     private final DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
     private static final String NL = "\r\n";
 
@@ -85,9 +83,7 @@ public class HolidayEndpoint {
     @Autowired(required=true)
     private X509TrustManager trustManager;
     
-    @Autowired
-    public HolidayEndpoint(HumanResourceService humanResourceService) throws JDOMException {
-        this.humanResourceService = humanResourceService;
+    public HolidayEndpoint() throws JDOMException {
         Namespace namespace = Namespace.getNamespace("hr", NAMESPACE_URI);
         XPathFactory xPathFactory = XPathFactory.instance();
         startDateExpression = xPathFactory.compile("//hr:StartDate", Filters.element(), null, namespace);

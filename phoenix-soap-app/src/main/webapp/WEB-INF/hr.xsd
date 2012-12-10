@@ -151,7 +151,8 @@
         <xs:restriction base="xs:string">
             <xs:enumeration value="in"/>
             <xs:enumeration value="notin"/>
-            <xs:enumeration value="disabled"/>
+            <xs:enumeration value="disabled"/> 
+            <xs:enumeration value="noclue"/>
         </xs:restriction>
     </xs:simpleType>
     

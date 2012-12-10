@@ -10,6 +10,7 @@ import com.phoenix.db.opensips.Subscriber;
 import java.io.Serializable;
 import java.util.Date;
 import javax.persistence.Column;
+import javax.persistence.Embedded;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
@@ -17,14 +18,14 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
-import javax.persistence.JoinTable;
+import javax.persistence.ManyToOne;
 import javax.persistence.Temporal;
 
 /**
  * User's contact list
  * @author ph4r05
  */
-@Entity(name = "contactList")
+@Entity(name = "contactlist")
 public class Contactlist implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -32,8 +33,8 @@ public class Contactlist implements Serializable {
     private Long id;  
     
     // owner of this contact list
-    @JoinTable(name = "Subscriber", 
-            joinColumns = { @JoinColumn(name = "id", nullable = false) })
+    @ManyToOne
+    @JoinColumn(name="subscriber_id", nullable=false)
     private Subscriber owner;
     
     // type of object
@@ -41,7 +42,8 @@ public class Contactlist implements Serializable {
     private ContactlistObjType objType;
     // object in contact list - can be another subscriber
     @Column(nullable = false)
-    private Long obj;
+    @Embedded
+    private ContactlistDstObj obj;
     
     // status of this contact list entry
     @Enumerated(EnumType.STRING)
@@ -49,9 +51,9 @@ public class Contactlist implements Serializable {
     private ContactlistStatus entryState;
 
     // auditing information about creating and last change
-    @Temporal(javax.persistence.TemporalType.DATE)
+    @Temporal(javax.persistence.TemporalType.TIME)
     private Date dateCreated;
-    @Temporal(javax.persistence.TemporalType.DATE)
+    @Temporal(javax.persistence.TemporalType.TIME)
     private Date dateLastEdit;
     
     public Long getId() {
@@ -78,11 +80,11 @@ public class Contactlist implements Serializable {
         this.objType = objType;
     }
 
-    public Long getObj() {
+    public ContactlistDstObj getObj() {
         return obj;
     }
 
-    public void setObj(Long obj) {
+    public void setObj(ContactlistDstObj obj) {
         this.obj = obj;
     }
 

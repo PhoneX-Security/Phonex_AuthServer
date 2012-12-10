@@ -48,6 +48,7 @@ public class EndpointAuth {
     
     /**
      * Entry method for checking client's certificate - signed by CA, validity.
+     * If it is OK, method passes. Otherwise CertificateException is thrown. 
      * @param context 
      */
     public void check(MessageContext context, HttpServletRequest request) throws CertificateException{

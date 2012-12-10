@@ -8,7 +8,10 @@ import com.phoenix.db.extra.WhitelistObjType;
 import com.phoenix.soap.beans.WhitelistAction;
 import java.io.Serializable;
 import java.util.Date;
+import javax.persistence.AttributeOverride;
+import javax.persistence.AttributeOverrides;
 import javax.persistence.Column;
+import javax.persistence.Embedded;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
@@ -31,25 +34,36 @@ public class Whitelist implements Serializable {
     // source type - group / user?
     @Enumerated(EnumType.STRING)
     private WhitelistObjType srcType;
+    
     // source in whitelist
     @Column(nullable = false)
-    private Long src;
+    @AttributeOverrides({
+        @AttributeOverride(name="intern_user",column=@Column(name="src_intern_user")),
+        @AttributeOverride(name="intern_group",column=@Column(name="src_intern_group"))
+    })
+    @Embedded private WhitelistSrcObj src;
     
     // subject type - group / internal user / external user
     @Enumerated(EnumType.STRING)
     private WhitelistObjType dstType;
+    
     // subject of whitelist
+    /*@AttributeOverrides({
+        @AttributeOverride(name="int_usr_id",column=@Column(name="dst_int_usr_id")),
+        @AttributeOverride(name="ext_usr_id",column=@Column(name="dst_ext_usr_id")),
+        @AttributeOverride(name="int_grp_id",column=@Column(name="dst_int_grp_id"))
+    })*/
     @Column(nullable = false)
-    private Long dst;
+    @Embedded private WhitelistDstObj dst;
     
     // whitelist action
     @Enumerated(EnumType.STRING)
     private WhitelistAction action;
     
     // auditing information about creating and last change
-    @Temporal(javax.persistence.TemporalType.DATE)
+    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date dateCreated;
-    @Temporal(javax.persistence.TemporalType.DATE)
+    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date dateLastEdit;
 
     public Long getId() {
@@ -68,28 +82,12 @@ public class Whitelist implements Serializable {
         this.srcType = srcType;
     }
 
-    public Long getSrc() {
-        return src;
-    }
-
-    public void setSrc(Long src) {
-        this.src = src;
-    }
-
     public WhitelistObjType getDstType() {
         return dstType;
     }
 
     public void setDstType(WhitelistObjType dstType) {
         this.dstType = dstType;
-    }
-
-    public Long getDst() {
-        return dst;
-    }
-
-    public void setDst(Long dst) {
-        this.dst = dst;
     }
 
     public WhitelistAction getAction() {
@@ -115,6 +113,22 @@ public class Whitelist implements Serializable {
     public void setDateLastEdit(Date dateLastEdit) {
         this.dateLastEdit = dateLastEdit;
     }
+
+    public WhitelistSrcObj getSrc() {
+        return src;
+    }
+
+    public void setSrc(WhitelistSrcObj src) {
+        this.src = src;
+    }
+
+    public WhitelistDstObj getDst() {
+        return dst;
+    }
+
+    public void setDst(WhitelistDstObj dst) {
+        this.dst = dst;
+    }
     
     @Override
     public int hashCode() {
@@ -123,7 +137,6 @@ public class Whitelist implements Serializable {
         hash = 47 * hash + (this.srcType != null ? this.srcType.hashCode() : 0);
         hash = 47 * hash + (this.src != null ? this.src.hashCode() : 0);
         hash = 47 * hash + (this.dstType != null ? this.dstType.hashCode() : 0);
-        hash = 47 * hash + (this.dst != null ? this.dst.hashCode() : 0);
         hash = 47 * hash + (this.action != null ? this.action.hashCode() : 0);
         return hash;
     }
@@ -149,9 +162,7 @@ public class Whitelist implements Serializable {
         if (this.dstType != other.dstType) {
             return false;
         }
-        if (this.dst != other.dst && (this.dst == null || !this.dst.equals(other.dst))) {
-            return false;
-        }
+
         if (this.action != other.action) {
             return false;
         }
