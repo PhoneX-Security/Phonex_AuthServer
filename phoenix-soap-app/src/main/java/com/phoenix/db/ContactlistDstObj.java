@@ -24,6 +24,17 @@ public class ContactlistDstObj implements Serializable{
     @JoinColumn(name="ext_usr_id")
     private RemoteUser extern_user;
 
+    public ContactlistDstObj() {
+    }
+
+    public ContactlistDstObj(Subscriber intern_user) {
+        this.intern_user = intern_user;
+    }
+
+    public ContactlistDstObj(RemoteUser extern_user) {
+        this.extern_user = extern_user;
+    }   
+    
     public Subscriber getIntern_user() {
         return intern_user;
     }

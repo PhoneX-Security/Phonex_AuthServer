@@ -162,7 +162,7 @@
                 Whitelist request response type - integer
             </xs:documentation>
         </xs:annotation>
-        <xs:restriction base="xs:integer"/>
+        <xs:restriction base="xs:int"/>
     </xs:simpleType>
     
     <xs:simpleType name="contactlistReturn">
@@ -171,7 +171,7 @@
                 Contactlist request response type - integer
             </xs:documentation>
         </xs:annotation>
-        <xs:restriction base="xs:integer"/>
+        <xs:restriction base="xs:int"/>
     </xs:simpleType>
     
     <xs:complexType name="aliasList">

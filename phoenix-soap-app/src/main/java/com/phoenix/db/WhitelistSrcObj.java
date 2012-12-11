@@ -18,13 +18,24 @@ import javax.persistence.ManyToOne;
 @Embeddable 
 public class WhitelistSrcObj implements Serializable {
     @ManyToOne
-    @JoinColumn(name="int_usr_id")
+    @JoinColumn(name="src_int_usr_id")
     private Subscriber intern_user;
     
     @ManyToOne
-    @JoinColumn(name="int_grp_id")
+    @JoinColumn(name="src_int_grp_id")
     private PhoenixGroup intern_group;
 
+    public WhitelistSrcObj(Subscriber intern_user) {
+        this.intern_user = intern_user;
+    }
+
+    public WhitelistSrcObj(PhoenixGroup intern_group) {
+        this.intern_group = intern_group;
+    }
+
+    public WhitelistSrcObj() {
+    }
+    
     public Subscriber getIntern_user() {
         return intern_user;
     }

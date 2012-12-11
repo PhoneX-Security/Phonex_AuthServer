@@ -28,6 +28,21 @@ public class WhitelistDstObj implements Serializable{
     @JoinColumn(name="dst_int_grp_id")
     private PhoenixGroup intern_group;
 
+    public WhitelistDstObj() {
+    }
+
+    public WhitelistDstObj(Subscriber intern_user) {
+        this.intern_user = intern_user;
+    }
+
+    public WhitelistDstObj(RemoteUser extern_user) {
+        this.extern_user = extern_user;
+    }
+
+    public WhitelistDstObj(PhoenixGroup intern_group) {
+        this.intern_group = intern_group;
+    }
+    
     public Subscriber getIntern_user() {
         return intern_user;
     }

@@ -5,6 +5,7 @@
 package com.phoenix.db;
 
 import com.phoenix.db.extra.WhitelistObjType;
+import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.soap.beans.WhitelistAction;
 import java.io.Serializable;
 import java.util.Date;
@@ -36,18 +37,18 @@ public class Whitelist implements Serializable {
     private WhitelistObjType srcType;
     
     // source in whitelist
-    @Column(nullable = false)
-    @AttributeOverrides({
+    /*@AttributeOverrides({
         @AttributeOverride(name="intern_user",column=@Column(name="src_intern_user")),
         @AttributeOverride(name="intern_group",column=@Column(name="src_intern_group"))
-    })
+    })*/
+    @Column(nullable = false)
     @Embedded private WhitelistSrcObj src;
     
     // subject type - group / internal user / external user
     @Enumerated(EnumType.STRING)
     private WhitelistObjType dstType;
     
-    // subject of whitelist
+    // destination of whitelist
     /*@AttributeOverrides({
         @AttributeOverride(name="int_usr_id",column=@Column(name="dst_int_usr_id")),
         @AttributeOverride(name="ext_usr_id",column=@Column(name="dst_ext_usr_id")),
@@ -58,7 +59,7 @@ public class Whitelist implements Serializable {
     
     // whitelist action
     @Enumerated(EnumType.STRING)
-    private WhitelistAction action;
+    private WhitelistStatus action;
     
     // auditing information about creating and last change
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
@@ -90,11 +91,11 @@ public class Whitelist implements Serializable {
         this.dstType = dstType;
     }
 
-    public WhitelistAction getAction() {
+    public WhitelistStatus getAction() {
         return action;
     }
 
-    public void setAction(WhitelistAction action) {
+    public void setAction(WhitelistStatus action) {
         this.action = action;
     }
 

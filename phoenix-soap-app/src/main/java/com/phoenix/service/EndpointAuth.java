@@ -4,14 +4,11 @@
  */
 package com.phoenix.service;
 
-import com.phoenix.db.opensips.Subscriber;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.List;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -115,31 +112,6 @@ public class EndpointAuth {
         } 
         catch(Exception ex){
             throw new CertificateException("Problem with client certificate, cannot get user ID", ex);
-        }
-    }
-    
-    /**
-     * Returns local subscriber from user SIP
-     * @param sip
-     * @return 
-     */
-    public Subscriber getLocalUser(String sip){
-        try {
-            if (sip==null){
-                return null;
-            }
-            
-            // build string with IN (...)
-            String querySIP2ID = "SELECT u FROM Subscriber u WHERE CONCAT(u.username, '@', u.domain) = :sip";
-            TypedQuery<Subscriber> query = em.createQuery(querySIP2ID, Subscriber.class);
-            query.setParameter("sip", sip);
-            // iterate over result set and add ID 
-            List<Subscriber> resultList = query.getResultList();
-            return resultList.isEmpty() ? null : resultList.get(0);
-            
-        } catch(Exception ex){
-            log.info("Problem occurred during loading user from database");
-            return null;
         }
     }
 
