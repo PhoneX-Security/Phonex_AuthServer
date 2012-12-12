@@ -469,6 +469,38 @@
         </xs:complexType>
     </xs:element>
     
+    <xs:element name="signCertificateRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Request for signing certificate by server CA - be very carefull!
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="challenge" type="xs:string"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="CSR" type="hr:binaryPayload"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="signCertificateResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Response contains X.509 certificates
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="certificate" 
+                            type="hr:certificateWrapper" 
+                            minOccurs="1" 
+                            maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
     <xs:element name="binaryMessageUpload">
         <xs:annotation>
             <xs:documentation>

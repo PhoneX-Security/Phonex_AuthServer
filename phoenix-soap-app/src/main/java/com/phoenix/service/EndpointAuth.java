@@ -70,11 +70,12 @@ public class EndpointAuth {
                     sb.append("Cert_SubjDN: ").append(certChain[i].getSubjectDN()).append(NL);
                 }
                 
-                // certificate trust verification with trust manager
+                // Certificate trust verification with trust manager.
+                // Verify certificate chain, take into account both server CA, and root CA
                 sb.append("Cert chain verification: ").append(NL);
                 try {
                     this.trustManager.checkClientTrusted(certChain, "auth");
-                    sb.append("certificate check passed...").append(NL);
+                    sb.append("certificate check passed (chain is valid)...").append(NL);
                     
                     log.info("Certificate result: " + sb.toString());
                 } catch (Exception ex) {
@@ -104,6 +105,7 @@ public class EndpointAuth {
         try {
             // get certificate chain from cert - to verify trust
             X509Certificate certChain[] = (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
+            // client certificate SHOULD be stored first here, so assume it
             X500Name x500name = JcaX500NameUtil.getSubject(certChain[0]);
             //X500Name x500name = new JcaX509CertificateHolder(certChain[0]).getSubject();
             RDN cn = x500name.getRDNs(BCStyle.CN)[0];
@@ -114,7 +116,7 @@ public class EndpointAuth {
             throw new CertificateException("Problem with client certificate, cannot get user ID", ex);
         }
     }
-
+    
     public SessionFactory getSessionFactory() {
         return sessionFactory;
     }

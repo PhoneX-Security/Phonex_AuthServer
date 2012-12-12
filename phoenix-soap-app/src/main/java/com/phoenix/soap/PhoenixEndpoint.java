@@ -18,6 +18,7 @@ import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.PhoenixDataService;
+import com.phoenix.service.PhoenixServerCASigner;
 import com.phoenix.soap.beans.CertificateStatus;
 import com.phoenix.soap.beans.CertificateWrapper;
 import com.phoenix.soap.beans.WhitelistRequest;
@@ -40,6 +41,8 @@ import com.phoenix.soap.beans.ContactlistGetResponse;
 import com.phoenix.soap.beans.EnabledDisabled;
 import com.phoenix.soap.beans.GetCertificateRequest;
 import com.phoenix.soap.beans.GetCertificateResponse;
+import com.phoenix.soap.beans.SignCertificateRequest;
+import com.phoenix.soap.beans.SignCertificateResponse;
 import com.phoenix.soap.beans.UserIdentifier;
 import com.phoenix.soap.beans.UserPresenceStatus;
 import com.phoenix.soap.beans.UserWhitelistStatus;
@@ -94,6 +97,9 @@ public class PhoenixEndpoint {
     
     @Autowired(required = true)
     private PhoenixDataService dataService;
+    
+    @Autowired(required = true)
+    private PhoenixServerCASigner signer;
     
     // owner SIP obtained from certificate
     private String owner_sip;
@@ -642,6 +648,44 @@ public class PhoenixEndpoint {
         
         return response;
     }
+    
+    /**
+     * Signing certificates in Certificate Signing Request that come from remote 
+     * party - mobile devices.
+     * 
+     * Be very careful during this method, it is used ONLY when new user is added
+     * to the system. Audit everything and be very strict with signing something.
+     * 
+     * Restrictions:
+     *  1. user must be in database -> local user
+     *  2. user has to have enabled flag allowing signing new certificate
+     *      this flag is immediately reseted after signing. Only manual intervention
+     *      can revert value of flag to enable signing again.
+     *  3. user has to provide AUTH token to prove identity
+     *      sha1(challenge, time_block, user, hashed_password_to_sip_server) 
+     *  4. connection has to use SSL to avoid MITM.
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "signCertificateRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    public SignCertificateResponse signCertificate(@RequestPayload SignCertificateRequest request, MessageContext context) throws CertificateException {
+        String owner = this.authRemoteUserFromCert(context, this.request);
+        log.info("Remote user connected: " + owner);
+        
+        // construct response wrapper
+        SignCertificateResponse response = new SignCertificateResponse();
+        
+        // signer init
+        this.signer.initCA();
+        
+        return response;
+    }
+    
+    
+    
     /**
      * Unwraps hibernate session from JPA 2
      * @return 

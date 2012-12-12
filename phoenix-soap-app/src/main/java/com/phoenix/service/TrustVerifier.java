@@ -15,18 +15,15 @@
  */
 package com.phoenix.service;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
 import javax.net.ssl.X509TrustManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
 
@@ -37,14 +34,30 @@ import org.springframework.stereotype.Service;
 @Service
 @Scope(value = "singleton")
 public class TrustVerifier implements X509TrustManager {
+    private static final Logger log = LoggerFactory.getLogger(TrustVerifier.class);
 
-    X509Certificate primaryCA = null;
-    CertificateFactory cf = null;
+    /**
+     * ROOT CA certificate
+     */
+    private X509Certificate primaryCA = null;
+    
+    /**
+     * Servers CA certificate
+     */
+    private X509Certificate serverCA = null;
+    
+    private static final String rootCAresource = "ca.crt";
+    private static final String serverCAresource = "signing-ca-1.crt";
+    
+    private CertificateFactory cf = null;
     
     public TrustVerifier() {
         init();
     }
     
+    /**
+     * Loads all certificates from resources to memory.
+     */
     @PostConstruct
     final public void init(){
         // already initialized?
@@ -60,22 +73,61 @@ public class TrustVerifier implements X509TrustManager {
             // Loading the CA cert from resource
             //URL u = getClass().getResource("ca.crt");
             //inStream = new FileInputStream(u.getFile());
-            inStream = TrustVerifier.class.getClassLoader().getResourceAsStream("ca.crt");
+            inStream = TrustVerifier.class.getClassLoader().getResourceAsStream(rootCAresource);
             
             // fill in primary CA
             primaryCA = (X509Certificate) cf.generateCertificate(inStream);
             
             // tidy up
             inStream.close();
+            
+            // everything is OK now...
+            // now try to load server CA
+            this.loadServerCACrt();
+            
+            log.debug("All certificates loaded properly (rootCA, serverCA)");
         } catch (Exception ex) {
-            Logger.getLogger(TrustVerifier.class.getName()).log(Level.SEVERE, null, ex);
+            log.warn("Problem with loading primary CA certificate", ex);
         } finally {
             try {
                 if(inStream!=null){
                     inStream.close();
                 }
             } catch (IOException ex) {
-                Logger.getLogger(TrustVerifier.class.getName()).log(Level.SEVERE, null, ex);
+                log.warn("Cannot close inpit stream for main CA", ex);
+            }
+        }
+    }
+    
+    /**
+     * Loads server CA certificate
+     */
+    final public void loadServerCACrt(){
+        // already initialized?
+        InputStream inStream = null;
+        try {
+            // Loading the CA cert from resource
+            //URL u = getClass().getResource("ca.crt");
+            //inStream = new FileInputStream(u.getFile());
+            inStream = TrustVerifier.class.getClassLoader().getResourceAsStream(serverCAresource);
+            
+            // fill in primary CA
+            serverCA = (X509Certificate) cf.generateCertificate(inStream);
+            
+            // serverCA has to be valid against master CA
+            serverCA.verify(this.primaryCA.getPublicKey());
+            
+            // tidy up
+            inStream.close();
+        } catch (Exception ex) {
+            log.warn("Problem with loading server CA certificate", ex);
+        } finally {
+            try {
+                if(inStream!=null){
+                    inStream.close();
+                }
+            } catch (IOException ex) {
+                log.warn("Cannot close inpit stream for server CA", ex);
             }
         }
     }
@@ -96,7 +148,7 @@ public class TrustVerifier implements X509TrustManager {
     }
     
     /**
-     * Checks if all certificates in chain are signed by primary CA and still valid.
+     * Checks if all certificates in cert chain are valid and there is trusted element in chain.
      * @param certs
      * @param authType
      * @throws CertificateException 
@@ -109,17 +161,8 @@ public class TrustVerifier implements X509TrustManager {
         if (authType == null || authType.length() == 0) {
             throw new IllegalArgumentException("null or zero-length authentication type");
         }
-
-        try {
-            for (X509Certificate cert : certs) {
-                cert.verify(primaryCA.getPublicKey());
-            }
-        } catch (Exception ex) {
-            Logger.getLogger(TrustVerifier.class.getName()).log(Level.SEVERE, null, ex);
-            throw new CertificateException("Certificate verification failed", ex);
-        }
-
-        //If we end here certificate is trusted. Check if it has expired.  
+        
+        // Check if every certificate in chain is still valid. Every has to be valid!
         try {
             for (X509Certificate cert : certs) {
                 cert.checkValidity();
@@ -127,5 +170,67 @@ public class TrustVerifier implements X509TrustManager {
         } catch (Exception e) {
             throw new CertificateException("Certificate not trusted. It has expired", e);
         }
+        
+        // Certificates are valid, now check if it is trusted...
+        // First certificate should be user cert -> check against server cert.
+        // If is valid -> chainIsVaid=true and break checking
+        // If not -> remote user probably, check signature against ROOT CA
+        // If failed -> proceed to next certificate, but check only with master
+        boolean chainIsValid=false;
+        Exception lastException = null;
+        for(int curCert = 0; curCert < certs.length; curCert++){
+            X509Certificate cert = certs[curCert];
+            
+            // if first certificate, check against server CA.
+            // We don't want transitive server CA trust.
+            if (curCert==0){
+                try {
+                    // check with server CA
+                    cert.verify(serverCA.getPublicKey());
+                    // check passed -> trust
+                    chainIsValid=true;
+                    break;
+                } catch (Exception ex) {
+                    lastException=ex;
+                    log.debug("Certificate verification failed, curChain: " + curCert + "; Cert: " + cert, ex);
+                }
+            }
+            
+            // now try to verify with ROOT-CA
+            try {
+                // check with root CA
+                cert.verify(primaryCA.getPublicKey());
+                // check passed -> trust
+                chainIsValid=true;
+                break;
+            } catch (Exception ex) {
+                lastException=ex;
+                log.debug("Certificate verification failed, curChain: " + curCert + "; Cert: " + cert, ex);
+            }
+        }
+        
+        // is chain valid?
+        if (chainIsValid==false){
+            log.info("Certificate verification failed", lastException);
+            throw new CertificateException("Certificate verification failed", lastException);
+        }
+        
+        // if here, chain is valid
+    }
+
+    /**
+     * Returns root CA certificate
+     * @return 
+     */
+    public X509Certificate getPrimaryCA() {
+        return primaryCA;
+    }
+
+    /**
+     * Returns server CA certificate - with this cert are all client certs signed.
+     * @return 
+     */
+    public X509Certificate getServerCA() {
+        return serverCA;
     }
 }
