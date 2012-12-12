@@ -6,6 +6,8 @@ package com.phoenix.soap;
 
 import com.phoenix.db.Contactlist;
 import com.phoenix.db.ContactlistDstObj;
+import com.phoenix.db.RemoteUser;
+import com.phoenix.db.SubscriberCertificate;
 import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
 import com.phoenix.db.WhitelistSrcObj;
@@ -16,7 +18,10 @@ import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.PhoenixDataService;
+import com.phoenix.soap.beans.CertificateStatus;
+import com.phoenix.soap.beans.CertificateWrapper;
 import com.phoenix.soap.beans.WhitelistRequest;
+import com.phoenix.soap.beans.WhitelistGetRequest;
 import com.phoenix.soap.beans.WhitelistRequestElement;
 import com.phoenix.soap.beans.WhitelistResponse;
 
@@ -33,16 +38,22 @@ import com.phoenix.soap.beans.ContactlistChangeResponse;
 import com.phoenix.soap.beans.ContactlistGetRequest;
 import com.phoenix.soap.beans.ContactlistGetResponse;
 import com.phoenix.soap.beans.EnabledDisabled;
+import com.phoenix.soap.beans.GetCertificateRequest;
+import com.phoenix.soap.beans.GetCertificateResponse;
 import com.phoenix.soap.beans.UserIdentifier;
 import com.phoenix.soap.beans.UserPresenceStatus;
 import com.phoenix.soap.beans.UserWhitelistStatus;
 import com.phoenix.soap.beans.WhitelistAction;
+import com.phoenix.soap.beans.WhitelistElement;
+import com.phoenix.soap.beans.WhitelistGetResponse;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -104,7 +115,7 @@ public class PhoenixEndpoint {
             // auth passed, now extract SIP
             String sip = auth.getSIPFromCertificate(context, request);
             if (sip==null){
-                return null;
+                throw new CertificateException("You are not authorized, go away!");
             }
             
             log.info("Request came from user: [" + sip + "]");
@@ -115,6 +126,33 @@ public class PhoenixEndpoint {
             }
             
             return subs;
+        } catch (CertificateException ex) {
+            log.info("User check failed", ex);
+            throw new CertificateException("You are not authorized, go away!");
+        }
+    }
+    
+    /**
+     * Authenticate remote user.
+     * 1. check certificate validity & signature by CA
+     * 2. extract SIP string from certificate
+     * 
+     * @param context
+     * @param request
+     * @return
+     * @throws CertificateException 
+     */
+    public String authRemoteUserFromCert(MessageContext context, HttpServletRequest request) throws CertificateException {
+        try {
+            auth.check(context, this.request);
+                    
+            // auth passed, now extract SIP
+            String sip = auth.getSIPFromCertificate(context, request);
+            if (sip==null){
+                throw new CertificateException("You are not authorized, go away!");
+            }
+            
+            return sip;
         } catch (CertificateException ex) {
             log.info("User check failed", ex);
             throw new CertificateException("You are not authorized, go away!");
@@ -229,9 +267,43 @@ public class PhoenixEndpoint {
         
         return response;
     }
+
+    /**
+     * Whitelist get request  - returns whole whitelist for requesting user
+     * @param request
+     * @param context
+     * @return 
+     */
+    @PayloadRoot(localPart = "whitelistGetRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    public WhitelistGetResponse whitelistGetRequest(@RequestPayload WhitelistGetRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        log.info("User connected: " + owner);
+        
+        // constructing whitelist response
+        WhitelistGetResponse response = new WhitelistGetResponse();
+        
+        // get whole white list with this request (null, null)
+        Map<String, Whitelist> wl = this.dataService.getWhitelistForUsers(owner, null, null);
+        log.info("WL size: " + wl.size());
+        for(Entry<String, Whitelist> e: wl.entrySet()){
+            WhitelistElement wle = new WhitelistElement();
+            wle.setUsersip(e.getKey());
+            wle.setUserid(e.getValue().getDst().getIntern_user().getId());
+            
+            WhitelistStatus action = e.getValue().getAction();
+            wle.setWhitelistStatus(action==WhitelistStatus.ENABLED ? UserWhitelistStatus.IN : UserWhitelistStatus.DISABLED);
+            
+            response.getReturn().add(wle);
+        }
+        
+        return response;
+    }
     
     /**
-     * Contactlist get request
+     * Contactlist get request - returns contact list. 
+     * If request contains some particular users, only subset of this users from
+     * contactlist is returned. Otherwise whole contact list is returned.
      * @param request
      * @param context
      * @return 
@@ -434,6 +506,142 @@ public class PhoenixEndpoint {
         return response;
     }
     
+    /**
+     * Method for obtaining user certificate. 
+     * User calls this if wants to communicate with remote user and in never communicated
+     * with it before.
+     * 
+     * This method can be called by remote users also (more servers setup) thus
+     * it does not necessarily have subscriber record here. 
+     * 
+     * For authentication do the following:
+     *  - check certificate time validity & signature of CA
+     *  - extract SIP from certificate (must be valid and present)
+     *  - check if target user has this current user in whitelist 
+     *      (user can try to obtain its own certificate)
+     * 
+     * If every this condition passed, then is certificate returned.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "getCertificateRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    public GetCertificateResponse getCertificate(@RequestPayload GetCertificateRequest request, MessageContext context) throws CertificateException {
+        String owner = this.authRemoteUserFromCert(context, this.request);
+        log.info("Remote user connected: " + owner);
+       
+        // support also remote users :)
+        // 1. try to load local user
+        Subscriber sub = null;
+        RemoteUser rem = null;
+        
+        // for whitelist searching (ommiting groups right now)
+        // searching as destination in someones whitelist
+        WhitelistDstObj dstObj = new WhitelistDstObj();
+
+        // at first try local
+        sub = this.dataService.getLocalUser(owner);        
+        // now try remote
+        if (sub==null){
+            rem = this.dataService.getRemoteUser(owner);
+            // set remote
+            dstObj.setExtern_user(rem);
+        } else {
+            // sub is not null, set intern
+            dstObj.setIntern_user(sub);
+        }
+        
+        // still nul? 
+        if (sub==null && rem==null){
+            throw new IllegalArgumentException("User you are claiming you are does not exist!");
+        }
+        
+        // define answer, will be iteratively filled in
+        GetCertificateResponse response = new GetCertificateResponse();
+        
+        // maximum length?
+        if (request.getUser()==null || request.getUser().isEmpty() || request.getUser().size()>30){
+            throw new IllegalArgumentException("Invalid size of request");
+        }
+        
+        // now we have prepared data for whitelist search, lets iterate over 
+        for(UserIdentifier ui : request.getUser()){
+            // At first obtain user object we are talking about.
+            // Now assume only local user, we will have procedure for extern and groups also
+            // in future (I hope so:)).
+            Subscriber s = null;
+            String sip = ui.getUserSIP();
+            Long userID = ui.getUserID();
+            if (sip!=null && !sip.isEmpty()){
+                s = dataService.getLocalUser(sip);
+            } else if (userID!=null && userID>0){
+                s = dataService.getLocalUser(userID);
+            } else {
+                throw new RuntimeException("Both user identifiers are null");
+            }
+            
+            // current certificate answer
+            CertificateWrapper wr = new CertificateWrapper();
+            
+            // null subscriber - fail, user has to exist in database
+            if (s==null){
+                log.info("User is not found in database");
+                wr.setStatus(CertificateStatus.NOUSER);
+                response.getReturn().add(wr);
+                continue;
+            }
+            
+            // check if user "s" has in whitelist "owner" = WhitelistDstObj
+            Whitelist wl = this.dataService.getWhitelistForSubscriber(s, dstObj);
+            if ((wl==null || wl.getAction()!=WhitelistStatus.ENABLED) && s.equals(dstObj.getIntern_user())==false){
+                log.info("Not allowed: " + wl);
+                wr.setStatus(CertificateStatus.FORBIDDEN);
+                response.getReturn().add(wr);
+                continue;
+            }
+            
+            // obtain certificate for particular subscriber
+            SubscriberCertificate cert = this.dataService.getCertificateForUser(s);
+            if (cert==null || cert.getCert()==null){
+                log.info("Certificate for user is null");
+                log.info("cert: " + cert);
+                if (cert!=null){
+                    log.info("Cert not null: " + cert.getCert());
+                    log.info("Cert not null len: " + cert.getRawCert().length);
+                }
+                
+                wr.setStatus(CertificateStatus.MISSING);
+                response.getReturn().add(wr);
+                continue;
+            }
+            
+            // certificate
+            X509Certificate cert509 = cert.getCert();
+            log.info("cert is not null! " + cert509);
+            
+            // time validity
+            try{
+                cert509.checkValidity();
+            } catch(Exception e){
+                // certificate is invalid
+                log.info("Certificate for user is invalid");
+                wr.setStatus(CertificateStatus.INVALID);
+                response.getReturn().add(wr);
+                continue;
+            }
+            
+            // now just add certificate to response
+            wr.setStatus(CertificateStatus.OK);
+            wr.setUser(PhoenixDataService.getSIP(s));
+            wr.setCertificate(cert509.getEncoded());
+            response.getReturn().add(wr);
+        }
+        
+        return response;
+    }
     /**
      * Unwraps hibernate session from JPA 2
      * @return 

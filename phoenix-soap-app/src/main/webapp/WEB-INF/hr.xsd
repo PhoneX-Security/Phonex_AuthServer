@@ -251,7 +251,18 @@
         </xs:sequence>
     </xs:complexType>
     
-    
+    <xs:complexType name="whitelistElement">
+        <xs:annotation>
+            <xs:documentation>
+                One element in whitelist response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="userid" type="hr:userID"/>
+            <xs:element name="usersip" type="hr:userSIP"/>
+            <xs:element name="whitelistStatus" type="hr:userWhitelistStatus"/>
+        </xs:sequence>
+    </xs:complexType>
     
     <!--
         ~ Elements definition for messages
@@ -362,6 +373,31 @@
             <xs:field xpath="@user"/>
         </xs:unique>
     </xs:element>
+    
+    <xs:element name="whitelistGetRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Fetches whole whitelist
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType/> 
+    </xs:element>
+    
+    <xs:element name="whitelistGetResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist response - contains full whitelist
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return" 
+                            type="hr:whitelistElement" 
+                            minOccurs="0" 
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
 
     <xs:simpleType name="binaryPayload">
         <xs:annotation>
@@ -371,6 +407,67 @@
         </xs:annotation>
         <xs:restriction base="xs:base64Binary"/>
     </xs:simpleType>
+    
+    <xs:element name="getCertificateRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Get certificate request for given users
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userIdentifier" minOccurs="1" maxOccurs="unbounded"/>
+            </xs:sequence>   
+        </xs:complexType>
+        <xs:unique name="uniqueCertUlistSchema">
+            <xs:selector xpath="user"/>
+            <xs:field xpath="@user"/>
+        </xs:unique>
+    </xs:element>
+    
+    <xs:simpleType name="certificateStatus">
+        <xs:annotation>
+            <xs:documentation>
+                State available for certificate response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ok"/>
+            <xs:enumeration value="invalid"/>
+            <xs:enumeration value="forbidden"/>
+            <xs:enumeration value="missing"/>
+            <xs:enumeration value="nouser"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:complexType name="certificateWrapper">
+        <xs:annotation>
+            <xs:documentation>
+                One certificate for particular user
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="certificate" type="hr:binaryPayload"/>
+            <xs:element name="status" type="hr:certificateStatus"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:element name="getCertificateResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Response contains X.509 certificates
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return" 
+                            type="hr:certificateWrapper" 
+                            minOccurs="0" 
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
     
     <xs:element name="binaryMessageUpload">
         <xs:annotation>

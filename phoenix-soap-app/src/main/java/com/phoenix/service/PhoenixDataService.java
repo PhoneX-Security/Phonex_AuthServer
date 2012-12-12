@@ -6,7 +6,9 @@ package com.phoenix.service;
 
 import com.phoenix.db.Contactlist;
 import com.phoenix.db.RemoteUser;
+import com.phoenix.db.SubscriberCertificate;
 import com.phoenix.db.Whitelist;
+import com.phoenix.db.WhitelistDstObj;
 import com.phoenix.db.opensips.Subscriber;
 import java.util.Collection;
 import java.util.HashMap;
@@ -84,6 +86,30 @@ public class PhoenixDataService {
     }
     
     /**
+     * Returns remote subscriber from user SIP
+     * @param sip
+     * @return 
+     */
+    public RemoteUser getRemoteUser(String sip){
+        try {
+            if (sip==null){
+                return null;
+            }
+            
+            // build string with IN (...)
+            String querySIP2ID = "SELECT u FROM remoteUser u WHERE sip = :sip";
+            TypedQuery<RemoteUser> query = em.createQuery(querySIP2ID, RemoteUser.class);
+            query.setParameter("sip", sip);
+            List<RemoteUser> resultList = query.getResultList();
+            return resultList.isEmpty() ? null : resultList.get(0);
+            
+        } catch(Exception ex){
+            log.info("Problem occurred during loading user from database", ex);
+            return null;
+        }
+    }
+    
+    /**
      * Getys local user by its primary key
      * @param id
      * @return 
@@ -113,9 +139,6 @@ public class PhoenixDataService {
      */
     public Map<String, Whitelist> getWhitelistForUsers(Subscriber owner, Collection<Subscriber> intern, Collection<RemoteUser> extern){
         Map<String, Whitelist> result = new HashMap<String, Whitelist>();
-        if (intern==null){
-            return result;
-        }
         
         // now loading whitelist entries from database for owner, for intern user destination
         StringBuilder sb = new StringBuilder();
@@ -152,21 +175,52 @@ public class PhoenixDataService {
      * @param target
      * @return 
      */
-    public Whitelist getWhitelistForSubscriber(Subscriber owner, Subscriber target){
+    public Whitelist getWhitelistForSubscriber(Subscriber owner, WhitelistDstObj target){
         if (owner==null || target==null){
             throw new IllegalArgumentException("Some of argument is NULL, what is forbidden");
         }
         
+        // This old way didn't worked - it cannot match whole object if it has 
+        // nulls in it... Comparisson with null object is NULL
+//        String queryWhitelist = "SELECT wl FROM whitelist wl"
+//                    + " WHERE wl.src.intern_user=:owner AND wl.dst=:target ";
+
         // now loading whitelist entries from database for owner, for intern user destination
         String queryWhitelist = "SELECT wl FROM whitelist wl"
-                    + " WHERE wl.src.intern_user=:owner AND wl.dst.intern_user=:target ";
+                    + " WHERE wl.src.intern_user=:owner AND "
+                + " (( wl.dst.intern_user IS NOT NULL AND wl.dst.intern_user=:iu)"
+                + " OR (wl.dst.extern_user IS NOT NULL AND wl.dst.extern_user=:eu)"
+                + " OR (wl.dst.intern_group IS NOT NULL AND wl.dst.intern_group=:ig))";
         TypedQuery<Whitelist> query = em.createQuery(queryWhitelist, Whitelist.class);
         query.setParameter("owner", owner);
-        query.setParameter("target", target);
+        query.setParameter("iu", target.getIntern_user());
+        query.setParameter("eu", target.getExtern_user());
+        query.setParameter("ig", target.getIntern_group());
         List<Whitelist> resultList = query.getResultList();
         return resultList.isEmpty() ? null : resultList.get(0);
     }
     
+    /**
+     * Specialized method to just extract whitelist for one owner and one target subscriber,
+     * if exists, otherwise returns null.
+     * @param owner
+     * @param target
+     * @return 
+     */
+    public Whitelist getWhitelistForSubscriber(Subscriber owner, Subscriber target){
+        return this.getWhitelistForSubscriber(owner, new WhitelistDstObj(target));
+    }
+    
+    /**
+     * Specialized method to just extract whitelist for one owner and one target subscriber,
+     * if exists, otherwise returns null.
+     * @param owner
+     * @param target
+     * @return 
+     */
+    public Whitelist getWhitelistForSubscriber(Subscriber owner, RemoteUser target){
+        return this.getWhitelistForSubscriber(owner, new WhitelistDstObj(target));
+    }
     
     /**
      * Specialized method to just extract contactlist for one owner and one target subscriber,
@@ -188,6 +242,30 @@ public class PhoenixDataService {
         query.setParameter("target", target);
         List<Contactlist> resultList = query.getResultList();
         return resultList.isEmpty() ? null : resultList.get(0);
+    }
+    
+    /**
+     * Returns remote subscriber from user SIP
+     * @param sip
+     * @return 
+     */
+    public SubscriberCertificate getCertificateForUser(Subscriber s){
+        try {
+            if (s==null) {
+                throw new NullPointerException("Passed null subscriber");
+            }
+            
+            // build string with 
+            String querySIP2ID = "SELECT u FROM subscriberCertificate u WHERE subscriber = :s";
+            TypedQuery<SubscriberCertificate> query = em.createQuery(querySIP2ID, SubscriberCertificate.class);
+            query.setParameter("s", s);
+            List<SubscriberCertificate> resultList = query.getResultList();
+            return resultList.isEmpty() ? null : resultList.get(0);
+            
+        } catch(Exception ex){
+            log.info("Problem occurred during loading user from database", ex);
+            return null;
+        }
     }
     
     @Transactional

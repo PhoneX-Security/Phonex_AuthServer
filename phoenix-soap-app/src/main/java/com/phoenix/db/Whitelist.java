@@ -6,11 +6,8 @@ package com.phoenix.db;
 
 import com.phoenix.db.extra.WhitelistObjType;
 import com.phoenix.db.extra.WhitelistStatus;
-import com.phoenix.soap.beans.WhitelistAction;
 import java.io.Serializable;
 import java.util.Date;
-import javax.persistence.AttributeOverride;
-import javax.persistence.AttributeOverrides;
 import javax.persistence.Column;
 import javax.persistence.Embedded;
 import javax.persistence.Entity;
