@@ -197,7 +197,24 @@ public class TrustVerifier implements X509TrustManager {
                 }
             }
             
-            // now try to verify with ROOT-CA
+            // if we are on more than first certificate, check signature in chain
+            // meaning checking wether first certificate is signed by second in chain,
+            // more genericly if (i-1)-th certificate is signed by i-th certificate
+            if (curCert>0){
+                try {
+                    certs[curCert-1].verify(cert.getPublicKey());
+                } catch (Exception ex) {
+                    chainIsValid=false;
+                    lastException=ex;
+                    log.debug("Certificate [i-1,i] verification failed"
+                            + "; i=" + curCert
+                            + "; (i-1)-th: " + certs[curCert-1] 
+                            + "; Cert: " + cert, ex);
+                    break;
+                }
+            }
+            
+            // now try to verify current certificate signature ROOT-CA
             try {
                 // check with root CA
                 cert.verify(primaryCA.getPublicKey());
