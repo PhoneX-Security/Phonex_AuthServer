@@ -108,6 +108,6 @@ public class OneTimeToken implements Serializable {
 
     @Override
     public String toString() {
-        return "OneTimeToken{" + "id=" + id + ", notValidAfter=" + notValidAfter + ", userSIP=" + userSIP + ", fprint=" + fprint + ", userToken=" + userToken + ", token=" + token + '}';
+        return "OneTimeToken{" + "id=" + id + ", notValidAfter=" + notValidAfter + ", inserted=" + inserted + ", userSIP=" + userSIP + ", fprint=" + fprint + ", userToken=" + userToken + ", token=" + token + '}';
     }
 }

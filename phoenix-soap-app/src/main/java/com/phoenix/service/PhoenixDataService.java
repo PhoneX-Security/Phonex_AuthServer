@@ -278,16 +278,21 @@ public class PhoenixDataService {
     /**
      * Generates randomized hash on base64 encoding from given seed
      * @param seed
+     * @param randomized    if true, random number and current time in ms are appended to seed.
      * @return 
      */
-    public String generateRandomizedHash(String seed) throws NoSuchAlgorithmException{
-        Random rand = new Random();
+    public String generateHash(String seed, boolean randomized) throws NoSuchAlgorithmException{
         MessageDigest sha = MessageDigest.getInstance("SHA-512");
+        String sseed = seed;
         
-        StringBuilder sb = new StringBuilder(seed)
-                .append(";").append(System.currentTimeMillis())
-                .append(";").append(rand.nextLong());
-        String sseed = sb.toString();
+        if (randomized) {
+            Random rand = new Random();
+            StringBuilder sb = new StringBuilder(seed)
+                        .append(":").append(System.currentTimeMillis())
+                        .append(":").append(rand.nextLong());
+            sseed = sb.toString();
+        }
+        
         byte[] digest = sha.digest(sseed.getBytes());
         return new String(Base64.encode(digest));
     }
@@ -339,7 +344,7 @@ public class PhoenixDataService {
                 .append(userToken).append(":")
                 .append(fprint).append(":")
                 .append(validityMillisec);
-        String serverToken = this.generateRandomizedHash(sb.toString());
+        String serverToken = this.generateHash(sb.toString(), true);
         
         // store to database and return 
         OneTimeToken ott = new OneTimeToken();
@@ -375,15 +380,45 @@ public class PhoenixDataService {
                 + " AND ott.userToken = :ut"
                 + " AND ott.token = :st";
         try {
-            OneTimeToken ott = em.createQuery(query, OneTimeToken.class).getSingleResult();
+            OneTimeToken ott = em.createQuery(query, OneTimeToken.class)
+                    .setParameter("n", new Date())
+                    .setParameter("u", user)
+                    .setParameter("ut", userToken)
+                    .setParameter("st", serverToken)
+                    .getSingleResult();            
             em.remove(ott);
             em.flush();
             return true;
         } catch(Exception ex){
-            log.info("Problem during one time token verification");
+            log.info("Problem during one time token verification", ex);
         }
         
         return false;
+    }
+    
+    /**
+     * Generates user auth token for defined set of parameters.
+     * Method does not use database.
+     * @param sip               user sip
+     * @param ha1               ha1 field from database
+     * @param usrToken  
+     * @param serverToken       
+     * @param milliWindow       length of one time slot
+     * @param offset            time window offset from NOW
+     * @return 
+     */
+    public String generateUserAuthToken(String sip, String ha1, String usrToken, String serverToken, long milliWindow, int offset) throws NoSuchAlgorithmException{
+        // determine current time window
+        long curTime = System.currentTimeMillis();
+        long curTimeSlot = ((long) Math.floor(curTime / (double)milliWindow)) + offset;
+        StringBuilder sb = new StringBuilder()
+                .append(sip).append(':')
+                .append(ha1).append(':')
+                .append(usrToken).append(':')
+                .append(serverToken).append(':')
+                .append(curTimeSlot).append(':')
+                .append("PHOENIX");
+        return generateHash(sb.toString(), false);
     }
     
     @Transactional

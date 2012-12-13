@@ -478,7 +478,8 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="user" type="hr:userSIP"/>
-                <xs:element name="challenge" type="xs:string"/>
+                <xs:element name="usrToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
                 <xs:element name="authHash" type="xs:string"/>
                 <xs:element name="CSR" type="hr:binaryPayload"/>
             </xs:sequence>   

@@ -734,6 +734,38 @@ public class PhoenixEndpoint {
                 throw new IllegalArgumentException("Not authorized");
             }
             
+            // check token here!
+            boolean ott_valid = this.dataService.isOneTimeTokenValid(reqUser, request.getUsrToken(), request.getServerToken(), "");
+            if (ott_valid==false){
+                log.warn("Invalid one time token");
+                throw new RuntimeException("Not authorized");
+            }
+            
+            // check user AUTH hash
+            // generate 3 tokens, for 3 time slots
+            String userHashes[] = new String[3];
+            for (int i=-1, c=0; i <=1 ; i++, c++){
+                userHashes[c] = this.dataService.generateUserAuthToken(
+                    reqUser, localUser.getHa1(), 
+                    request.getUsrToken(), request.getServerToken(), 
+                    1000 * 60, i);
+            }
+            
+            // verify one of auth hashes
+            boolean authHash_valid=false;
+            for(String curAuthHash : userHashes){
+                log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+curAuthHash+"]");
+                if (curAuthHash.equals(request.getAuthHash())){
+                    authHash_valid=true;
+                    break;
+                }
+            }
+            
+            if (authHash_valid==false){
+                log.warn("Invalid auth hash");
+                throw new RuntimeException("Not authorized");
+            }
+            
             // check if user is allowed to sign certificate - subscriber table contains flag
             // telling that user is new and can sign new certificate
             if (localUser.isCanSignNewCert()==false){
