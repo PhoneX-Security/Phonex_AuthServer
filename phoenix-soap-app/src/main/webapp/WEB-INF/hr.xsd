@@ -501,6 +501,37 @@
         </xs:complexType>
     </xs:element>
     
+    <xs:element name="getOneTimeTokenRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Request for signing certificate by server CA - be very carefull!
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="userToken" type="xs:string"/>
+                <xs:element name="type" type="xs:int"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="getOneTimeTokenResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Request for signing certificate by server CA - be very carefull!
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="userToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="notValidAfter" type="xs:dateTime"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
+    
     <xs:element name="binaryMessageUpload">
         <xs:annotation>
             <xs:documentation>

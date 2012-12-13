@@ -42,6 +42,8 @@ import com.phoenix.soap.beans.ContactlistGetResponse;
 import com.phoenix.soap.beans.EnabledDisabled;
 import com.phoenix.soap.beans.GetCertificateRequest;
 import com.phoenix.soap.beans.GetCertificateResponse;
+import com.phoenix.soap.beans.GetOneTimeTokenRequest;
+import com.phoenix.soap.beans.GetOneTimeTokenResponse;
 import com.phoenix.soap.beans.SignCertificateRequest;
 import com.phoenix.soap.beans.SignCertificateResponse;
 import com.phoenix.soap.beans.UserIdentifier;
@@ -883,7 +885,27 @@ public class PhoenixEndpoint {
         return response;
     }
     
-    
+     /**
+     * Contact list change request
+     * @param request
+     * @param context
+     * @return 
+     */
+    @PayloadRoot(localPart = "getOneTimeTokenRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    public GetOneTimeTokenResponse getOneTimeToken(@RequestPayload GetOneTimeTokenRequest request, MessageContext context) throws CertificateException, NoSuchAlgorithmException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        log.info("User connected: " + owner);
+        
+        // generate new one time token - 2 minutes validity
+        String ott = this.dataService.generateOneTimeToken(request.getUser(), request.getUserToken(), Long.valueOf(1000 * 60 * 2), "");
+        
+        GetOneTimeTokenResponse response = new GetOneTimeTokenResponse();
+        response.setUser(request.getUser());
+        response.setUserToken(request.getUserToken());
+        response.setServerToken(ott);
+        return response;
+    }
     
     /**
      * Unwraps hibernate session from JPA 2

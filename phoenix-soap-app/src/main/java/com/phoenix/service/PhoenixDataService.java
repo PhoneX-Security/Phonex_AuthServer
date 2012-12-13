@@ -5,20 +5,27 @@
 package com.phoenix.service;
 
 import com.phoenix.db.Contactlist;
+import com.phoenix.db.OneTimeToken;
 import com.phoenix.db.RemoteUser;
 import com.phoenix.db.SubscriberCertificate;
 import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
 import com.phoenix.db.opensips.Subscriber;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
+import java.util.Date;
+import java.util.Formatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
+import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.ejb.HibernateEntityManager;
@@ -266,6 +273,117 @@ public class PhoenixDataService {
             log.info("Problem occurred during loading user from database", ex);
             return null;
         }
+    }
+    
+    /**
+     * Generates randomized hash on base64 encoding from given seed
+     * @param seed
+     * @return 
+     */
+    public String generateRandomizedHash(String seed) throws NoSuchAlgorithmException{
+        Random rand = new Random();
+        MessageDigest sha = MessageDigest.getInstance("SHA-512");
+        
+        StringBuilder sb = new StringBuilder(seed)
+                .append(";").append(System.currentTimeMillis())
+                .append(";").append(rand.nextLong());
+        String sseed = sb.toString();
+        byte[] digest = sha.digest(sseed.getBytes());
+        return new String(Base64.encode(digest));
+    }
+    
+    /**
+     * Generates one time token, stores it to database.
+     * 
+     * @param user
+     * @param userToken
+     * @param validityMillisec
+     * @return 
+     */
+    @Transactional
+    public String generateOneTimeToken(String user, String userToken, Long validityMillisec, String fprint) throws NoSuchAlgorithmException{
+        if (user==null || userToken==null || user.isEmpty() || userToken.isEmpty()){
+            throw new IllegalArgumentException("Not generating token from empty data");
+        }
+        
+        // check if user exists in database
+        Subscriber localUser = this.getLocalUser(user);
+        if (localUser==null){
+            log.warn("User ["+user+"] wants one time token but not found in DB");
+            throw new IllegalArgumentException("Invalid user");
+        }
+        
+        // for given user allow new token only if prev request is older than 10 seconds
+        boolean tooRecent=false;
+        try {
+            String query = "SELECT MAX(ott.inserted) FROM oneTimeToken ott WHERE ott.userSIP=:s";
+            Date singleResult = em.createQuery(query, Date.class).setParameter("s", user).getSingleResult();
+            if (singleResult!=null){
+                log.info("Single result is not null: " + singleResult);
+                Date tolerance = new Date(System.currentTimeMillis() - 1000*10);
+                if (singleResult.after(tolerance)){
+                    tooRecent=true;
+                }
+            }
+        } catch(Exception e){
+            log.info("Query failed", e);
+        }
+        
+        if (tooRecent){
+            throw new RuntimeException("Last query too recent");
+        }
+        
+        // generate server token
+        StringBuilder sb = new StringBuilder()
+                .append(user).append(":")
+                .append(userToken).append(":")
+                .append(fprint).append(":")
+                .append(validityMillisec);
+        String serverToken = this.generateRandomizedHash(sb.toString());
+        
+        // store to database and return 
+        OneTimeToken ott = new OneTimeToken();
+        ott.setFprint(fprint);
+        ott.setInserted(new Date());
+        ott.setNotValidAfter(new Date(System.currentTimeMillis() + validityMillisec));
+        ott.setToken(serverToken);
+        ott.setUserSIP(user);
+        ott.setUserToken(userToken);
+        em.persist(ott);
+        em.flush();
+        
+        return serverToken;
+    }
+    
+    /**
+     * Checks validity of one time token and deletes it immediatelly
+     * @param user
+     * @param userToken
+     * @param validityMillisec
+     * @param fprint
+     * @return 
+     */
+    @Transactional
+    public boolean isOneTimeTokenValid(String user, String userToken, String serverToken, String fprint){
+        if (user==null || userToken==null || serverToken==null || user.isEmpty() || userToken.isEmpty()){
+            throw new IllegalArgumentException("Not generating token from empty data");
+        }
+        
+        String query = "SELECT ott FROM oneTimeToken ott "
+                + " WHERE ott.notValidAfter >= :n"
+                + " AND ott.userSIP = :u"
+                + " AND ott.userToken = :ut"
+                + " AND ott.token = :st";
+        try {
+            OneTimeToken ott = em.createQuery(query, OneTimeToken.class).getSingleResult();
+            em.remove(ott);
+            em.flush();
+            return true;
+        } catch(Exception ex){
+            log.info("Problem during one time token verification");
+        }
+        
+        return false;
     }
     
     @Transactional
