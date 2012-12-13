@@ -93,6 +93,11 @@ public class SubscriberCertificate implements Serializable {
      * Update certificate object from RAW representation
      */
     public void updateCert() throws CertificateEncodingException, CertificateException {
+        if (this.rawCert == null || this.rawCert.length==0){
+            this.cert = null;
+            return; 
+        }
+        
         // certificate factory according to X.509 std
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
             
@@ -150,5 +155,10 @@ public class SubscriberCertificate implements Serializable {
     public void setRawCert(byte[] rawCert) throws CertificateEncodingException, CertificateException {
         this.rawCert = rawCert;
         this.updateCert();
+    }
+
+    @Override
+    public String toString() {
+        return "SubscriberCertificate{" + "id=" + id + ", subscriber=" + subscriber + ", cert=" + cert + ", rawCert=" + rawCert + ", notValidBefore=" + notValidBefore + ", notValidAfter=" + notValidAfter + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + '}';
     }
 }

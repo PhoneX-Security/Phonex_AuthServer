@@ -67,6 +67,9 @@
     </bean>  
         
     <!-- EntityManagerFactory for JPA 2.0 from Spring -->
+    <!-- org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean - not very good for Hibernate and Indexes. 
+            But is seems that it works properly, even with non-unique indexes. -->
+    <!-- org.springframework.orm.jpa.LocalEntityManagerFactoryBean -->
     <bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
         <property name="jpaVendorAdapter">
             <bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter" p:showSql="true" p:generateDdl="true">

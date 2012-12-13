@@ -66,4 +66,9 @@ public class PhoenixGroup implements Serializable {
         }
         return true;
     }
+
+    @Override
+    public String toString() {
+        return "PhoenixGroup{" + "id=" + id + ", name=" + name + '}';
+    }
 }

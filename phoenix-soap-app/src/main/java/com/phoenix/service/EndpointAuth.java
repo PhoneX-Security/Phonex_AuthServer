@@ -104,12 +104,40 @@ public class EndpointAuth {
     public String getSIPFromCertificate(MessageContext context, HttpServletRequest request) throws CertificateException{
         try {
             // get certificate chain from cert - to verify trust
-            X509Certificate certChain[] = (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
+            X509Certificate certChain[] = getCertChain(context, request);
             // client certificate SHOULD be stored first here, so assume it
-            X500Name x500name = JcaX500NameUtil.getSubject(certChain[0]);
-            //X500Name x500name = new JcaX509CertificateHolder(certChain[0]).getSubject();
+            return getCNfromX500Name(JcaX500NameUtil.getSubject(certChain[0]));
+        } 
+        catch(Exception ex){
+            throw new CertificateException("Problem with client certificate, cannot get user ID", ex);
+        }
+    }
+
+    /**
+     * Obtains certificate chain from current request
+     * @param context
+     * @param request
+     * @return
+     * @throws CertificateException 
+     */
+    public X509Certificate[] getCertChain(MessageContext context, HttpServletRequest request) throws CertificateException{
+        try {
+            // get certificate chain from cert - to verify trust
+            return (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
+        } 
+        catch(Exception ex){
+            throw new CertificateException("Problem with client certificate, cannot get user ID", ex);
+        }
+    }
+    
+    /**
+     * Extracts CN from X500Name
+     * @param name
+     * @return 
+     */
+    public String getCNfromX500Name(X500Name x500name) throws CertificateException{
+         try {
             RDN cn = x500name.getRDNs(BCStyle.CN)[0];
-            
             return IETFUtils.valueToString(cn.getFirst().getValue());
         } 
         catch(Exception ex){

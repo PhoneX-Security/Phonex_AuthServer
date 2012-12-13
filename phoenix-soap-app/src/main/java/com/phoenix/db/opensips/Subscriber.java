@@ -28,6 +28,9 @@ public class Subscriber implements java.io.Serializable {
 	private String rpid;
 	private boolean isAdmin;
 	private Integer primaryGroup;
+        
+        // can user sign new certificate?
+        private Boolean canSignNewCert=false;
 
 	public Subscriber() {
 	}
@@ -149,4 +152,16 @@ public class Subscriber implements java.io.Serializable {
 		this.primaryGroup = primaryGroup;
 	}
 
+        /**
+        *
+        * @return
+        */
+        @Column(name = "canSignNewCert", nullable = false)
+        public Boolean isCanSignNewCert() {
+            return canSignNewCert;
+        }
+
+        public void setCanSignNewCert(Boolean canSignNewCert) {
+            this.canSignNewCert = canSignNewCert;
+        }
 }

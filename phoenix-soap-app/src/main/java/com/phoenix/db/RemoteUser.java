@@ -86,4 +86,9 @@ public class RemoteUser implements Serializable {
         }
         return true;
     }
+
+    @Override
+    public String toString() {
+        return "RemoteUser{" + "id=" + id + ", owner=" + owner + ", sip=" + sip + '}';
+    }
 }

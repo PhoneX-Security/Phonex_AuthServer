@@ -12,15 +12,18 @@ import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyStore;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.Security;
 import java.security.SignatureException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.util.Date;
+import java.util.Formatter;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -30,7 +33,6 @@ import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import org.bouncycastle.asn1.x509.X509CertificateStructure;
 import org.bouncycastle.asn1.x509.X509Extension;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
@@ -177,7 +179,27 @@ public class PhoenixServerCASigner {
     }
     
     /**
+     * Returns simple SHA512 certificate digest
+     * @param cert
+     * @return 
+     */
+    public String getCertificateDigest(X509Certificate cert) throws NoSuchAlgorithmException, IOException, CertificateEncodingException{
+         MessageDigest sha = MessageDigest.getInstance("SHA-512");
+         //byte[] digest = ByteStreams.getDigest(ByteStreams.newInputStreamSupplier(cert.getEncoded()), sha);
+         byte[] digest = sha.digest(cert.getEncoded());
+         
+         Formatter formatter = new Formatter();
+         for (byte b : digest) {
+            formatter.format("%02x", b);
+         }
+
+        return formatter.toString();
+    }
+    
+    /**
      * Sign certificate with server CA private key.
+     * X509v3 extensions are added - CA:False, subjectKeyIdentifier, authorityKeyIdentifier.
+     * 
      * @param inputCSR
      * @return
      * @throws InvalidKeyException
@@ -188,7 +210,7 @@ public class PhoenixServerCASigner {
      * @throws OperatorCreationException
      * @throws CertificateException 
      */
-    public X509Certificate sign(PKCS10CertificationRequest inputCSR)
+    public X509Certificate sign(PKCS10CertificationRequest inputCSR, BigInteger serial, Date notBefore, Date notAfter)
             throws InvalidKeyException, NoSuchAlgorithmException,
             NoSuchProviderException, SignatureException, IOException,
             OperatorCreationException, CertificateException {
@@ -204,14 +226,12 @@ public class PhoenixServerCASigner {
         // certificate builder - issuer = from ca, subject = from CSR, not before
         // not after = trivial, serial = from database.
         X509v3CertificateBuilder certGen = new X509v3CertificateBuilder(
-                new X500Name(caCert.getIssuerX500Principal().getName()),    // issuer DN
-                new BigInteger("1"),                                        // serial
-                new Date(System.currentTimeMillis()),                       // not before
-                new Date(System.currentTimeMillis() + 30 * 365 * 24 * 60 * 60 * 1000), // not after
+                new X500Name(caCert.getIssuerX500Principal().getName()),      // issuer DN
+                serial,                                                       // serial
+                notBefore,                                                    // not before
+                notAfter,                                                     // not after
                 inputCSR.getSubject(),
                 inputCSR.getSubjectPublicKeyInfo());
-                //pk10Holder.getSubject(),                                    // subject
-                //pk10Holder.getSubjectPublicKeyInfo());                      // in certificate is PK from CSR  
         
         // X509v3 extensions:
         // 1. ensure it has CA:FALSE

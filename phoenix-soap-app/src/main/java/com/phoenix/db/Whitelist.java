@@ -166,5 +166,9 @@ public class Whitelist implements Serializable {
         }
         return true;
     }
-    
+
+    @Override
+    public String toString() {
+        return "Whitelist{" + "id=" + id + ", srcType=" + srcType + ", src=" + src + ", dstType=" + dstType + ", dst=" + dst + ", action=" + action + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + '}';
+    }
 }

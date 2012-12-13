@@ -4,6 +4,7 @@
  */
 package com.phoenix.soap;
 
+import com.phoenix.db.CAcertsSigned;
 import com.phoenix.db.Contactlist;
 import com.phoenix.db.ContactlistDstObj;
 import com.phoenix.db.RemoteUser;
@@ -50,6 +51,7 @@ import com.phoenix.soap.beans.WhitelistAction;
 import com.phoenix.soap.beans.WhitelistElement;
 import com.phoenix.soap.beans.WhitelistGetResponse;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -57,6 +59,7 @@ import java.security.SignatureException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -65,6 +68,7 @@ import java.util.Map.Entry;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -77,6 +81,9 @@ import org.hibernate.SessionFactory;
 import org.hibernate.ejb.HibernateEntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Basic phoenix service endpoint for whitelist and contactlist manipulation
@@ -678,9 +685,10 @@ public class PhoenixEndpoint {
      */
     @PayloadRoot(localPart = "signCertificateRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public SignCertificateResponse signCertificate(@RequestPayload SignCertificateRequest request, MessageContext context) throws CertificateException {
-        String owner = this.authRemoteUserFromCert(context, this.request);
-        log.info("Remote user connected: " + owner);
+        //String owner = this.authRemoteUserFromCert(context, this.request);
+        //log.info("Remote user connected: " + owner);
         
         // construct response wrapper
         SignCertificateResponse response = new SignCertificateResponse();
@@ -703,28 +711,174 @@ public class PhoenixEndpoint {
             PKCS10CertificationRequest csrr = this.signer.getReuest(csr, false);
             log.info("Request extracted: " + csrr);
             log.info("Request extracted: " + csrr.getSubject().toString());
-            X509Certificate sign = this.signer.sign(csrr);
+            
+            // request data here - username from signCertificate request
+            String reqUser = request.getUser();
+            log.info("User [" + reqUser + "] is asking for signing a certificate");
+            
+            // check request validity - CN format, match to username in request
+            String certCN = this.auth.getCNfromX500Name(csrr.getSubject());
+            log.info("CN from certificate: " + certCN);
+            if (certCN==null || certCN.isEmpty()){
+                throw new IllegalArgumentException("CN in certificate is null");
+            } else if (certCN.equals(reqUser)==false){
+                throw new IllegalArgumentException("CN in certificate does not match user in request");
+            }
+            
+            // user matches, load subscriber data for him
+            Subscriber localUser = this.dataService.getLocalUser(reqUser);
+            if (localUser == null){
+                log.warn("Local user was not found in database for: " + reqUser);
+                throw new IllegalArgumentException("Not authorized");
+            }
+            
+            // check if user is allowed to sign certificate - subscriber table contains flag
+            // telling that user is new and can sign new certificate
+            if (localUser.isCanSignNewCert()==false){
+                log.warn("User cannot sign certificates");
+                throw new IllegalArgumentException("Not authorized");
+            }
+            
+            // certifiacte for user form different table
+            SubscriberCertificate certificateForUser=null;
+            
+            // check if user already has valid certificate (not revoked, date valid)
+            CAcertsSigned userCert = null;
+            
+            try {
+                    userCert = em.createQuery("select cs from CAcertsSigned cs "
+                                    + " WHERE cs.subscriber=:s "
+                                    + " AND cs.isRevoked=false"
+                                    + " AND cs.notValidAfter>:n"    
+                                    + " ORDER BY cs.notValidBefore DESC", CAcertsSigned.class)
+                                    .setParameter("s", localUser)
+                                    .setParameter("n", new Date())
+                                    .getSingleResult();
+            } catch(Exception ex){
+                // no entity found and another exceptions - not interested in
+                log.debug("No entity returned when asking for CAsigned DB certificate", ex);
+            }
+            
+            if (userCert!=null){
+                // check if current certificate is about to expire
+                // in interval 14 days. If not, user is not allowed to sign new
+                // certificates.
+                log.info("User has some valid certificate in DB: " + userCert);
+                
+                Date expireLimit = new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000);
+                if (userCert.getNotValidAfter().after(expireLimit)){
+                    log.warn("User wants to create a new certificate even though "
+                            + "he has on valid certificate, with more than 14 days validity");
+                    throw new IllegalArgumentException("Your certificate is valid enough, wait for expiration.");
+                }
+                
+                // check if this certificate has same public key as proposed in request.
+                // if yes, then ask for new certificate
+                X509Certificate dbCert = userCert.getCert();
+                if (Arrays.equals(
+                        csrr.getSubjectPublicKeyInfo().getPublicKeyData().getEncoded(), 
+                        dbCert.getPublicKey().getEncoded())){
+                    log.warn("User wants to sign certificate with same public key as previous valid certificate");
+                    throw new IllegalArgumentException("Your certificate is not secure - PK is same as previous");
+                }
+                
+                // check if this certificate is also in subscriber certificate table
+                certificateForUser = this.dataService.getCertificateForUser(localUser);
+                if (certificateForUser==null){
+                    log.warn("Certificate for user is null but there is some valid in CA db");
+                } else {
+                    log.info("There also exists certificate in subscriber database");
+                    em.remove(certificateForUser);
+                }
+                
+                // if here, revoke existing certificate
+                log.info("Revoking previous user certificate");
+                userCert.setIsRevoked(Boolean.TRUE);
+                userCert.setDateRevoked(new Date());
+                userCert.setRevokedReason("New certificate");
+                em.persist(userCert);
+            }
+            // insert new certificate record to table and use its serial, generated
+            // by low level engine for signing. This should be run in transaction
+            // thus if something will fail during signing, transaction with
+            // revocation.
+            Date notBefore = new Date(System.currentTimeMillis());                           
+            Date notAfter  = new Date(System.currentTimeMillis() + 2 * 365 * 24 * 60 * 60 * 1000);
+            
+            CAcertsSigned cacertsSigned = new CAcertsSigned();
+            cacertsSigned.setCN(certCN);
+            cacertsSigned.setIsRevoked(false);
+            cacertsSigned.setDN(csrr.getSubject().toString());
+            cacertsSigned.setDateSigned(new Date());
+            cacertsSigned.setSubscriber(localUser);
+            cacertsSigned.setRawCert(new byte[0]);
+            cacertsSigned.setCertHash("");
+            cacertsSigned.setNotValidBefore(notBefore);
+            cacertsSigned.setNotValidAfter(notAfter);
+            em.persist(cacertsSigned);
+            
+            // here should be generated new serial
+            Query query = em.createNativeQuery("SELECT LAST_INSERT_ID()");
+            Long newSerial = ((BigInteger) query.getSingleResult()).longValue() +1;
+
+            // prepare certificate basic attributes - serial number - unique
+            BigInteger serial = new BigInteger(newSerial.toString());
+            
+            // sign certificate by server CA, setting DN from CSR, issuer from CA data,
+            // adding appropriate X509v3 extensions - CA:false
+            X509Certificate sign = this.signer.sign(csrr, serial, notBefore, notAfter);
             log.info("Certificate signed: " + sign);
+            
+            // update cacert in CA database - missing certificate values (binary, digest)
+            cacertsSigned.setRawCert(sign.getEncoded());
+            cacertsSigned.setCertHash(this.signer.getCertificateDigest(sign));
+            em.persist(cacertsSigned);
+            
+            // create also subscriber certificate in SubscribeCertificate table
+            // for another applications.
+            SubscriberCertificate sc = new SubscriberCertificate();
+            sc.setRawCert(sign.getEncoded());
+            sc.setDateCreated(new Date());
+            sc.setDateLastEdit(new Date());
+            sc.setSubscriber(localUser);
+            em.persist(sc);
+            
+            // flush transaction
+            em.flush();
             
             response.getCertificate().setStatus(CertificateStatus.OK);
             response.getCertificate().setCertificate(sign.getEncoded());
-            response.getCertificate().setUser(owner);
+            response.getCertificate().setUser(reqUser);
             
         } catch (InvalidKeyException ex) {
-            log.warn("Problem with signing", ex);
+            log.warn("Problem with signing - invalid key", ex);
+            
+            throw new CertificateException(ex);
         } catch (NoSuchAlgorithmException ex) {
-            log.warn("Problem with signing", ex);
+            log.warn("Problem with signing - no such alg", ex);
+            
+            throw new CertificateException(ex);
         } catch (NoSuchProviderException ex) {
-            log.warn("Problem with signing", ex);
+            log.warn("Problem with signing - no such provider", ex);
+            
+            throw new CertificateException(ex);
         } catch (SignatureException ex) {
-            log.warn("Problem with signing", ex);
+            log.warn("Problem with signing - signature problem", ex);
+            
+            throw new CertificateException(ex);
         } catch (OperatorCreationException ex) {
-            log.warn("Problem with signing", ex);
+            log.warn("Problem with signing - operator problem", ex);
+            
+            throw new CertificateException(ex);
         } catch (IOException ex) {
-            log.warn("Problem with signing", ex);
+            log.warn("Problem with signing - IO exception", ex);
+            
+            throw new CertificateException(ex);
+        } catch (Exception ex){
+            log.warn("General exception during signing", ex);
+            
+            throw new CertificateException(ex);
         }
-        
-        
         
         return response;
     }

@@ -149,4 +149,9 @@ public class Contactlist implements Serializable {
         }
         return true;
     }
+
+    @Override
+    public String toString() {
+        return "Contactlist{" + "id=" + id + ", owner=" + owner + ", objType=" + objType + ", obj=" + obj + ", entryState=" + entryState + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + '}';
+    }
 }
