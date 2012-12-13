@@ -124,7 +124,7 @@ public class X509CertificateGenerator {
 		logger.debug("Successfully verified CA certificate with its own public key.");
 	}
 	
-	public boolean createCertificate(String dn, int validityDays, String exportFile, String exportPassword) throws 
+	/*public boolean createCertificate(String dn, int validityDays, String exportFile, String exportPassword) throws 
 			IOException, InvalidKeyException, SecurityException, SignatureException, NoSuchAlgorithmException, DataLengthException, CryptoException, KeyStoreException, NoSuchProviderException, CertificateException, InvalidKeySpecException {
 		logger.info("Generating certificate for distinguished subject name '" + 
 				dn + "', valid for " + validityDays + " days");
@@ -258,7 +258,7 @@ public class X509CertificateGenerator {
 		
         return true;
 	}
-	
+	*/
 	/** The test CA can e.g. be created with
 	 * 
 	 * echo -e "AT\nUpper Austria\nSteyr\nMy Organization\nNetwork tests\nTest CA certificate\nme@myserver.com\n\n\n" | \
@@ -271,7 +271,7 @@ public class X509CertificateGenerator {
 	 */
 	
 	public static void main(String[] args) throws Exception {
-		System.out.println(new X509CertificateGenerator("ca.p12", "test password", "Test CA", false).createCertificate("Test CN", 30, "test.p12", "test"));
+		//System.out.println(new X509CertificateGenerator("ca.p12", "test password", "Test CA", false).createCertificate("Test CN", 30, "test.p12", "test"));
 	}
 }
 

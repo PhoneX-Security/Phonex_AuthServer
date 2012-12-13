@@ -163,6 +163,7 @@ public class TrustVerifier implements X509TrustManager {
         }
         
         // Check if every certificate in chain is still valid. Every has to be valid!
+        // TODO: check Certificate Revocation List!
         try {
             for (X509Certificate cert : certs) {
                 cert.checkValidity();

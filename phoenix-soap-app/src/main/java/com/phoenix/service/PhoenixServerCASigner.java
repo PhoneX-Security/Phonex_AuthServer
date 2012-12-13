@@ -4,16 +4,50 @@
  */
 package com.phoenix.service;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.math.BigInteger;
+import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.Security;
+import java.security.SignatureException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateCrtKey;
-import javax.net.ssl.X509TrustManager;
+import java.util.Date;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.Certificate;
+import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.asn1.x509.X509CertificateStructure;
+import org.bouncycastle.asn1.x509.X509Extension;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
+import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
+import org.bouncycastle.crypto.util.PrivateKeyFactory;
+//import org.bouncycastle.jce.PKCS10CertificationRequest;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMReader;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+//import org.bouncycastle.pkcs.PKCS10CertificationRequestHolder;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,11 +77,22 @@ public class PhoenixServerCASigner {
     private static final String keystoreAlias = "signing-ca-1";
     private RSAPrivateCrtKeyParameters caPrivateKey;
     private X509Certificate caCert;
+    private RSAPrivateCrtKey privKey;
     
     /**
      * Initializes Server CA keystores
      */
     public void initCA(){
+        /**
+         * Add bouncy castle provider
+         */
+        try {
+            Security.addProvider(new BouncyCastleProvider());
+            log.info("!! Bouncy castle provider added");
+        } catch (Exception ex){
+            log.error("Problem during BouncyCastle provider add", ex);
+        }
+        
         /**
          * At first obtain byte stream from resources - serverCA
          */ 
@@ -66,7 +111,7 @@ public class PhoenixServerCASigner {
                     throw new RuntimeException("Got null key from keystore!"); 
             }
             
-            RSAPrivateCrtKey privKey = (RSAPrivateCrtKey) key;
+            privKey = (RSAPrivateCrtKey) key;
             caPrivateKey = new RSAPrivateCrtKeyParameters(
                     privKey.getModulus(), 
                     privKey.getPublicExponent(), 
@@ -110,7 +155,101 @@ public class PhoenixServerCASigner {
         }
     }
     
+    /**
+     * Instantiate CSR from byte representation. May be in DER or PEM format.
+     * @param csr
+     * @return 
+     */
+    public PKCS10CertificationRequest getReuest(byte[] csr, boolean isDer) throws IOException{
+        if (isDer==false){
+            // certificatin request is in PEM -> PEM reader to read it. Iterpret it as
+            // base64 encoded string, encoding should not matter here
+            PEMReader pemReader = new PEMReader(new InputStreamReader(new ByteArrayInputStream(csr)));
+            
+            // PEM reader returns still old certification request - getEncoded() and constructor
+            org.bouncycastle.jce.PKCS10CertificationRequest tmpObj =      
+                 (org.bouncycastle.jce.PKCS10CertificationRequest) pemReader.readObject();
+            
+            return new PKCS10CertificationRequest(tmpObj.getEncoded());
+        } else {
+            return new PKCS10CertificationRequest(csr);
+        }
+    }
     
-    
-    
+    /**
+     * Sign certificate with server CA private key.
+     * @param inputCSR
+     * @return
+     * @throws InvalidKeyException
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchProviderException
+     * @throws SignatureException
+     * @throws IOException
+     * @throws OperatorCreationException
+     * @throws CertificateException 
+     */
+    public X509Certificate sign(PKCS10CertificationRequest inputCSR)
+            throws InvalidKeyException, NoSuchAlgorithmException,
+            NoSuchProviderException, SignatureException, IOException,
+            OperatorCreationException, CertificateException {
+
+        // get assymetric key material from server CA
+        AsymmetricKeyParameter pkey  = PrivateKeyFactory.createKey(privKey.getEncoded());
+        SubjectPublicKeyInfo keyInfo = SubjectPublicKeyInfo.getInstance(caCert.getPublicKey().getEncoded());
+
+        // construct holder from request
+        // OLD 1.46 version, now holder is removed, request is deprecated in original package
+        //PKCS10CertificationRequestHolder pk10Holder = new PKCS10CertificationRequestHolder(inputCSR);
+        
+        // certificate builder - issuer = from ca, subject = from CSR, not before
+        // not after = trivial, serial = from database.
+        X509v3CertificateBuilder certGen = new X509v3CertificateBuilder(
+                new X500Name(caCert.getIssuerX500Principal().getName()),    // issuer DN
+                new BigInteger("1"),                                        // serial
+                new Date(System.currentTimeMillis()),                       // not before
+                new Date(System.currentTimeMillis() + 30 * 365 * 24 * 60 * 60 * 1000), // not after
+                inputCSR.getSubject(),
+                inputCSR.getSubjectPublicKeyInfo());
+                //pk10Holder.getSubject(),                                    // subject
+                //pk10Holder.getSubjectPublicKeyInfo());                      // in certificate is PK from CSR  
+        
+        // X509v3 extensions:
+        // 1. ensure it has CA:FALSE
+        certGen.addExtension(X509Extension.basicConstraints, true, new BasicConstraints(false));
+        // 2. key identifier
+        JcaX509ExtensionUtils ut = new JcaX509ExtensionUtils();
+        SubjectKeyIdentifier ski = ut.createSubjectKeyIdentifier(inputCSR.getSubjectPublicKeyInfo());
+        certGen.addExtension(X509Extension.subjectKeyIdentifier, false, ski);
+        // 3. auth identifier
+        AuthorityKeyIdentifier aui = ut.createAuthorityKeyIdentifier(keyInfo);
+        certGen.addExtension(X509Extension.authorityKeyIdentifier, false, aui);
+        
+        // building new content signer object - will sign with server CA private key (pkey)
+        // get signing algorithm
+        AlgorithmIdentifier sigAlgId = new DefaultSignatureAlgorithmIdentifierFinder().find("SHA1withRSA");
+        AlgorithmIdentifier digAlgId = new DefaultDigestAlgorithmIdentifierFinder().find(sigAlgId);
+        ContentSigner sigGen = new BcRSAContentSignerBuilder(sigAlgId, digAlgId).build(pkey);
+
+        // creating certificate from signature
+        X509CertificateHolder holder = certGen.build(sigGen);
+        Certificate eeX509CertificateStructure = holder.toASN1Structure();
+        
+        // old 1.46 version
+        //X509CertificateStructure eeX509CertificateStructure = holder.toASN1Structure();
+
+        // certificate factory will generate final certificate representation
+        // "BC" shows - Not found X.509 
+        //CertificateFactory cf = CertificateFactory.getInstance("X.509", "BC");
+        // Thus give directly provided
+        CertificateFactory cf = CertificateFactory.getInstance("X.509", new BouncyCastleProvider());
+        // or use native java crypto - works also
+        //CertificateFactory cf = CertificateFactory.getInstance("X.509");
+
+        // Read Certificate as byte stream from ASN1 structure, creating representable
+        // certificate object.
+        InputStream is1 = new ByteArrayInputStream(eeX509CertificateStructure.getEncoded());
+        X509Certificate theCert = (X509Certificate) cf.generateCertificate(is1);
+        is1.close();
+        return theCert;
+    }
 }

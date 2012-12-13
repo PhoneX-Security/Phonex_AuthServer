@@ -49,6 +49,11 @@ import com.phoenix.soap.beans.UserWhitelistStatus;
 import com.phoenix.soap.beans.WhitelistAction;
 import com.phoenix.soap.beans.WhitelistElement;
 import com.phoenix.soap.beans.WhitelistGetResponse;
+import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SignatureException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -62,6 +67,8 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.springframework.ws.context.MessageContext;
 import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
 
@@ -677,9 +684,47 @@ public class PhoenixEndpoint {
         
         // construct response wrapper
         SignCertificateResponse response = new SignCertificateResponse();
+        CertificateWrapper certificate = new CertificateWrapper();
+        certificate.setStatus(CertificateStatus.INVALID);
+        response.setCertificate(certificate);
         
         // signer init
         this.signer.initCA();
+        
+        // obtain signing request
+        byte[] csr = request.getCSR();
+        if (csr==null || csr.length==0){
+            log.warn("CSR is null/empty");
+            throw new IllegalArgumentException("Emty CSR");
+        }
+        
+        try {
+            log.info("Going to extract request");
+            PKCS10CertificationRequest csrr = this.signer.getReuest(csr, false);
+            log.info("Request extracted: " + csrr);
+            log.info("Request extracted: " + csrr.getSubject().toString());
+            X509Certificate sign = this.signer.sign(csrr);
+            log.info("Certificate signed: " + sign);
+            
+            response.getCertificate().setStatus(CertificateStatus.OK);
+            response.getCertificate().setCertificate(sign.getEncoded());
+            response.getCertificate().setUser(owner);
+            
+        } catch (InvalidKeyException ex) {
+            log.warn("Problem with signing", ex);
+        } catch (NoSuchAlgorithmException ex) {
+            log.warn("Problem with signing", ex);
+        } catch (NoSuchProviderException ex) {
+            log.warn("Problem with signing", ex);
+        } catch (SignatureException ex) {
+            log.warn("Problem with signing", ex);
+        } catch (OperatorCreationException ex) {
+            log.warn("Problem with signing", ex);
+        } catch (IOException ex) {
+            log.warn("Problem with signing", ex);
+        }
+        
+        
         
         return response;
     }
