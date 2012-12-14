@@ -20,6 +20,7 @@ import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
+import com.phoenix.service.TrustVerifier;
 import com.phoenix.soap.beans.CertificateStatus;
 import com.phoenix.soap.beans.CertificateWrapper;
 import com.phoenix.soap.beans.WhitelistRequest;
@@ -109,7 +110,7 @@ public class PhoenixEndpoint {
     private HttpServletRequest request;
     
     @Autowired(required = true)
-    private X509TrustManager trustManager;
+    private TrustVerifier trustManager;
     
     @Autowired(required = true)
     private PhoenixDataService dataService;
@@ -607,6 +608,18 @@ public class PhoenixEndpoint {
             
             // current certificate answer
             CertificateWrapper wr = new CertificateWrapper();
+            
+            // special case - server certificate
+            // TODO: refactor this, unclean method
+            if (sip!=null && "server".equalsIgnoreCase(sip)){
+                log.info("Obtaining server certificate");
+                // now just add certificate to response
+                wr.setStatus(CertificateStatus.OK);
+                wr.setUser(sip);
+                wr.setCertificate(this.trustManager.getServerCA().getEncoded());
+                response.getReturn().add(wr);
+                continue;
+            }
             
             // null subscriber - fail, user has to exist in database
             if (s==null){
