@@ -659,10 +659,20 @@ public class PhoenixEndpoint {
             
             // time validity
             try{
+                // time-date validity
                 cert509.checkValidity();
+                
+                // is signed by server CA?
+                cert509.verify(this.trustManager.getServerCA().getPublicKey());
+                
+                // is revoked?
+                Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
+                if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
+                    throw new CertificateException("Certificate is revoked - according to DB");
+                }
             } catch(Exception e){
                 // certificate is invalid
-                log.info("Certificate for user is invalid");
+                log.info("Certificate for user is invalid", e);
                 wr.setStatus(CertificateStatus.INVALID);
                 response.getReturn().add(wr);
                 continue;

@@ -4,6 +4,7 @@
  */
 package com.phoenix.service;
 
+import com.phoenix.db.CAcertsSigned;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,23 +18,31 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.Security;
 import java.security.SignatureException;
+import java.security.cert.CRLException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
+import java.security.cert.CertificateParsingException;
+import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.util.Date;
 import java.util.Formatter;
 import javax.persistence.EntityManager;
+import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
 import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.CRLNumber;
+import org.bouncycastle.asn1.x509.CRLReason;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x509.X509Extension;
+import org.bouncycastle.cert.CertIOException;
+import org.bouncycastle.cert.X509CRLHolder;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
@@ -49,6 +58,10 @@ import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+import org.bouncycastle.cert.X509v2CRLBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CRLConverter;
+import org.bouncycastle.cert.jcajce.JcaX509CRLHolder;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 //import org.bouncycastle.pkcs.PKCS10CertificationRequestHolder;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
@@ -63,6 +76,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class PhoenixServerCASigner {
     private static final Logger log = LoggerFactory.getLogger(PhoenixServerCASigner.class);
+    
+    // new provider name
+    private static final String BC = org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME;
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -197,6 +213,33 @@ public class PhoenixServerCASigner {
     }
     
     /**
+     * Checks revocation against local database
+     * @param cert
+     * @return 
+     */
+    public Boolean isCertificateRevoked(X509Certificate cert) throws NoSuchAlgorithmException, IOException, CertificateEncodingException{
+        if (cert==null){
+            throw new NullPointerException("Null certificate passed");
+        }
+        
+        try {
+            //String digest = this.getCertificateDigest(cert);
+            String query = "SELECT ca FROM CAcertsSigned ca"
+                    + " WHERE ca.serial=:s AND ca.isRevoked=1";
+            CAcertsSigned r = em.createQuery(query, CAcertsSigned.class)
+                    .setParameter("s", cert.getSerialNumber())
+                    .getSingleResult();
+            return true;
+        } catch(NoResultException e){
+            // not a revoked certificate
+            return false;
+        } catch(Exception ex){
+            log.info("certificateRevocationCheckException: ", ex);
+            return null;
+        }
+    }
+    
+    /**
      * Sign certificate with server CA private key.
      * X509v3 extensions are added - CA:False, subjectKeyIdentifier, authorityKeyIdentifier.
      * 
@@ -272,4 +315,91 @@ public class PhoenixServerCASigner {
         is1.close();
         return theCert;
     }
+
+    /**
+     * From BouncyCastle CRL Holder makes java.security.X509CRL.
+     * 
+     * @param crlHolder
+     * @return
+     * @throws CRLException 
+     */
+    public X509CRL getCRLFromHolder(X509CRLHolder crlHolder) throws CRLException{
+         return new JcaX509CRLConverter().setProvider(BC).getCRL(crlHolder);
+    }
+    
+    /**
+     * Generates new CRL
+     * @return
+     * @throws CertificateParsingException
+     * @throws NoSuchProviderException
+     * @throws NoSuchProviderException
+     * @throws SecurityException
+     * @throws SignatureException
+     * @throws InvalidKeyException
+     * @throws NoSuchAlgorithmException
+     * @throws CertIOException
+     * @throws OperatorCreationException 
+     */
+    public X509CRLHolder genereteNewCRL() throws CertificateParsingException, NoSuchProviderException, NoSuchProviderException, SecurityException, SignatureException, InvalidKeyException, NoSuchAlgorithmException, CertIOException, OperatorCreationException {
+        // DEPRECATED, now using 1.47
+        // X509V2CRLGenerator   crlGen = new X509V2CRLGenerator();
+
+        Date now = new Date();
+        Date nextUpdate = new Date(System.currentTimeMillis() * 1000 * 60 * 60 * 24);
+
+        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(
+                new X500Name(this.caCert.getSubjectX500Principal().getName()),
+                now);
+
+        // build CRL        
+        crlGen.setNextUpdate(nextUpdate);
+        crlGen.addCRLEntry(BigInteger.ONE, now, CRLReason.privilegeWithdrawn);
+
+        // extensions
+        JcaX509ExtensionUtils ut = new JcaX509ExtensionUtils();
+        SubjectKeyIdentifier ski = ut.createSubjectKeyIdentifier(this.caCert.getPublicKey());
+        crlGen.addExtension(X509Extension.authorityKeyIdentifier, false, ski);
+        crlGen.addExtension(X509Extension.cRLNumber, false, new CRLNumber(BigInteger.valueOf(1)));
+
+        // signer
+        ContentSigner signer = new JcaContentSignerBuilder("SHA1withRSA")
+                .setProvider(new BouncyCastleProvider())
+                .build(this.privKey);
+
+        // build CRL
+        X509CRLHolder holder = crlGen.build(signer);
+        
+        return holder;
+    }
+
+    /**
+     * Adds new entry to certificate revocation list.
+     * @param crl
+     * @return
+     * @throws CRLException
+     * @throws OperatorCreationException
+     * @throws NoSuchAlgorithmException
+     * @throws CertIOException 
+     */
+    public X509CRLHolder addCRLEntry(X509CRL crl) throws CRLException, OperatorCreationException, NoSuchAlgorithmException, CertIOException{
+        Date now = new Date();
+        Date nextUpdate = new Date(System.currentTimeMillis() * 1000 * 60 * 60 * 24);
+
+        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(
+                new X500Name(this.caCert.getSubjectX500Principal().getName()),
+                now);
+
+        
+        crlGen.setNextUpdate(nextUpdate);
+        crlGen.addCRL(new JcaX509CRLHolder(crl));
+        crlGen.addCRLEntry(BigInteger.valueOf(2), now, CRLReason.privilegeWithdrawn);
+        
+        // extensions
+        JcaX509ExtensionUtils ut = new JcaX509ExtensionUtils();
+        SubjectKeyIdentifier ski = ut.createSubjectKeyIdentifier(this.caCert.getPublicKey());
+        crlGen.addExtension(X509Extension.authorityKeyIdentifier, false, ski);
+        X509CRLHolder crlHolder = crlGen.build(new JcaContentSignerBuilder("SHA256withRSAEncryption").setProvider(BC).build(this.privKey));
+        return crlHolder;
+    }
 }
+

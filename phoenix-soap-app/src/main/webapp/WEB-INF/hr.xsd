@@ -434,6 +434,7 @@
         <xs:restriction base="xs:string">
             <xs:enumeration value="ok"/>
             <xs:enumeration value="invalid"/>
+            <xs:enumeration value="revoked"/>
             <xs:enumeration value="forbidden"/>
             <xs:enumeration value="missing"/>
             <xs:enumeration value="nouser"/>
