@@ -6,9 +6,12 @@ package com.phoenix.service;
 
 import com.phoenix.db.CAcertsSigned;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -44,25 +47,25 @@ import org.bouncycastle.asn1.x509.X509Extension;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.X509CRLHolder;
 import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v2CRLBuilder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CRLConverter;
+import org.bouncycastle.cert.jcajce.JcaX509CRLHolder;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.crypto.util.PrivateKeyFactory;
-//import org.bouncycastle.jce.PKCS10CertificationRequest;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMReader;
+import org.bouncycastle.openssl.PEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
-import org.bouncycastle.pkcs.PKCS10CertificationRequest;
-import org.bouncycastle.cert.X509v2CRLBuilder;
-import org.bouncycastle.cert.jcajce.JcaX509CRLConverter;
-import org.bouncycastle.cert.jcajce.JcaX509CRLHolder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-//import org.bouncycastle.pkcs.PKCS10CertificationRequestHolder;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+import org.bouncycastle.util.io.pem.PemObject;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,6 +195,47 @@ public class PhoenixServerCASigner {
         } else {
             return new PKCS10CertificationRequest(csr);
         }
+    }
+    
+    /**
+     * Returns PEM format of Certificate
+     *
+     * @return
+     * @throws IOException
+     * @throws CertificateEncodingException
+     */
+    public byte[] getCertificateAsPEM(X509Certificate cert) throws IOException, CertificateEncodingException {
+        final String type = "CERTIFICATE";
+        byte[] encoding = cert.getEncoded();
+        PemObject pemObject = new PemObject(type, encoding);
+        return createPEM(pemObject);
+    }
+    
+    /**
+     * Creates PEM object representation and returns byte array
+     *
+     * @param obj
+     * @return
+     * @throws IOException
+     */
+    public byte[] createPEM(Object obj) throws IOException {
+        ByteArrayOutputStream barrout = new ByteArrayOutputStream();
+        this.createPEM(new OutputStreamWriter(barrout), obj);
+        // return encoded PEM data - collect bytes from ByteArrayOutputStream		
+        return barrout.toByteArray();
+    }
+   
+    /**
+     * Creates PEM file from passed object
+     *
+     * @param writer
+     * @throws IOException
+     */
+    public void createPEM(Writer writer, Object obj) throws IOException {
+        PEMWriter pemWrt = new PEMWriter(writer, BC);
+        pemWrt.writeObject(obj);
+        pemWrt.flush();
+        pemWrt.close();
     }
     
     /**
