@@ -281,8 +281,17 @@ public class PhoenixDataService {
      * @param randomized    if true, random number and current time in ms are appended to seed.
      * @return 
      */
-    public String generateHash(String seed, boolean randomized) throws NoSuchAlgorithmException{
-        MessageDigest sha = MessageDigest.getInstance("SHA-512");
+    public static String generateHash(String seed, boolean randomized) throws NoSuchAlgorithmException{
+    	return generateHash(seed, randomized, 1);
+    }
+	 /**
+     * Generates randomized hash on base64 encoding from given seed
+     * @param seed
+     * @param randomized    if true, random number and current time in ms are appended to seed.
+     * @return 
+     */
+    public static String generateHash(String seed, boolean randomized, int iterations) throws NoSuchAlgorithmException{
+    	java.security.MessageDigest sha = java.security.MessageDigest.getInstance("SHA-512");
         String sseed = seed;
         
         if (randomized) {
@@ -293,7 +302,13 @@ public class PhoenixDataService {
             sseed = sb.toString();
         }
         
-        byte[] digest = sha.digest(sseed.getBytes());
+        byte[] input = sseed.getBytes();
+        byte[] digest = null;
+        for(int i=0; i<iterations; i++){
+        	digest = sha.digest(input);
+        	input = digest;
+        }
+        
         return new String(Base64.encode(digest));
     }
     
@@ -397,6 +412,31 @@ public class PhoenixDataService {
     }
     
     /**
+     * Generates string base for encryption and auth token
+     * 
+     * @param sip
+     * @param ha1
+     * @param usrToken
+     * @param serverToken
+     * @param milliWindow
+     * @param offset
+     * @return
+     * @throws NoSuchAlgorithmException 
+     */
+    public String generateUserTokenBase(String sip, String ha1, String usrToken, String serverToken, long milliWindow, int offset) {
+        // determine current time window
+        long curTime = System.currentTimeMillis();
+        long curTimeSlot = ((long) Math.floor(curTime / (double)milliWindow)) + offset;
+        StringBuilder sb = new StringBuilder()
+                .append(sip).append(':')
+                .append(ha1).append(':')
+                .append(usrToken).append(':')
+                .append(serverToken).append(':')
+                .append(curTimeSlot).append(':');
+        return sb.toString();
+    }
+    
+    /**
      * Generates user auth token for defined set of parameters.
      * Method does not use database.
      * @param sip               user sip
@@ -409,16 +449,25 @@ public class PhoenixDataService {
      */
     public String generateUserAuthToken(String sip, String ha1, String usrToken, String serverToken, long milliWindow, int offset) throws NoSuchAlgorithmException{
         // determine current time window
-        long curTime = System.currentTimeMillis();
-        long curTimeSlot = ((long) Math.floor(curTime / (double)milliWindow)) + offset;
-        StringBuilder sb = new StringBuilder()
-                .append(sip).append(':')
-                .append(ha1).append(':')
-                .append(usrToken).append(':')
-                .append(serverToken).append(':')
-                .append(curTimeSlot).append(':')
-                .append("PHOENIX");
-        return generateHash(sb.toString(), false);
+        String base = generateUserTokenBase(sip, ha1, usrToken, serverToken, milliWindow, offset);
+        return generateHash(base+"PHOENIX_AUTH", false, 3779);
+    }
+    
+      /**
+     * Generates user encryption token for defined set of parameters.
+     * Method does not use database.
+     * @param sip               user sip
+     * @param ha1               ha1 field from database
+     * @param usrToken  
+     * @param serverToken       
+     * @param milliWindow       length of one time slot
+     * @param offset            time window offset from NOW
+     * @return 
+     */
+    public String generateUserEncToken(String sip, String ha1, String usrToken, String serverToken, long milliWindow, int offset) throws NoSuchAlgorithmException{
+        // determine current time window
+        String base = generateUserTokenBase(sip, ha1, usrToken, serverToken, milliWindow, offset);
+        return generateHash(base+"PHOENIX_ENC", false, 11);
     }
     
     @Transactional

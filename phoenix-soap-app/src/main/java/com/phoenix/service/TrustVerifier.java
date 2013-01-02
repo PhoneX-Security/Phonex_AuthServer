@@ -198,8 +198,8 @@ public class TrustVerifier implements X509TrustManager {
             }
             
             // if we are on more than first certificate, check signature in chain
-            // meaning checking wether first certificate is signed by second in chain,
-            // more genericly if (i-1)-th certificate is signed by i-th certificate
+            // meaning checking whether first certificate is signed by second in chain,
+            // more generically if (i-1)-th certificate is signed by i-th certificate
             if (curCert>0){
                 try {
                     certs[curCert-1].verify(cert.getPublicKey());

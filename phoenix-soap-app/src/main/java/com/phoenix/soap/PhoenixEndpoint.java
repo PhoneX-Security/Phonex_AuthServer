@@ -53,6 +53,7 @@ import com.phoenix.soap.beans.UserWhitelistStatus;
 import com.phoenix.soap.beans.WhitelistAction;
 import com.phoenix.soap.beans.WhitelistElement;
 import com.phoenix.soap.beans.WhitelistGetResponse;
+import com.phoenix.utils.AESCipher;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
@@ -96,6 +97,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class PhoenixEndpoint {
     private static final Logger log = LoggerFactory.getLogger(PhoenixEndpoint.class);
     private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
+    
+    private static final boolean CLIENT_DEBUG=true;
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -732,23 +735,9 @@ public class PhoenixEndpoint {
         }
         
         try {
-            log.info("Going to extract request");
-            PKCS10CertificationRequest csrr = this.signer.getReuest(csr, false);
-            log.info("Request extracted: " + csrr);
-            log.info("Request extracted: " + csrr.getSubject().toString());
-            
             // request data here - username from signCertificate request
             String reqUser = request.getUser();
             log.info("User [" + reqUser + "] is asking for signing a certificate");
-            
-            // check request validity - CN format, match to username in request
-            String certCN = this.auth.getCNfromX500Name(csrr.getSubject());
-            log.info("CN from certificate: " + certCN);
-            if (certCN==null || certCN.isEmpty()){
-                throw new IllegalArgumentException("CN in certificate is null");
-            } else if (certCN.equals(reqUser)==false){
-                throw new IllegalArgumentException("CN in certificate does not match user in request");
-            }
             
             // user matches, load subscriber data for him
             Subscriber localUser = this.dataService.getLocalUser(reqUser);
@@ -767,18 +756,26 @@ public class PhoenixEndpoint {
             // check user AUTH hash
             // generate 3 tokens, for 3 time slots
             String userHashes[] = new String[3];
+            // store correct encryption key
+            String encKeys[] = new String[3];
             for (int i=-1, c=0; i <=1 ; i++, c++){
                 userHashes[c] = this.dataService.generateUserAuthToken(
                     reqUser, localUser.getHa1(), 
+                    request.getUsrToken(), request.getServerToken(), 
+                    1000 * 60, i);
+                encKeys[c] = this.dataService.generateUserEncToken(reqUser, localUser.getHa1(), 
                     request.getUsrToken(), request.getServerToken(), 
                     1000 * 60, i);
             }
             
             // verify one of auth hashes
             boolean authHash_valid=false;
-            for(String curAuthHash : userHashes){
+            String encKey = "";
+            for (int c=0; c<=2; c++){
+                String curAuthHash = userHashes[c];
                 log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+curAuthHash+"]");
                 if (curAuthHash.equals(request.getAuthHash())){
+                    encKey = encKeys[c];
                     authHash_valid=true;
                     break;
                 }
@@ -791,9 +788,27 @@ public class PhoenixEndpoint {
             
             // check if user is allowed to sign certificate - subscriber table contains flag
             // telling that user is new and can sign new certificate
-            if (localUser.isCanSignNewCert()==false){
+            if (CLIENT_DEBUG==false && localUser.isCanSignNewCert()==false){
                 log.warn("User cannot sign certificates");
                 throw new IllegalArgumentException("Not authorized");
+            }
+            
+            // decrypt CSR - important step, prevents attacker to sign his certificate
+            csr = AESCipher.decrypt(csr, encKey.toCharArray());
+            
+            // extract CSR from request - decrypt 
+            log.info("Going to extract request");
+            PKCS10CertificationRequest csrr = this.signer.getReuest(csr, false);
+            log.info("Request extracted: " + csrr);
+            log.info("Request extracted: " + csrr.getSubject().toString());
+            
+            // check request validity - CN format, match to username in request
+            String certCN = this.auth.getCNfromX500Name(csrr.getSubject());
+            log.info("CN from certificate: " + certCN);
+            if (certCN==null || certCN.isEmpty()){
+                throw new IllegalArgumentException("CN in certificate is null");
+            } else if (certCN.equals(reqUser)==false){
+                throw new IllegalArgumentException("CN in certificate does not match user in request");
             }
             
             // certifiacte for user form different table
@@ -816,7 +831,7 @@ public class PhoenixEndpoint {
                 log.debug("No entity returned when asking for CAsigned DB certificate", ex);
             }
             
-            if (userCert!=null){
+            if (CLIENT_DEBUG==false && userCert!=null){
                 // check if current certificate is about to expire
                 // in interval 14 days. If not, user is not allowed to sign new
                 // certificates.
@@ -860,7 +875,7 @@ public class PhoenixEndpoint {
             // thus if something will fail during signing, transaction with
             // revocation.
             Date notBefore = new Date(System.currentTimeMillis());                           
-            Date notAfter  = new Date(System.currentTimeMillis() + 2 * 365 * 24 * 60 * 60 * 1000);
+            Date notAfter  = new Date(System.currentTimeMillis() + (2 * 365 * 24 * 60 * 60 * 1000));
             
             CAcertsSigned cacertsSigned = new CAcertsSigned();
             cacertsSigned.setCN(certCN);
@@ -949,8 +964,11 @@ public class PhoenixEndpoint {
     @PayloadRoot(localPart = "getOneTimeTokenRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
     public GetOneTimeTokenResponse getOneTimeToken(@RequestPayload GetOneTimeTokenRequest request, MessageContext context) throws CertificateException, NoSuchAlgorithmException {
-        Subscriber owner = this.authUserFromCert(context, this.request);
-        log.info("User connected: " + owner);
+        // For one time token user does not need SSL, 
+        // it is challenge statefull request from server.
+        //
+        //Subscriber owner = this.authUserFromCert(context, this.request);
+        //log.info("User connected: " + owner);
         
         // generate new one time token - 2 minutes validity
         String ott = this.dataService.generateOneTimeToken(request.getUser(), request.getUserToken(), Long.valueOf(1000 * 60 * 2), "");
