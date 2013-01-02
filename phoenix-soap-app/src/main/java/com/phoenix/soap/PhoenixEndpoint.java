@@ -794,7 +794,7 @@ public class PhoenixEndpoint {
             }
             
             // decrypt CSR - important step, prevents attacker to sign his certificate
-            csr = AESCipher.decrypt(csr, encKey.toCharArray());
+            csr = AESCipher.decrypt2(csr, encKey.toCharArray());
             
             // extract CSR from request - decrypt 
             log.info("Going to extract request");

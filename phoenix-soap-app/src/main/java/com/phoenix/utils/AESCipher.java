@@ -9,7 +9,6 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
-import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
 import java.security.spec.KeySpec;
@@ -24,6 +23,16 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.bouncycastle.crypto.BufferedBlockCipher;
+import org.bouncycastle.crypto.CipherParameters;
+import org.bouncycastle.crypto.engines.AESEngine;
+import org.bouncycastle.crypto.modes.CBCBlockCipher;
+import org.bouncycastle.crypto.paddings.BlockCipherPadding;
+import org.bouncycastle.crypto.paddings.PKCS7Padding;
+import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
+import org.bouncycastle.crypto.params.KeyParameter;
+import org.bouncycastle.crypto.params.ParametersWithIV;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
  * AES cipher in CBC mode, special cipher text format. 
@@ -77,7 +86,7 @@ public class AESCipher {
 		SecretKey secret = new SecretKeySpec(tmp.getEncoded(), "AES");
 		
 		// do encryption
-		Cipher cipher = Cipher.getInstance(AES);
+		Cipher cipher = Cipher.getInstance(AES, new BouncyCastleProvider());
 		cipher.init(Cipher.ENCRYPT_MODE, secret);
 		AlgorithmParameters params = cipher.getParameters();
 		
@@ -127,8 +136,52 @@ public class AESCipher {
 		SecretKey tmp = factory.generateSecret(spec);
 		SecretKey secret = new SecretKeySpec(tmp.getEncoded(), "AES");
 		
-		Cipher cipher = Cipher.getInstance(AES);
+		Cipher cipher = Cipher.getInstance(AES, new BouncyCastleProvider());
 		cipher.init(Cipher.DECRYPT_MODE, secret, new IvParameterSpec(iv));
 		return cipher.doFinal(ciphertext);
 	}
+        
+        public static byte[] decrypt2(byte[] cipherblock, char[] password) throws Exception {
+            // split passed cipherblock to parts
+            if (cipherblock.length <= (SALT_SIZE+16)){
+                    throw new IllegalArgumentException("cipher block is too small");
+            }
+
+            int cipherLen = cipherblock.length - SALT_SIZE - 16;
+            byte[] salt = new byte[SALT_SIZE];
+            byte[] iv = new byte[16];
+            byte[] ciphertext = new byte[cipherLen];
+            System.arraycopy(cipherblock, 0,                salt, 		0, 	SALT_SIZE);
+            System.arraycopy(cipherblock, SALT_SIZE,        iv, 		0, 	16);
+            System.arraycopy(cipherblock, SALT_SIZE + 16,   ciphertext,         0,      ciphertext.length);
+
+
+            // derive AES encryption key using password and salt
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+            KeySpec spec = new PBEKeySpec(password, salt, KEY_GEN_ITERATIONS, AES_KEY_SIZE * 8);
+            SecretKey tmp = factory.generateSecret(spec);
+            SecretKey secret = new SecretKeySpec(tmp.getEncoded(), "AES");
+            byte[] key = secret.getEncoded();
+
+            // setup cipher parameters with key and IV
+            KeyParameter keyParam = new KeyParameter(key);
+            CipherParameters params = new ParametersWithIV(keyParam, iv);
+
+            // setup AES cipher in CBC mode with PKCS7 padding
+            BlockCipherPadding padding = new PKCS7Padding();
+            BufferedBlockCipher cipher = new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine()), padding);
+            cipher.reset();
+            cipher.init(false, params);
+
+            // create a temporary buffer to decode into (it'll include padding)
+            byte[] buf = new byte[cipher.getOutputSize(ciphertext.length)];
+            int len = cipher.processBytes(ciphertext, 0, ciphertext.length, buf, 0);
+            len += cipher.doFinal(buf, len);
+
+            // remove padding
+            byte[] out = new byte[len];
+            System.arraycopy(buf, 0, out, 0, len);
+
+            return out;
+    }
 }
