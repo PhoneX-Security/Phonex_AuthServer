@@ -44,6 +44,22 @@ public class EndpointAuth {
     private X509TrustManager trustManager;
     
     /**
+     * Checks only one side SSL (without client certificate required)
+     * @param context
+     * @param request
+     * @throws CertificateException 
+     */
+    public void checkOneSideSSL(MessageContext context, HttpServletRequest request) throws CertificateException{
+        // at first obtain cipher suite from servlet request
+        String cipherSuite = (String) request.getAttribute("javax.servlet.request.cipher_suite");
+        if (cipherSuite == null || cipherSuite.isEmpty()){
+            throw new CertificateException("CertSuite is null, not using secured channel");
+        }
+        
+        // probably OK now
+    }
+    
+    /**
      * Entry method for checking client's certificate - signed by CA, validity.
      * If it is OK, method passes. Otherwise CertificateException is thrown. 
      * @param context 

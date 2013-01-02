@@ -186,6 +186,21 @@ public class PhoenixEndpoint {
     }
     
     /**
+     * Checks whether user is using HTTPS (client certificate not required)
+     * @param context
+     * @param request
+     * @throws CertificateException 
+     */
+    public void checkOneSideSSL(MessageContext context, HttpServletRequest request) throws CertificateException {
+        try {
+            auth.checkOneSideSSL(context, this.request);
+        } catch (CertificateException ex) {
+            log.info("One side SSL check failed", ex);
+            throw new CertificateException("You are not authorized, go away!");
+        }
+    }
+            
+    /**
      * Whitelist manipulation request - with this is user changing its white list
      * @param request
      * @param context
@@ -715,8 +730,8 @@ public class PhoenixEndpoint {
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public SignCertificateResponse signCertificate(@RequestPayload SignCertificateRequest request, MessageContext context) throws CertificateException {
-        //String owner = this.authRemoteUserFromCert(context, this.request);
-        //log.info("Remote user connected: " + owner);
+        // protect user identity and avoid MITM, require SSL
+        this.checkOneSideSSL(context, this.request);
         
         // construct response wrapper
         SignCertificateResponse response = new SignCertificateResponse();
@@ -964,11 +979,10 @@ public class PhoenixEndpoint {
     @PayloadRoot(localPart = "getOneTimeTokenRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
     public GetOneTimeTokenResponse getOneTimeToken(@RequestPayload GetOneTimeTokenRequest request, MessageContext context) throws CertificateException, NoSuchAlgorithmException {
-        // For one time token user does not need SSL, 
-        // it is challenge statefull request from server.
+        // To protect this channel from eavesdropers and to protect user identity
+        // we are using another SSL channel - without client certificate required.
         //
-        //Subscriber owner = this.authUserFromCert(context, this.request);
-        //log.info("User connected: " + owner);
+        this.checkOneSideSSL(context, this.request);
         
         // generate new one time token - 2 minutes validity
         String ott = this.dataService.generateOneTimeToken(request.getUser(), request.getUserToken(), Long.valueOf(1000 * 60 * 2), "");
