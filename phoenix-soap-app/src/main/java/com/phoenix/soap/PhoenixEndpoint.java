@@ -363,9 +363,11 @@ public class PhoenixEndpoint {
         // to user ID
         List<Long> userIDS = null;
         List<UserIdentifier> alias = request.getUser();
-        if (alias!=null && !alias.isEmpty()){
+        if (alias!=null && !alias.isEmpty() && alias.get(0)!=null){
             // OK now load only part of contactlist we are interested in...
             //
+            log.info(alias.get(0).toString());
+            
             List<String> userSIP = new ArrayList<String>(alias.size());
             userIDS = new ArrayList<Long>(alias.size());
             
@@ -889,9 +891,8 @@ public class PhoenixEndpoint {
             // by low level engine for signing. This should be run in transaction
             // thus if something will fail during signing, transaction with
             // revocation.
-            Date notBefore = new Date(System.currentTimeMillis());                           
-            Date notAfter  = new Date(System.currentTimeMillis() + (2 * 365 * 24 * 60 * 60 * 1000));
-            
+            Date notBefore = new Date(System.currentTimeMillis());
+            Date notAfter  = new Date(System.currentTimeMillis() + (2L * 365L * 24L * 60L * 60L * 1000L));
             CAcertsSigned cacertsSigned = new CAcertsSigned();
             cacertsSigned.setCN(certCN);
             cacertsSigned.setIsRevoked(false);
