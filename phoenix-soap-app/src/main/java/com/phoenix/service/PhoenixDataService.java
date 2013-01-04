@@ -263,7 +263,7 @@ public class PhoenixDataService {
             }
             
             // build string with 
-            String querySIP2ID = "SELECT u FROM subscriberCertificate u WHERE subscriber = :s";
+            String querySIP2ID = "SELECT u FROM subscriberCertificate u WHERE subscriber = :s ORDER BY dateCreated DESC LIMIT 1";
             TypedQuery<SubscriberCertificate> query = em.createQuery(querySIP2ID, SubscriberCertificate.class);
             query.setParameter("s", s);
             List<SubscriberCertificate> resultList = query.getResultList();

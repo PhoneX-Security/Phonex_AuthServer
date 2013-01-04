@@ -271,7 +271,7 @@ public class PhoenixServerCASigner {
             String query = "SELECT ca FROM CAcertsSigned ca"
                     + " WHERE ca.serial=:s AND ca.isRevoked=1";
             CAcertsSigned r = em.createQuery(query, CAcertsSigned.class)
-                    .setParameter("s", cert.getSerialNumber())
+                    .setParameter("s", cert.getSerialNumber().longValue())
                     .getSingleResult();
             return true;
         } catch(NoResultException e){
