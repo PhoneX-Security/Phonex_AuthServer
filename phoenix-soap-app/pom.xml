@@ -48,6 +48,7 @@
         <spring-faces.version>2.3.0.BUILD-SNAPSHOT</spring-faces.version>
         <org.slf4j.version>1.5.11</org.slf4j.version>
         <org.hibernate.version>3.6.8.Final</org.hibernate.version>
+        <netbeans.hint.deploy.server>Tomcat</netbeans.hint.deploy.server>
     </properties>
 
     <dependencyManagement>

@@ -44,6 +44,7 @@ import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x509.X509Extension;
+import org.bouncycastle.asn1.x509.X509NameTokenizer;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.X509CRLHolder;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -284,6 +285,41 @@ public class PhoenixServerCASigner {
     }
     
     /**
+     * Takes a DN and reverses it completely so the first attribute ends up last. 
+     * C=SE,O=Foo,CN=Bar becomes CN=Bar,O=Foo,C=SE.
+     *
+     * @param dn String containing DN to be reversed, The DN string has the format "C=SE, O=xx, OU=yy, CN=zz".
+     *
+     * @return String containing reversed DN
+     */
+    public static String reverseDN(String dn) {
+        log.debug(">reverseDN: dn: " + dn);
+        String ret = null;
+        if (dn != null) {
+            String o;
+            BasicX509NameTokenizer xt = new BasicX509NameTokenizer(dn);
+            StringBuffer buf = new StringBuffer();
+            boolean first = true;
+            while (xt.hasMoreTokens()) {
+                o = xt.nextToken();
+                //log.debug("token: "+o);
+                if (!first) {
+                	buf.insert(0,",");
+                } else {
+                    first = false;                	
+                }
+                buf.insert(0,o);
+            }
+            if (buf.length() > 0) {
+            	ret = buf.toString();
+            }
+        }
+        
+        log.debug("<reverseDN: resulting DN=" + ret);
+        return ret;
+    } //reverseDN
+    
+    /**
      * Sign certificate with server CA private key.
      * X509v3 extensions are added - CA:False, subjectKeyIdentifier, authorityKeyIdentifier.
      * 
@@ -312,8 +348,15 @@ public class PhoenixServerCASigner {
         
         // certificate builder - issuer = from ca, subject = from CSR, not before
         // not after = trivial, serial = from database.
+        //
+        // Create true Subject DN of CA Cert in order to avoid reversed DN - reversed DN fails 
+        // certificate verification. 
+        // http://stackoverflow.com/questions/7567837/attributes-reversed-in-certificate-subject-and-issuer
+        String realSubjectDN = reverseDN(caCert.getSubjectX500Principal().getName());
+        log.info("Reversed order: " + realSubjectDN);
+        
         X509v3CertificateBuilder certGen = new X509v3CertificateBuilder(
-                new X500Name(caCert.getIssuerX500Principal().getName()),      // issuer DN
+                new X500Name(realSubjectDN),                                  // issuer DN
                 serial,                                                       // serial
                 notBefore,                                                    // not before
                 notAfter,                                                     // not after
@@ -444,6 +487,89 @@ public class PhoenixServerCASigner {
         crlGen.addExtension(X509Extension.authorityKeyIdentifier, false, ski);
         X509CRLHolder crlHolder = crlGen.build(new JcaContentSignerBuilder("SHA256withRSAEncryption").setProvider(BC).build(this.privKey));
         return crlHolder;
+    }
+    
+    
+    /**
+     * class for breaking up an X500 Name into it's component tokens, ala
+     * java.util.StringTokenizer. Taken from BouncyCastle, but does NOT
+     * use or consider escaped characters. Used for reversing DNs without unescaping.
+     */
+    private static class BasicX509NameTokenizer
+    {
+        private String          oid;
+        private int             index;
+        private StringBuffer    buf = new StringBuffer();
+
+        public BasicX509NameTokenizer(
+            String oid)
+        {
+            this.oid = oid;
+            this.index = -1;
+        }
+
+        public boolean hasMoreTokens()
+        {
+            return (index != oid.length());
+        }
+
+        public String nextToken()
+        {
+            if (index == oid.length())
+            {
+                return null;
+            }
+
+            int     end = index + 1;
+            boolean quoted = false;
+            boolean escaped = false;
+
+            buf.setLength(0);
+
+            while (end != oid.length())
+            {
+                char    c = oid.charAt(end);
+                
+                if (c == '"')
+                {
+                    if (!escaped)
+                    {
+                        buf.append(c);
+                        quoted = !quoted;
+                    }
+                    else
+                    {
+                        buf.append(c);
+                    }
+                    escaped = false;
+                }
+                else
+                { 
+                    if (escaped || quoted)
+                    {
+                        buf.append(c);
+                        escaped = false;
+                    }
+                    else if (c == '\\')
+                    {
+                        buf.append(c);
+                        escaped = true;
+                    }
+                    else if ( (c == ',') && (!escaped) )
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        buf.append(c);
+                    }
+                }
+                end++;
+            }
+
+            index = end;
+            return buf.toString().trim();
+        }
     }
 }
 
