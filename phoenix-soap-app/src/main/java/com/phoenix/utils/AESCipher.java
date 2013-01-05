@@ -47,13 +47,13 @@ public class AESCipher {
 	public static final String AES="AES/CBC/PKCS5Padding";
 	
 	// salt size in bytes
-	public static final int SALT_SIZE = 4;
+	public static final int SALT_SIZE = 12;
 	
 	// AES key size - fix to 256
 	public static final int AES_KEY_SIZE = 32;
 	
 	// how many iterations should key derivation perform?
-	public static final int KEY_GEN_ITERATIONS = 8;
+	public static final int KEY_GEN_ITERATIONS = 1024;
 	
     /**
      * Encrypt plaintext with given key
