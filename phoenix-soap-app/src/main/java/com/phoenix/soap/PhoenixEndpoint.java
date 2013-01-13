@@ -649,13 +649,17 @@ public class PhoenixEndpoint {
                 continue;
             }
             
-            // check if user "s" has in whitelist "owner" = WhitelistDstObj
-            Whitelist wl = this.dataService.getWhitelistForSubscriber(s, dstObj);
-            if ((wl==null || wl.getAction()!=WhitelistStatus.ENABLED) && s.equals(dstObj.getIntern_user())==false){
-                log.info("Not allowed: " + wl);
-                wr.setStatus(CertificateStatus.FORBIDDEN);
-                response.getReturn().add(wr);
-                continue;
+            // logic change: certificate loading is done before 
+            // adding user to contact list, so I need it...
+            if (false){
+                // check if user "s" has in whitelist "owner" = WhitelistDstObj
+                Whitelist wl = this.dataService.getWhitelistForSubscriber(s, dstObj);
+                if ((wl==null || wl.getAction()!=WhitelistStatus.ENABLED) && s.equals(dstObj.getIntern_user())==false){
+                    log.info("Not allowed: " + wl);
+                    wr.setStatus(CertificateStatus.FORBIDDEN);
+                    response.getReturn().add(wr);
+                    continue;
+                }
             }
             
             // obtain certificate for particular subscriber

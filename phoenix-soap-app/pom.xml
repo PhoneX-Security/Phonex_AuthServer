@@ -40,7 +40,7 @@
     <properties>
         <endorsed.dir>${project.build.directory}/endorsed</endorsed.dir>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <org.springframework.version>3.0.7.RELEASE</org.springframework.version>
+        <org.springframework.version>3.2.0.RELEASE</org.springframework.version>
         <org.springframework-remoting.version>2.0.8</org.springframework-remoting.version>
         <org.springframework-ws.version>2.1.2.RELEASE-SNAPSHOT</org.springframework-ws.version>
         <org.richfaces.bom.version>4.1.0.CR2</org.richfaces.bom.version>
@@ -639,7 +639,52 @@
                 <version>2.1.1</version>
                 <configuration>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
+                    
+                <!--    <classifier>prod</classifier>
+                    <webappDirectory>${project.build.directory}/${project.build.finalName}-prod</webappDirectory>
+                    <webResources>
+                      <resource>
+                        <directory>src/env/prod</directory>
+                      </resource>
+                    </webResources>
+                -->    
                 </configuration>
+                <!--
+                 <executions>
+                    <execution>
+                      <id>package-test</id>
+                      <phase>package</phase>
+                      <configuration>
+                        <classifier>test</classifier>
+                        <webappDirectory>${project.build.directory}/${project.build.finalName}-test</webappDirectory>
+                        <webResources>
+                          <resource>
+                            <directory>src/env/test</directory>
+                          </resource>
+                        </webResources>
+                      </configuration>
+                      <goals>
+                        <goal>war</goal>
+                      </goals>
+                    </execution>
+                    <execution>
+                      <id>package-dev</id>
+                      <phase>package</phase>
+                      <configuration>
+                        <classifier>dev</classifier>
+                        <webappDirectory>${project.build.directory}/${project.build.finalName}-dev</webappDirectory>
+                        <webResources>
+                          <resource>
+                            <directory>src/env/dev</directory>
+                          </resource>
+                        </webResources>
+                      </configuration>
+                      <goals>
+                        <goal>war</goal>
+                      </goals>
+                    </execution>
+                  </executions>
+                  -->
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
