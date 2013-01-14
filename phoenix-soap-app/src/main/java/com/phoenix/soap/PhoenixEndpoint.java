@@ -481,69 +481,78 @@ public class PhoenixEndpoint {
         // 1. select targeted subscriber
         // 2. create/modify/delete contact list accordingly
         log.info("elems is not null; size: " + elems.size());
-        for(ContactlistChangeRequestElement elem : elems){
-            if (elem==null) continue;
-            log.info("ActionRequest: on [" + elem.getUser() + "] do: [" + elem.getAction().value() + "]");
-            
-            // At first obtain user object we are talking about.
-            // Now assume only local user, we will have procedure for extern and groups also
-            // in future (I hope so:)).
-            Subscriber s = null;
-            String sip = elem.getUser().getUserSIP();
-            Long userID = elem.getUser().getUserID();
-            if (sip!=null && !sip.isEmpty()){
-                s = dataService.getLocalUser(sip);
-            } else if (userID!=null && userID>0){
-                s = dataService.getLocalUser(userID);
-            } else {
-                throw new RuntimeException("Both user identifiers are null");
-            }
-            
-            // null subscriber is not implemented yet
-            if (s==null){
-                log.info("Subscriber defined is null, not implemented yet.");
-                response.getReturn().add(-1);
-                continue;
-            }
-            
-            // is there already some contact list item?
-            Contactlist cl = this.dataService.getContactlistForSubscriber(owner, s);
-            ContactlistAction action = elem.getAction();
-            try {
-                if (cl!=null){
-                    // contact list entry is empty -> record does not exist
-                    if (action == ContactlistAction.REMOVE){
-                        this.dataService.remove(cl, true);
-                        response.getReturn().add(1);
-                        continue;
-                    }
-                    
-                    cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
-                    this.dataService.persist(cl, true);
-                    response.getReturn().add(1);
-                    
+        log.info("elems2string: " + elems.toString());
+        try {
+            for(ContactlistChangeRequestElement elem : elems){
+                if (elem==null) continue;
+                log.info("elem2string: " + elem.toString());
+                log.info("user: " + elem.getUser());
+                log.info("action: " + elem.getAction());
+                log.info("ActionRequest: on [" + elem.getUser() + "] do: [" + elem.getAction().value() + "]");
+
+                // At first obtain user object we are talking about.
+                // Now assume only local user, we will have procedure for extern and groups also
+                // in future (I hope so:)).
+                Subscriber s = null;
+                String sip = elem.getUser().getUserSIP();
+                Long userID = elem.getUser().getUserID();
+                if (sip!=null && !sip.isEmpty()){
+                    s = dataService.getLocalUser(sip);
+                } else if (userID!=null && userID>0){
+                    s = dataService.getLocalUser(userID);
                 } else {
-                    // contact list entry is empty -> record does not exist
-                    if (action == ContactlistAction.REMOVE){
-                        response.getReturn().add(-1);
-                        log.info("Wanted to delete non-existing whitelist record");
-                        continue;
-                    }
-                    
-                    cl = new Contactlist();
-                    cl.setDateCreated(new Date());
-                    cl.setDateLastEdit(new Date());
-                    cl.setOwner(owner);
-                    cl.setObjType(ContactlistObjType.INTERNAL_USER);
-                    cl.setObj(new ContactlistDstObj(s));
-                    cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
-                    this.dataService.persist(cl, true);
-                    response.getReturn().add(1);
+                    throw new RuntimeException("Both user identifiers are null");
                 }
-            } catch(Exception e){
-                log.info("Manipulation with contactlist failed", e);
-                response.getReturn().add(-1);
+
+                // null subscriber is not implemented yet
+                if (s==null){
+                    log.info("Subscriber defined is null, not implemented yet.");
+                    response.getReturn().add(-1);
+                    continue;
+                }
+
+                // is there already some contact list item?
+                Contactlist cl = this.dataService.getContactlistForSubscriber(owner, s);
+                ContactlistAction action = elem.getAction();
+                try {
+                    if (cl!=null){
+                        // contact list entry is empty -> record does not exist
+                        if (action == ContactlistAction.REMOVE){
+                            this.dataService.remove(cl, true);
+                            response.getReturn().add(1);
+                            continue;
+                        }
+
+                        cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
+                        this.dataService.persist(cl, true);
+                        response.getReturn().add(1);
+
+                    } else {
+                        // contact list entry is empty -> record does not exist
+                        if (action == ContactlistAction.REMOVE){
+                            response.getReturn().add(-1);
+                            log.info("Wanted to delete non-existing whitelist record");
+                            continue;
+                        }
+
+                        cl = new Contactlist();
+                        cl.setDateCreated(new Date());
+                        cl.setDateLastEdit(new Date());
+                        cl.setOwner(owner);
+                        cl.setObjType(ContactlistObjType.INTERNAL_USER);
+                        cl.setObj(new ContactlistDstObj(s));
+                        cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
+                        this.dataService.persist(cl, true);
+                        response.getReturn().add(1);
+                    }
+                } catch(Exception e){
+                    log.info("Manipulation with contactlist failed", e);
+                    response.getReturn().add(-1);
+                }
             }
+        } catch(Exception e){
+            log.info("Exception ocurred", e);
+            return null;
         }
        
         return response;
