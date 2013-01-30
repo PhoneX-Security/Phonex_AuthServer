@@ -534,6 +534,41 @@
         </xs:complexType>
     </xs:element>
     
+    <xs:element name="passwordChangeRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Request to change password to provided value. 
+                User can also change password for different user - see targetUser field.
+                Password is encrypted like CSR is, but in base64, 
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="usrToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="newHA1" type="hr:binaryPayload"/>
+                <xs:element name="newHA1b" type="hr:binaryPayload"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="passwordChangeResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for password change request
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="result" type="xs:int"/>
+                <xs:element name="reason" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
     <xs:element name="binaryMessageUpload">
         <xs:annotation>
             <xs:documentation>

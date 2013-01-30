@@ -45,6 +45,8 @@ import com.phoenix.soap.beans.GetCertificateRequest;
 import com.phoenix.soap.beans.GetCertificateResponse;
 import com.phoenix.soap.beans.GetOneTimeTokenRequest;
 import com.phoenix.soap.beans.GetOneTimeTokenResponse;
+import com.phoenix.soap.beans.PasswordChangeRequest;
+import com.phoenix.soap.beans.PasswordChangeResponse;
 import com.phoenix.soap.beans.SignCertificateRequest;
 import com.phoenix.soap.beans.SignCertificateResponse;
 import com.phoenix.soap.beans.UserIdentifier;
@@ -718,6 +720,123 @@ public class PhoenixEndpoint {
             response.getReturn().add(wr);
         }
         
+        return response;
+    }
+    
+    /**
+     * Changing user password. 
+     * 
+     * This call require user certificate to be provided. From certificate is user
+     * name extracted and matched against policy.
+     * 
+     * With this call user can change password even for different user (in its group).
+     * Passwords for both HA1 and HA1B has to be provided.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "passwordChangeRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public PasswordChangeResponse passwordChange(@RequestPayload PasswordChangeRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        String sip = auth.getSIPFromCertificate(context, this.request);
+        log.info("User connected: " + owner);
+        
+        // construct response wrapper
+        PasswordChangeResponse response = new PasswordChangeResponse();
+        response.setResult(-1);
+        
+        // obtain new password encrypted by my AES
+        byte[] newHA1 = request.getNewHA1();
+        byte[] newHA1B = request.getNewHA1B();
+        
+        if (newHA1==null || newHA1B==null){
+            log.warn("One (or both) of HA1, HA1B passwords is empty");
+            throw new IllegalArgumentException("Null password");
+        }
+                
+        try {            
+            // check token here!
+            boolean ott_valid = this.dataService.isOneTimeTokenValid(sip, request.getUsrToken(), request.getServerToken(), "");
+            if (ott_valid==false){
+                log.warn("Invalid one time token");
+                throw new RuntimeException("Not authorized");
+            }
+            
+            // check user AUTH hash
+            // generate 3 tokens, for 3 time slots
+            String userHashes[] = new String[3];
+            // store correct encryption key
+            String encKeys[] = new String[3];
+            for (int i=-1, c=0; i <=1 ; i++, c++){
+                userHashes[c] = this.dataService.generateUserAuthToken(
+                    sip, owner.getHa1(), 
+                    request.getUsrToken(), request.getServerToken(), 
+                    1000 * 60, i);
+                encKeys[c] = this.dataService.generateUserEncToken(sip, owner.getHa1(), 
+                    request.getUsrToken(), request.getServerToken(), 
+                    1000 * 60, i);
+            }
+            
+            // verify one of auth hashes
+            boolean authHash_valid=false;
+            String encKey = "";
+            for (int c=0; c<=2; c++){
+                String curAuthHash = userHashes[c];
+                log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+curAuthHash+"]");
+                if (curAuthHash.equals(request.getAuthHash())){
+                    encKey = encKeys[c];
+                    authHash_valid=true;
+                    break;
+                }
+            }
+            
+            if (authHash_valid==false){
+                log.warn("Invalid auth hash");
+                throw new RuntimeException("Not authorized");
+            }
+            
+            // here we can decrypt passwords
+            String newHA1Dec=null;
+            String newHA1BDec=null;
+            try {
+                newHA1Dec = new String(AESCipher.decrypt2(newHA1, encKey.toCharArray()), "UTF-8");
+                newHA1BDec = new String(AESCipher.decrypt2(newHA1B, encKey.toCharArray()), "UTF-8");
+            } catch(Exception e){
+                log.warn("Error during decrypting new passwords");
+                throw new RuntimeException("Not authorized");
+            }
+            
+            if (newHA1Dec==null || newHA1BDec==null){
+                log.warn("Some of decrypted passwords (or both) is null");
+                throw new RuntimeException("Not authorized");
+            }
+            
+            // ok, now ignore target user option, for NOW
+            // TODO: add support for groups and changing user 
+            if (request.getTargetUser().equals(sip)){
+                log.warn("Not implemented feature: changing pasword for different user");
+                throw new UnsupportedOperationException("This feature is not implemented yet.");
+            }
+            
+            // so now we change user password for targetUser.
+            Subscriber targetUserObj = this.dataService.getLocalUser(request.getTargetUser());
+            // and just change password. this must be safe, in transaction, since 
+            targetUserObj.setHa1(newHA1Dec);
+            targetUserObj.setHa1b(newHA1BDec);
+            em.persist(targetUserObj);
+            
+            response.setResult(1);
+            response.setTargetUser(request.getTargetUser());
+            response.setReason("Password changes successfully");
+         } catch(Exception e){
+             log.warn("Exception in password change procedure", e);
+             throw new RuntimeException(e);
+         }
+         
         return response;
     }
     
