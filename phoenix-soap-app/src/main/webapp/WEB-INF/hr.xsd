@@ -248,6 +248,7 @@
             <xs:element name="presenceStatus" type="hr:userPresenceStatus"/>
             <xs:element name="contactlistStatus" type="hr:enabledDisabled"/>
             <xs:element name="whitelistStatus" type="hr:userWhitelistStatus"/>
+            <xs:element name="hideInContactList" type="xs:boolean"/>
         </xs:sequence>
     </xs:complexType>
     
@@ -416,7 +417,7 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="user" type="hr:userIdentifier" minOccurs="1" maxOccurs="unbounded"/>
+                <xs:element name="element" type="hr:certificateRequestElement" minOccurs="1" maxOccurs="unbounded"/>
             </xs:sequence>   
         </xs:complexType>
         <xs:unique name="uniqueCertUlistSchema">
@@ -441,6 +442,25 @@
         </xs:restriction>
     </xs:simpleType>
     
+    <xs:complexType name="certificateRequestElement">
+        <xs:annotation>
+            <xs:documentation>
+                One element in certificate request. Contains user to retrieve 
+                certificate for. 
+                
+                User can also provide hash for certificate that owns and assumes 
+                it is valid hash for certificate. In this case we are not returning
+                binary certificate, we are just confirming its validity if it is true.
+                If provided certificate is invalid, INVALID is returned and if user
+                has some new certificate valid, it is returned.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="certificateHash" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+    
     <xs:complexType name="certificateWrapper">
         <xs:annotation>
             <xs:documentation>
@@ -451,6 +471,7 @@
             <xs:element name="user" type="hr:userSIP"/>
             <xs:element name="certificate" type="hr:binaryPayload"/>
             <xs:element name="status" type="hr:certificateStatus"/>
+            <xs:element name="providedCertStatus" type="hr:certificateStatus"/>
         </xs:sequence>
     </xs:complexType>
     

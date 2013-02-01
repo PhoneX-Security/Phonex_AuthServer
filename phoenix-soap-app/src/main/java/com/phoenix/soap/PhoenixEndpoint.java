@@ -8,7 +8,6 @@ import com.phoenix.db.CAcertsSigned;
 import com.phoenix.db.Contactlist;
 import com.phoenix.db.ContactlistDstObj;
 import com.phoenix.db.RemoteUser;
-import com.phoenix.db.SubscriberCertificate;
 import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
 import com.phoenix.db.WhitelistSrcObj;
@@ -21,6 +20,7 @@ import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
 import com.phoenix.service.TrustVerifier;
+import com.phoenix.soap.beans.CertificateRequestElement;
 import com.phoenix.soap.beans.CertificateStatus;
 import com.phoenix.soap.beans.CertificateWrapper;
 import com.phoenix.soap.beans.WhitelistRequest;
@@ -71,7 +71,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
@@ -568,6 +567,11 @@ public class PhoenixEndpoint {
      * This method can be called by remote users also (more servers setup) thus
      * it does not necessarily have subscriber record here. 
      * 
+     * If user provides hash of existing certificate then is only lightweight check
+     * performed - test if given certificate with given hash is valid for given user.
+     * No actual certificate test is performed (time validity & so on). This is left
+     * up to the user.
+     * 
      * For authentication do the following:
      *  - check certificate time validity & signature of CA
      *  - extract SIP from certificate (must be valid and present)
@@ -617,22 +621,19 @@ public class PhoenixEndpoint {
         GetCertificateResponse response = new GetCertificateResponse();
         
         // maximum length?
-        if (request.getUser()==null || request.getUser().isEmpty() || request.getUser().size()>30){
+        if (request.getElement()==null || request.getElement().isEmpty() || request.getElement().size()>30){
             throw new IllegalArgumentException("Invalid size of request");
         }
         
         // now we have prepared data for whitelist search, lets iterate over 
-        for(UserIdentifier ui : request.getUser()){
+        for(CertificateRequestElement el : request.getElement()){
             // At first obtain user object we are talking about.
             // Now assume only local user, we will have procedure for extern and groups also
             // in future (I hope so:)).
             Subscriber s = null;
-            String sip = ui.getUserSIP();
-            Long userID = ui.getUserID();
+            String sip = el.getUser();
             if (sip!=null && !sip.isEmpty()){
                 s = dataService.getLocalUser(sip);
-            } else if (userID!=null && userID>0){
-                s = dataService.getLocalUser(userID);
             } else {
                 throw new RuntimeException("Both user identifiers are null");
             }
@@ -673,8 +674,34 @@ public class PhoenixEndpoint {
                 }
             }
             
+            // if user provided certificate hash, first check whether it is valid
+            // and real certificate for user. If yes, then just confirm this to save
+            // bandwidth. No certificate is really sent to user, no real certificate
+            // checks are done (expiration, signature, etc...)
+            String certHash = el.getCertificateHash();
+            if (certHash!=null && certHash.isEmpty()==false){
+                boolean valid = false;
+                try {
+                    valid = this.dataService.isProvidedHashValid(s, certHash);
+                } catch(Exception ex){
+                    log.warn("Exception during testing existing certificate hash", ex);
+                }
+                
+                // it is valid -> no need to continue
+                if (valid==true){
+                    wr.setProvidedCertStatus(CertificateStatus.OK);
+                    wr.setStatus(CertificateStatus.OK);
+                    wr.setUser(PhoenixDataService.getSIP(s));
+                    wr.setCertificate(null);
+                    response.getReturn().add(wr);
+                    continue;
+                } else {
+                    wr.setProvidedCertStatus(CertificateStatus.INVALID);
+                }
+            }
+            
             // obtain certificate for particular subscriber
-            SubscriberCertificate cert = this.dataService.getCertificateForUser(s);
+            CAcertsSigned cert = this.dataService.getCertificateForUser(s);
             if (cert==null || cert.getCert()==null){
                 log.info("Certificate for user is null");
                 log.info("cert: " + cert);
@@ -960,34 +987,24 @@ public class PhoenixEndpoint {
                 throw new IllegalArgumentException("CN in certificate does not match user in request");
             }
             
-            // certifiacte for user form different table
-            SubscriberCertificate certificateForUser=null;
-            
             // check if user already has valid certificate (not revoked, date valid)
             CAcertsSigned userCert = null;
             
             try {
-                    userCert = em.createQuery("select cs from CAcertsSigned cs "
-                                    + " WHERE cs.subscriber=:s "
-                                    + " AND cs.isRevoked=false"
-                                    + " AND cs.notValidAfter>:n"    
-                                    + " ORDER BY cs.notValidBefore DESC", CAcertsSigned.class)
-                                    .setParameter("s", localUser)
-                                    .setParameter("n", new Date())
-                                    .getSingleResult();
+                userCert = this.dataService.getCertificateForUser(localUser);
             } catch(Exception ex){
                 // no entity found and another exceptions - not interested in
                 log.debug("No entity returned when asking for CAsigned DB certificate", ex);
             }
             
-            if (CLIENT_DEBUG==false && userCert!=null){
+            if (userCert!=null){
                 // check if current certificate is about to expire
                 // in interval 14 days. If not, user is not allowed to sign new
                 // certificates.
                 log.info("User has some valid certificate in DB: " + userCert);
                 
                 Date expireLimit = new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000);
-                if (userCert.getNotValidAfter().after(expireLimit)){
+                if (CLIENT_DEBUG==false && userCert.getNotValidAfter().after(expireLimit)){
                     log.warn("User wants to create a new certificate even though "
                             + "he has on valid certificate, with more than 14 days validity");
                     throw new IllegalArgumentException("Your certificate is valid enough, wait for expiration.");
@@ -1001,15 +1018,6 @@ public class PhoenixEndpoint {
                         dbCert.getPublicKey().getEncoded())){
                     log.warn("User wants to sign certificate with same public key as previous valid certificate");
                     throw new IllegalArgumentException("Your certificate is not secure - PK is same as previous");
-                }
-                
-                // check if this certificate is also in subscriber certificate table
-                certificateForUser = this.dataService.getCertificateForUser(localUser);
-                if (certificateForUser==null){
-                    log.warn("Certificate for user is null but there is some valid in CA db");
-                } else {
-                    log.info("There also exists certificate in subscriber database");
-                    em.remove(certificateForUser);
                 }
                 
                 // if here, revoke existing certificate
@@ -1053,15 +1061,6 @@ public class PhoenixEndpoint {
             cacertsSigned.setRawCert(sign.getEncoded());
             cacertsSigned.setCertHash(this.signer.getCertificateDigest(sign));
             em.persist(cacertsSigned);
-            
-            // create also subscriber certificate in SubscribeCertificate table
-            // for another applications.
-            SubscriberCertificate sc = new SubscriberCertificate();
-            sc.setRawCert(sign.getEncoded());
-            sc.setDateCreated(new Date());
-            sc.setDateLastEdit(new Date());
-            sc.setSubscriber(localUser);
-            em.persist(sc);
             
             // flush transaction
             em.flush();

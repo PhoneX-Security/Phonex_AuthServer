@@ -4,18 +4,16 @@
  */
 package com.phoenix.service;
 
+import com.phoenix.db.CAcertsSigned;
 import com.phoenix.db.Contactlist;
 import com.phoenix.db.OneTimeToken;
 import com.phoenix.db.RemoteUser;
-import com.phoenix.db.SubscriberCertificate;
 import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
 import com.phoenix.db.opensips.Subscriber;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.Date;
-import java.util.Formatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -252,23 +250,55 @@ public class PhoenixDataService {
     }
     
     /**
-     * Returns remote subscriber from user SIP
-     * @param sip
+     * Returns true if user has stored certificate with this hash and it is valid
+     * @param s
+     * @param hash
      * @return 
      */
-    public SubscriberCertificate getCertificateForUser(Subscriber s){
+    public boolean isProvidedHashValid(Subscriber s, String hash){
         try {
             if (s==null) {
                 throw new NullPointerException("Passed null subscriber");
             }
             
             // build string with 
-            String querySIP2ID = "SELECT u FROM subscriberCertificate u WHERE subscriber = :s ORDER BY dateCreated DESC LIMIT 1";
-            TypedQuery<SubscriberCertificate> query = em.createQuery(querySIP2ID, SubscriberCertificate.class);
-            query.setParameter("s", s);
-            List<SubscriberCertificate> resultList = query.getResultList();
-            return resultList.isEmpty() ? null : resultList.get(0);
+            String querySIP2ID = "SELECT 1 FROM CAcertsSigned cs "
+                    + " WHERE subscriber=:s AND certHash=:h "
+                    + " AND isRevoked=false "
+                    + " AND cs.notValidAfter>:n "
+                    + " LIMIT 1";
+            Query query = em.createQuery(querySIP2ID);
+            query.setParameter("s", s).setParameter("h", hash).setParameter("n", new Date());
+            List resultList = query.getResultList();
             
+            return resultList!=null && resultList.size()==1;
+        } catch(Exception ex){
+            log.info("Problem occurred during loading user from database", ex);
+            throw new RuntimeException(ex);
+        }
+    }
+    
+    /**
+     * Returns remote subscriber from user SIP
+     * @param sip
+     * @return 
+     */
+    public CAcertsSigned getCertificateForUser(Subscriber s){
+        try {
+            if (s==null) {
+                throw new NullPointerException("Passed null subscriber");
+            }
+            
+            CAcertsSigned userCert = em.createQuery("select cs from CAcertsSigned cs "
+                            + " WHERE cs.subscriber=:s "
+                            + " AND cs.isRevoked=false"
+                            + " AND cs.notValidAfter>:n"    
+                            + " ORDER BY cs.notValidBefore DESC"
+                            + " LIMIT 1", CAcertsSigned.class)
+                            .setParameter("s", s)
+                            .setParameter("n", new Date())
+                            .getSingleResult();
+            return userCert;
         } catch(Exception ex){
             log.info("Problem occurred during loading user from database", ex);
             return null;

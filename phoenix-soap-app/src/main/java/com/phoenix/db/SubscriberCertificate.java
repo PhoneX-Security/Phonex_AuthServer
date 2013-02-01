@@ -25,7 +25,9 @@ import javax.persistence.Temporal;
 import javax.persistence.Transient;
 
 /**
- *
+ * @deprecated 1.2.2013
+ * All certificates are stored in CAcertsSigned table together with their revocation
+ * 
  * @author ph4r05
  */
 @Entity(name = "subscriberCertificate")
@@ -58,7 +60,9 @@ public class SubscriberCertificate implements Serializable {
     private Date dateCreated;
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date dateLastEdit;
-
+    
+    private String certHash;
+    private boolean valid;
     public Long getId() {
         return id;
     }
@@ -152,6 +156,14 @@ public class SubscriberCertificate implements Serializable {
         return rawCert;
     }
 
+    public String getCertHash() {
+        return certHash;
+    }
+
+    public boolean isValid() {
+        return valid;
+    }
+    
     public void setRawCert(byte[] rawCert) throws CertificateEncodingException, CertificateException {
         this.rawCert = rawCert;
         this.updateCert();
@@ -159,6 +171,6 @@ public class SubscriberCertificate implements Serializable {
 
     @Override
     public String toString() {
-        return "SubscriberCertificate{" + "id=" + id + ", subscriber=" + subscriber + ", cert=" + cert + ", rawCert=" + rawCert + ", notValidBefore=" + notValidBefore + ", notValidAfter=" + notValidAfter + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + '}';
+        return "SubscriberCertificate{" + "id=" + id + ", subscriber=" + subscriber + ", cert=" + cert + ", rawCert=" + rawCert + ", notValidBefore=" + notValidBefore + ", notValidAfter=" + notValidAfter + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + ", certHash=" + certHash + ", valid=" + valid + '}';
     }
 }
