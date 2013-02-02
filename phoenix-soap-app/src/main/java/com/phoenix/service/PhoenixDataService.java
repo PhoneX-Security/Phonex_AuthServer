@@ -265,10 +265,10 @@ public class PhoenixDataService {
             String querySIP2ID = "SELECT 1 FROM CAcertsSigned cs "
                     + " WHERE subscriber=:s AND certHash=:h "
                     + " AND isRevoked=false "
-                    + " AND cs.notValidAfter>:n "
-                    + " LIMIT 1";
+                    + " AND cs.notValidAfter>:n ";
             Query query = em.createQuery(querySIP2ID);
             query.setParameter("s", s).setParameter("h", hash).setParameter("n", new Date());
+            query.setMaxResults(1);
             List resultList = query.getResultList();
             
             return resultList!=null && resultList.size()==1;
@@ -293,8 +293,7 @@ public class PhoenixDataService {
                             + " WHERE cs.subscriber=:s "
                             + " AND cs.isRevoked=false"
                             + " AND cs.notValidAfter>:n"    
-                            + " ORDER BY cs.dateSigned DESC"
-                            + " LIMIT 1", CAcertsSigned.class)
+                            + " ORDER BY cs.dateSigned DESC", CAcertsSigned.class)
                             .setParameter("s", s)
                             .setParameter("n", new Date())
                             .setMaxResults(1)
