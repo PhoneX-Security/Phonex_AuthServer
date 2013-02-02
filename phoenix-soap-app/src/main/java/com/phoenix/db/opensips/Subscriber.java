@@ -156,7 +156,7 @@ public class Subscriber implements java.io.Serializable {
         *
         * @return
         */
-        @Column(name = "canSignNewCert", nullable = false)
+        @Column(name = "canSignNewCert", nullable = false, columnDefinition = "TINYINT(1)")
         public Boolean isCanSignNewCert() {
             return canSignNewCert;
         }

@@ -20,6 +20,7 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Temporal;
+import org.hibernate.annotations.Type;
 
 /**
  * User's contact list
@@ -55,6 +56,15 @@ public class Contactlist implements Serializable {
     private Date dateCreated;
     @Temporal(javax.persistence.TemporalType.TIME)
     private Date dateLastEdit;
+    
+    @Column(nullable = false, columnDefinition = "TINYINT(1)")
+    private boolean inWhitelist=false;
+    
+    @Column(nullable = false, columnDefinition = "TINYINT(1)")
+    private boolean inBlacklist=false;
+    
+    @Column(nullable = false, columnDefinition = "TINYINT(1)")
+    private boolean hideInContactList=false;
     
     public Long getId() {
         return id;
@@ -112,6 +122,30 @@ public class Contactlist implements Serializable {
         this.dateLastEdit = dateLastEdit;
     }
 
+    public boolean isInWhitelist() {
+        return inWhitelist;
+    }
+
+    public void setInWhitelist(boolean inWhitelist) {
+        this.inWhitelist = inWhitelist;
+    }
+
+    public boolean isInBlacklist() {
+        return inBlacklist;
+    }
+
+    public void setInBlacklist(boolean inBlacklist) {
+        this.inBlacklist = inBlacklist;
+    }
+
+    public boolean isHideInContactList() {
+        return hideInContactList;
+    }
+
+    public void setHideInContactList(boolean hideInContactList) {
+        this.hideInContactList = hideInContactList;
+    }
+    
     @Override
     public int hashCode() {
         int hash = 3;
@@ -152,6 +186,6 @@ public class Contactlist implements Serializable {
 
     @Override
     public String toString() {
-        return "Contactlist{" + "id=" + id + ", owner=" + owner + ", objType=" + objType + ", obj=" + obj + ", entryState=" + entryState + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + '}';
+        return "Contactlist{" + "id=" + id + ", owner=" + owner + ", objType=" + objType + ", obj=" + obj + ", entryState=" + entryState + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + ", inWhitelist=" + inWhitelist + ", inBlacklist=" + inBlacklist + ", hideInContactList=" + hideInContactList + '}';
     }
 }

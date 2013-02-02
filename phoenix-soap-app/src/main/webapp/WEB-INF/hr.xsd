@@ -90,6 +90,7 @@
             <xs:enumeration value="remove"/>
             <xs:enumeration value="enable"/>
             <xs:enumeration value="disable"/>
+            <xs:enumeration value="nothing"/>
         </xs:restriction>
     </xs:simpleType>
     
@@ -104,6 +105,7 @@
             <xs:enumeration value="remove"/>
             <xs:enumeration value="enable"/>
             <xs:enumeration value="disable"/>
+            <xs:enumeration value="nothing"/>
         </xs:restriction>
     </xs:simpleType>
 
@@ -165,14 +167,18 @@
         <xs:restriction base="xs:int"/>
     </xs:simpleType>
     
-    <xs:simpleType name="contactlistReturn">
+    <xs:complexType name="contactlistReturn">
         <xs:annotation>
             <xs:documentation>
                 Contactlist request response type - integer
             </xs:documentation>
         </xs:annotation>
-        <xs:restriction base="xs:int"/>
-    </xs:simpleType>
+        <xs:sequence>
+            <xs:element name="targetUser" type="hr:userSIP"/>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="resultCode" type="xs:int"/>
+        </xs:sequence>
+    </xs:complexType>
     
     <xs:complexType name="aliasList">
         <xs:annotation>
@@ -182,6 +188,17 @@
         </xs:annotation>
         <xs:sequence>
             <xs:element name="alias" type="hr:alias" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:complexType name="sipList">
+        <xs:annotation>
+            <xs:documentation>
+                List of SIP addresses
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
     </xs:complexType>
     
@@ -218,6 +235,7 @@
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
+            <xs:element name="targetUser" type="hr:userSIP"/>
             <xs:element name="user" type="hr:userIdentifier"/>
             <xs:element name="action" type="hr:whitelistAction"/>
         </xs:sequence>
@@ -226,12 +244,17 @@
     <xs:complexType name="contactlistChangeRequestElement">
         <xs:annotation>
             <xs:documentation>
-                Contactlist request element, inside contactlist change request message
+                Contactlist request element, inside contactlist change request message.
+                
+                Since Whitelist is subset of contactlist, with this request user
+                can change whitelist settings also. 
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
+            <xs:element name="targetUser" type="hr:userSIP"/>
             <xs:element name="user" type="hr:userIdentifier"/>
             <xs:element name="action" type="hr:contactlistAction"/>
+            <xs:element name="whitelistAction" type="hr:whitelistAction"/>
         </xs:sequence>
     </xs:complexType>
     
@@ -242,6 +265,7 @@
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
+            <xs:element name="owner" type="hr:userSIP"/>
             <xs:element name="userid" type="hr:userID"/>
             <xs:element name="alias" type="hr:alias"/>
             <xs:element name="usersip" type="hr:userSIP"/>
@@ -349,7 +373,8 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="user" type="hr:userIdentifier" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="users" type="hr:userIdentifier" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>   
         </xs:complexType>
         <xs:unique name="uniqueAliasClistSchema">

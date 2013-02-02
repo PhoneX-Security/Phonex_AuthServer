@@ -40,6 +40,7 @@ import com.phoenix.soap.beans.ContactlistChangeRequestElement;
 import com.phoenix.soap.beans.ContactlistChangeResponse;
 import com.phoenix.soap.beans.ContactlistGetRequest;
 import com.phoenix.soap.beans.ContactlistGetResponse;
+import com.phoenix.soap.beans.ContactlistReturn;
 import com.phoenix.soap.beans.EnabledDisabled;
 import com.phoenix.soap.beans.GetCertificateRequest;
 import com.phoenix.soap.beans.GetCertificateResponse;
@@ -67,6 +68,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -354,16 +356,28 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public ContactlistGetResponse contactlistGetRequest(@RequestPayload ContactlistGetRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
+        String ownerSip = PhoenixDataService.getSIP(owner);
         log.info("User connected: " + owner);
         
         // subscriber list
         List<Subscriber> subs = new LinkedList<Subscriber>();
+        Map<Integer, Contactlist> clistEntries = new HashMap<Integer, Contactlist>();
+        String targetUser = request.getTargetUser();
+        if (targetUser==null || targetUser.isEmpty()){
+            targetUser=ownerSip;
+        }
+        
+        // TODO: implement this, obtaining contact list for different person
+        if (ownerSip.equals(targetUser)==false){
+            log.warn("Obtaining contact list for different person is not allowed");
+            throw new RuntimeException("Not implemented yet");
+        }
         
         // analyze request - extract user identifiers to load from contact list.
         // At first extract all users with SIP name from local user table and convert
         // to user ID
         List<Long> userIDS = null;
-        List<UserIdentifier> alias = request.getUser();
+        List<UserIdentifier> alias = request.getUsers();
         if (alias!=null && !alias.isEmpty() && alias.get(0)!=null){
             // OK now load only part of contactlist we are interested in...
             //
@@ -411,25 +425,39 @@ public class PhoenixEndpoint {
             String getContactListQuery;
             
             // standard query to CL, for given user, now only internal user
-            getContactListQuery = "SELECT s FROM contactlist cl "
+            getContactListQuery = "SELECT s, cl FROM contactlist cl "
                     + "LEFT OUTER JOIN cl.obj.intern_user s "
                     + "WHERE cl.objType=:objtype AND cl.owner=:owner "
                     + "ORDER BY s.domain, s.username";
-            TypedQuery<Subscriber> query = em.createQuery(getContactListQuery, Subscriber.class);
+            TypedQuery<Object[]> query = em.createQuery(getContactListQuery, Object[].class);
             query.setParameter("objtype", ContactlistObjType.INTERNAL_USER);
             query.setParameter("owner", owner);
-            List<Subscriber> resultList = query.getResultList();
-            for(Subscriber o : resultList){
-                subs.add(o);
+            
+            List<Object[]> resultList = query.getResultList();
+            for(Object[] o : resultList){
+                final Subscriber t = (Subscriber) o[0];
+                final Contactlist cl = (Contactlist) o[1];
+                
+                subs.add(t);
+                clistEntries.put(t.getId(), cl);
             }
         }
                 
+        // now wrapping container 
+        ContactlistGetResponse response = new ContactlistGetResponse();
+        
+        /**
+         * Whitelist is now embedded into contact list
+         * This code is kept here in order to have in in case whitelist will
+         * turn to blacklist
+         * 
+         * <OLD_WHITELIST_CODE>
         // extract whitelist information for subscribers - adding extra info
         // for each contact. 
         Map<String, Whitelist> wlist = this.dataService.getWhitelistForUsers(owner, subs, null);
+         * </OLD_WHITELIST_CODE>
+         */
         
-        // now wrapping container 
-        ContactlistGetResponse response = new ContactlistGetResponse();
         for(Subscriber o : subs){
             String userSIP = o.getUsername() + "@" + o.getDomain();
             
@@ -440,7 +468,13 @@ public class PhoenixEndpoint {
             elem.setUserid(o.getId());
             elem.setUsersip(userSIP);
             elem.setWhitelistStatus(UserWhitelistStatus.NOCLUE);
+            if (clistEntries.containsKey(o.getId())){
+                Contactlist cl = clistEntries.get(o.getId());
+                elem.setWhitelistStatus(cl.isInWhitelist() ? UserWhitelistStatus.IN : UserWhitelistStatus.NOTIN);
+            }
             
+            /**
+             * <OLD_WHITELIST_CODE>
             // whitelist 
             if (wlist.containsKey(userSIP)){
                 Whitelist wl = wlist.get(userSIP);
@@ -448,6 +482,8 @@ public class PhoenixEndpoint {
                 
                 elem.setWhitelistStatus(wl.getAction()==WhitelistStatus.ENABLED ? UserWhitelistStatus.IN : UserWhitelistStatus.NOTIN);
             }
+             * </OLD_WHITELIST_CODE>
+             */ 
             
             response.getContactlistEntry().add(elem);
         }
@@ -465,6 +501,7 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public ContactlistChangeResponse contactlistChangeRequest(@RequestPayload ContactlistChangeRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
+        String ownerSip = PhoenixDataService.getSIP(owner);
         log.info("User connected: " + owner);
         
         // construct response, then add results iteratively
@@ -474,7 +511,10 @@ public class PhoenixEndpoint {
         List<ContactlistChangeRequestElement> elems = request.getContactlistChangeRequestElement();
         if (elems==null || elems.isEmpty()){
             log.info("elems is empty");
-            response.getReturn().add(-1);
+            ContactlistReturn ret = new ContactlistReturn();
+            ret.setResultCode(-3);
+            
+            response.getReturn().add(ret);
             return response;
         }
         
@@ -504,11 +544,30 @@ public class PhoenixEndpoint {
                 } else {
                     throw new RuntimeException("Both user identifiers are null");
                 }
-
+                
+                ContactlistReturn ret = new ContactlistReturn();
+                ret.setResultCode(-1);
+                ret.setTargetUser(elem.getTargetUser());
+                ret.setUser(PhoenixDataService.getSIP(s));
+                
                 // null subscriber is not implemented yet
                 if (s==null){
                     log.info("Subscriber defined is null, not implemented yet.");
-                    response.getReturn().add(-1);
+                    response.getReturn().add(ret);
+                    continue;
+                }
+                
+                // changing contact list for somebody else
+                // NOT IMPLEMENTED YET
+                // TODO: implement this + policy checks
+                String targetUser = elem.getTargetUser();
+                if (targetUser==null || targetUser.isEmpty()){
+                    targetUser=ownerSip;
+                }
+                
+                if (ownerSip.equals(targetUser)==false){
+                    log.warn("Changing contactlist for somebody else is not permitted");
+                    response.getReturn().add(ret);
                     continue;
                 }
 
@@ -520,35 +579,90 @@ public class PhoenixEndpoint {
                         // contact list entry is empty -> record does not exist
                         if (action == ContactlistAction.REMOVE){
                             this.dataService.remove(cl, true);
-                            response.getReturn().add(1);
+                            ret.setResultCode(1);
+                            response.getReturn().add(ret);
                             continue;
                         }
 
-                        cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
-                        this.dataService.persist(cl, true);
-                        response.getReturn().add(1);
-
-                    } else {
+                        // enable/disable?
+                        if (action==ContactlistAction.DISABLE || action==ContactlistAction.ENABLE){
+                            cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
+                            this.dataService.persist(cl, true);
+                            ret.setResultCode(1);
+                            response.getReturn().add(ret);
+                        }
+                        
+                        // add action
+                        if (action==ContactlistAction.ADD){
+                            // makes no sense, already in
+                            ret.setResultCode(-2);
+                            response.getReturn().add(ret);
+                            log.info("Wanted to add already existing user");
+                            continue;
+                        }
+                        
+                        // whitelist action
+                        WhitelistAction waction = elem.getWhitelistAction();
+                        if (waction!=null && waction!=WhitelistAction.NOTHING){
+                            // operate on whitelist here
+                            boolean normalReq = false;
+                            if (waction==WhitelistAction.DISABLE || waction==WhitelistAction.REMOVE){
+                                // disabling from whitelist
+                                cl.setInWhitelist(false);
+                                normalReq = true;
+                            } else if (waction==WhitelistAction.ENABLE || waction==WhitelistAction.ADD) {
+                                // enabling in whitelist
+                                cl.setInWhitelist(true);
+                                normalReq = true;
+                            }
+                            
+                            // request makes sense
+                            if (normalReq){
+                                this.dataService.persist(cl, true);
+                                ret.setResultCode(1);
+                                response.getReturn().add(ret);
+                                continue;
+                            }
+                        }
+                    } else {                        
                         // contact list entry is empty -> record does not exist
                         if (action == ContactlistAction.REMOVE){
-                            response.getReturn().add(-1);
+                            ret.setResultCode(-1);
+                            response.getReturn().add(ret);
                             log.info("Wanted to delete non-existing whitelist record");
                             continue;
                         }
-
-                        cl = new Contactlist();
-                        cl.setDateCreated(new Date());
-                        cl.setDateLastEdit(new Date());
-                        cl.setOwner(owner);
-                        cl.setObjType(ContactlistObjType.INTERNAL_USER);
-                        cl.setObj(new ContactlistDstObj(s));
-                        cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
-                        this.dataService.persist(cl, true);
-                        response.getReturn().add(1);
+                        
+                        // add action
+                        if (action == ContactlistAction.ADD){
+                            cl = new Contactlist();
+                            cl.setDateCreated(new Date());
+                            cl.setDateLastEdit(new Date());
+                            cl.setOwner(owner);
+                            cl.setObjType(ContactlistObjType.INTERNAL_USER);
+                            cl.setObj(new ContactlistDstObj(s));
+                            cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
+                            
+                            // whitelist state
+                            WhitelistAction waction = elem.getWhitelistAction();
+                            if (waction == WhitelistAction.ENABLE || waction == WhitelistAction.ENABLE){
+                                cl.setInWhitelist(true);
+                            } else {
+                                cl.setInWhitelist(false);
+                            }
+                            
+                            this.dataService.persist(cl, true);
+                            ret.setResultCode(1);
+                            response.getReturn().add(ret);
+                        } else {
+                            ret.setResultCode(-1);
+                            response.getReturn().add(ret);
+                        }
                     }
                 } catch(Exception e){
                     log.info("Manipulation with contactlist failed", e);
-                    response.getReturn().add(-1);
+                    ret.setResultCode(-1);
+                    response.getReturn().add(ret);
                 }
             }
         } catch(Exception e){
@@ -844,7 +958,12 @@ public class PhoenixEndpoint {
             
             // ok, now ignore target user option, for NOW
             // TODO: add support for groups and changing user 
-            if (request.getTargetUser().equals(sip)){
+            String targetUser = request.getTargetUser();
+            if (targetUser==null || targetUser.isEmpty()){
+                targetUser=sip;
+            }
+            
+            if (sip.equals(targetUser)==false){
                 log.warn("Not implemented feature: changing pasword for different user");
                 throw new UnsupportedOperationException("This feature is not implemented yet.");
             }

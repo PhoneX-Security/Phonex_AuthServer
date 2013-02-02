@@ -61,8 +61,12 @@ public class SubscriberCertificate implements Serializable {
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date dateLastEdit;
     
+    @Column(nullable=false)
     private String certHash;
+    
+    @Column(nullable=false, columnDefinition = "TINYINT(1)")
     private boolean valid;
+    
     public Long getId() {
         return id;
     }

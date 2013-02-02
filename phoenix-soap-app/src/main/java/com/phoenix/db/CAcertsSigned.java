@@ -73,7 +73,7 @@ public class CAcertsSigned implements Serializable {
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date dateSigned;
     
-    @Column(name = "isRevoked", nullable = false)
+    @Column(name = "isRevoked", nullable = false, columnDefinition = "TINYINT(1)")
     private Boolean isRevoked=false;
     
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)

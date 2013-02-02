@@ -293,10 +293,11 @@ public class PhoenixDataService {
                             + " WHERE cs.subscriber=:s "
                             + " AND cs.isRevoked=false"
                             + " AND cs.notValidAfter>:n"    
-                            + " ORDER BY cs.notValidBefore DESC"
+                            + " ORDER BY cs.dateSigned DESC"
                             + " LIMIT 1", CAcertsSigned.class)
                             .setParameter("s", s)
                             .setParameter("n", new Date())
+                            .setMaxResults(1)
                             .getSingleResult();
             return userCert;
         } catch(Exception ex){
