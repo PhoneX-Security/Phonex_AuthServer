@@ -20,6 +20,10 @@ import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
 import com.phoenix.service.TrustVerifier;
+import com.phoenix.soap.beans.AuthCheckRequest;
+import com.phoenix.soap.beans.AuthCheckResponse;
+import com.phoenix.soap.beans.TrueFalse;
+import com.phoenix.soap.beans.TrueFalseNA;
 import com.phoenix.soap.beans.CertificateRequestElement;
 import com.phoenix.soap.beans.CertificateStatus;
 import com.phoenix.soap.beans.CertificateWrapper;
@@ -973,6 +977,7 @@ public class PhoenixEndpoint {
             // and just change password. this must be safe, in transaction, since 
             targetUserObj.setHa1(newHA1Dec);
             targetUserObj.setHa1b(newHA1BDec);
+            targetUserObj.setForcePasswordChange(false);
             em.persist(targetUserObj);
             
             response.setResult(1);
@@ -984,6 +989,104 @@ public class PhoenixEndpoint {
          }
          
         return response;
+    }
+    
+    /**
+     * Testing authentication.
+     * 
+     * User can provide its auth hash and test its authentication with password.
+     * This service is available on both ports with user certificate required or not.
+     * Thus user can provide certificate and in this case it will be tested as well.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "authCheckRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AuthCheckResponse authCheck(@RequestPayload AuthCheckRequest request, MessageContext context) throws CertificateException {
+        // protect user identity and avoid MITM, require SSL
+        this.checkOneSideSSL(context, this.request);
+        
+        AuthCheckResponse resp = new AuthCheckResponse();
+        resp.setAuthHashValid(TrueFalse.FALSE);
+        resp.setCertValid(TrueFalseNA.NA);
+        resp.setForcePasswordChange(TrueFalse.FALSE);
+        try {            
+            /*
+             * ONE time tokens are disabled at this moment for simplicity...
+             * 
+            // check token here!
+            boolean ott_valid = this.dataService.isOneTimeTokenValid(sip, request.getUsrToken(), request.getServerToken(), "");
+            if (ott_valid==false){
+                log.warn("Invalid one time token");
+                throw new RuntimeException("Not authorized");
+            }*/
+            
+            // user is provided in request thus try to load it from database
+            String sip = request.getTargetUser();
+            log.info("User [" + sip + "] is asking to verify credentials");
+            
+            // user matches, load subscriber data for him
+            Subscriber localUser = this.dataService.getLocalUser(sip);
+            if (localUser == null){
+                log.warn("Local user was not found in database for: " + sip);
+                throw new IllegalArgumentException("Not authorized");
+            }
+            
+            // check user AUTH hash
+            // generate 3 tokens, for 3 time slots
+            boolean authHash_valid=false;
+            for (int i=-1, c=0; i <=1 ; i++, c++){
+                String userHash = this.dataService.generateUserAuthToken(
+                    sip, localUser.getHa1(), 
+                    "", "", 
+                    1000 * 60, i);
+                
+                log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+userHash+"]");
+                if (userHash.equals(request.getAuthHash())){
+                    resp.setAuthHashValid(TrueFalse.TRUE);
+                    authHash_valid=true;
+                    break;
+                }
+            }
+            
+            if (authHash_valid==false){
+                return resp;
+            }
+            
+            // now try to test certificate if any provided
+            try {
+                Subscriber owner = this.authUserFromCert(context, this.request);
+                String certSip = auth.getSIPFromCertificate(context, this.request);
+                log.info("User provided also certificate: " + owner);
+                if (owner == null || certSip == null){
+                    return resp;
+                }
+                
+                // check user validity
+                if (certSip.equals(sip)==false){
+                    resp.setCertValid(TrueFalseNA.FALSE);
+                    return resp;
+                }
+                
+                // now we should check certificate validity, but screw it now...
+                resp.setCertValid(TrueFalseNA.TRUE);
+            } catch (Exception e){
+                // no certificate, just return response, exception is 
+                // actually really expected :)
+                return resp;
+            }
+            
+            
+         } catch(Exception e){
+             log.warn("Exception in password change procedure", e);
+             throw new RuntimeException(e);
+         }
+         
+        return resp;
     }
     
     /**

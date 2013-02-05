@@ -78,6 +78,31 @@
             <xs:enumeration value="disabled"/>
         </xs:restriction>
     </xs:simpleType>
+    
+    <xs:simpleType name="trueFalse">
+        <xs:annotation>
+            <xs:documentation>
+                Boolean
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:simpleType name="trueFalseNA">
+        <xs:annotation>
+            <xs:documentation>
+                Boolean with null
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+            <xs:enumeration value="na"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <xs:simpleType name="whitelistAction">
         <xs:annotation>
@@ -611,6 +636,35 @@
                 <xs:element name="targetUser" type="hr:userSIP"/>
                 <xs:element name="result" type="xs:int"/>
                 <xs:element name="reason" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="authCheckRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Check user authentication with password and additionally with certificate
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="authHash" type="xs:string"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="authCheckResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="authHashValid" type="hr:trueFalse"/>
+                <xs:element name="certValid" type="hr:trueFalseNA"/>
+                <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>

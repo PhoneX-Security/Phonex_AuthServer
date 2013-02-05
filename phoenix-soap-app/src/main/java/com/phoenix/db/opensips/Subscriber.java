@@ -31,6 +31,8 @@ public class Subscriber implements java.io.Serializable {
         
         // can user sign new certificate?
         private Boolean canSignNewCert=false;
+        // should be user forced to change this password during first login?
+        private Boolean forcePasswordChange=false;
 
 	public Subscriber() {
 	}
@@ -163,5 +165,14 @@ public class Subscriber implements java.io.Serializable {
 
         public void setCanSignNewCert(Boolean canSignNewCert) {
             this.canSignNewCert = canSignNewCert;
+        }
+
+        @Column(name = "forcePasswordChange", nullable = false, columnDefinition = "TINYINT(1)")
+        public Boolean getForcePasswordChange() {
+            return forcePasswordChange;
+        }
+
+        public void setForcePasswordChange(Boolean forcePasswordChange) {
+            this.forcePasswordChange = forcePasswordChange;
         }
 }
