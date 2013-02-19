@@ -871,9 +871,6 @@ public class PhoenixEndpoint {
     /**
      * Changing user password. 
      * 
-     * This call require user certificate to be provided. From certificate is user
-     * name extracted and matched against policy.
-     * 
      * With this call user can change password even for different user (in its group).
      * Passwords for both HA1 and HA1B has to be provided.
      * 
@@ -886,9 +883,20 @@ public class PhoenixEndpoint {
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public PasswordChangeResponse passwordChange(@RequestPayload PasswordChangeRequest request, MessageContext context) throws CertificateException {
-        Subscriber owner = this.authUserFromCert(context, this.request);
-        String sip = auth.getSIPFromCertificate(context, this.request);
-        log.info("User connected: " + owner);
+        // protect user identity and avoid MITM, require SSL
+        this.checkOneSideSSL(context, this.request);
+        
+        // user is provided in request thus try to load it from database
+        String sip = request.getUser();
+        log.info("User [" + sip + "] is asking to verify credentials");
+
+        // user matches, load subscriber data for him
+        Subscriber owner = this.dataService.getLocalUser(sip);
+        if (owner == null){
+            log.warn("Local user was not found in database for: " + sip);
+            throw new IllegalArgumentException("Not authorized");
+        }
+        log.info("User connected: " + sip);
         
         // construct response wrapper
         PasswordChangeResponse response = new PasswordChangeResponse();
@@ -899,7 +907,8 @@ public class PhoenixEndpoint {
         byte[] newHA1B = request.getNewHA1B();
         
         if (newHA1==null || newHA1B==null){
-            log.warn("One (or both) of HA1, HA1B passwords is empty");
+            log.warn("One (or both) of HA1, HA1B passwords is empty; ha1: " + newHA1 + "; ha2: " + newHA1B);
+            log.debug("Request object: " + request.toString());
             throw new IllegalArgumentException("Null password");
         }
                 

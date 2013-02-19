@@ -615,12 +615,13 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
                 <xs:element name="targetUser" type="hr:userSIP"/>
                 <xs:element name="usrToken" type="xs:string"/>
                 <xs:element name="serverToken" type="xs:string"/>
                 <xs:element name="authHash" type="xs:string"/>
                 <xs:element name="newHA1" type="hr:binaryPayload"/>
-                <xs:element name="newHA1b" type="hr:binaryPayload"/>
+                <xs:element name="newHA1B" type="hr:binaryPayload"/>
             </xs:sequence>   
         </xs:complexType>
     </xs:element>
