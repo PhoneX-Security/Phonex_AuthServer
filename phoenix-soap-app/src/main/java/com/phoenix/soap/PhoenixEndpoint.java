@@ -1042,7 +1042,7 @@ public class PhoenixEndpoint {
             Subscriber localUser = this.dataService.getLocalUser(sip);
             if (localUser == null){
                 log.warn("Local user was not found in database for: " + sip);
-                throw new IllegalArgumentException("Not authorized");
+                return resp;
             }
             
             // check user AUTH hash
