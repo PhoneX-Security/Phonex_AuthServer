@@ -16,9 +16,13 @@ import com.phoenix.db.extra.ContactlistStatus;
 import com.phoenix.db.extra.WhitelistObjType;
 import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.db.opensips.Xcap;
+import com.phoenix.service.DaemonStarter;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
+import com.phoenix.service.ServerCommandExecutor;
+import com.phoenix.service.ServerMICommand;
 import com.phoenix.service.TrustVerifier;
 import com.phoenix.soap.beans.AuthCheckRequest;
 import com.phoenix.soap.beans.AuthCheckResponse;
@@ -77,6 +81,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
@@ -134,6 +139,25 @@ public class PhoenixEndpoint {
     public PhoenixEndpoint() {
     }
 
+    /**
+     * Obtains daemon executor running in the background.
+     * @param context
+     * @return 
+     */
+    public ServerCommandExecutor getExecutor(MessageContext context){
+        ServerCommandExecutor executor = null;
+        
+        try {
+            DaemonStarter dstarter = (DaemonStarter) this.request.getServletContext().getAttribute(DaemonStarter.EXECUTOR_NAME);
+            executor = dstarter.getCexecutor();
+            
+        }catch(Exception ex){
+            log.error("Exception during getExecutor()", ex);
+        }
+        
+        return executor;
+    }
+    
     /**
      * Authenticate user from its certificate, returns subscriber data.
      * @param context
@@ -503,6 +527,7 @@ public class PhoenixEndpoint {
      */
     @PayloadRoot(localPart = "contactlistChangeRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public ContactlistChangeResponse contactlistChangeRequest(@RequestPayload ContactlistChangeRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
         String ownerSip = PhoenixDataService.getSIP(owner);
@@ -528,6 +553,16 @@ public class PhoenixEndpoint {
         log.info("elems is not null; size: " + elems.size());
         log.info("elems2string: " + elems.toString());
         try {
+            // Store users whose contact list was modified. For them will be later 
+            // regenerated XML policy file for presence.
+            Map<String, Subscriber> changedUsers = new HashMap<String, Subscriber>();
+            
+            // load presence rules policy XML template from resources in the beginning.
+            String presenceRulesTemplate = dataService.loadPresenceRulesPolicyTemplate();
+            ServerCommandExecutor executor = getExecutor(context);
+            
+            // Iterate over all change requets element in request. Every can contain 
+            // request for different subscriber.
             for(ContactlistChangeRequestElement elem : elems){
                 if (elem==null) continue;
                 log.info("elem2string: " + elem.toString());
@@ -569,14 +604,22 @@ public class PhoenixEndpoint {
                     targetUser=ownerSip;
                 }
                 
+                Subscriber targetOwner = owner;
                 if (ownerSip.equals(targetUser)==false){
                     log.warn("Changing contactlist for somebody else is not permitted");
                     response.getReturn().add(ret);
+                    
+                    // TODO: load target owner
                     continue;
+                }
+                
+                // users whose contact list was changed - updating presence rules afterwards
+                if (changedUsers.containsKey(targetUser)==false){
+                    changedUsers.put(targetUser, targetOwner);
                 }
 
                 // is there already some contact list item?
-                Contactlist cl = this.dataService.getContactlistForSubscriber(owner, s);
+                Contactlist cl = this.dataService.getContactlistForSubscriber(targetOwner, s);
                 ContactlistAction action = elem.getAction();
                 try {
                     if (cl!=null){
@@ -669,6 +712,55 @@ public class PhoenixEndpoint {
                     response.getReturn().add(ret);
                 }
             }
+            //
+            // Now is time to re-generate presence view policies and trigger server update
+            //
+            for(Entry<String, Subscriber> entry : changedUsers.entrySet()){
+                // regenerating policy for given contact
+                try {
+                    Subscriber tuser = entry.getValue();
+                    
+                    List<Contactlist> contactlistForSubscriber = dataService.getContactlistForSubscriber(entry.getValue());
+                    Map<Integer, Subscriber> internalUsersInContactlist = dataService.getInternalUsersInContactlist(contactlistForSubscriber);
+                    
+                    List<String> sips = new ArrayList(contactlistForSubscriber.size());
+                    for(Entry<Integer, Subscriber> e : internalUsersInContactlist.entrySet()){
+                        String clsip = PhoenixDataService.getSIP(e.getValue());
+                        sips.add(clsip);
+                    }
+                    
+                    String xmlfile = dataService.completePresenceRulesPolicyTemplate(presenceRulesTemplate, sips);
+                    log.info("Going to update presence rules for user["+entry.getKey()+"]: " + xmlfile);
+                    
+                    //
+                    // XCAP table update;
+                    //
+                    Query delQuery = this.em.createQuery("DELETE FROM xcap x "
+                            + " WHERE x.username=:uname AND x.domain=:domain AND doc_type=2");
+                    delQuery.setParameter("uname", tuser.getUsername());
+                    delQuery.setParameter("domain", tuser.getDomain());
+                    delQuery.executeUpdate();
+                    
+                    Xcap xcapEntity = new Xcap(
+                            tuser.getUsername(), 
+                            tuser.getDomain(), 
+                            xmlfile.getBytes("UTF-8"), 
+                            2, 
+                            "", 0, "index.xml", 0);
+                    this.em.persist(xcapEntity);
+                    log.info("XcapEntity persisted: " + xcapEntity.toString());
+                    
+                    //
+                    // Server update trigger
+                    // refreshWatchers sip:test3@voip.net-wings.eu presence 1
+                    ServerMICommand cmd = new ServerMICommand("refreshWatchers");
+                    cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("0");
+                    executor.addToQueue(cmd);
+                } catch(Exception ex){
+                    log.error("Exception during presence rules generation for: " + entry.getValue(), ex);
+                }
+            }
+            
         } catch(Exception e){
             log.info("Exception ocurred", e);
             return null;

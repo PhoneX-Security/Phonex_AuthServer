@@ -10,14 +10,24 @@ import com.phoenix.db.OneTimeToken;
 import com.phoenix.db.RemoteUser;
 import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
+import com.phoenix.db.extra.ContactlistObjType;
 import com.phoenix.db.opensips.Subscriber;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -42,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class PhoenixDataService {
     private static final Logger log = LoggerFactory.getLogger(PhoenixDataService.class);
+    public static final String PRESENCE_RULES_TEMPLATE = "pres-rules-template.tpl";
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -247,6 +258,89 @@ public class PhoenixDataService {
         query.setParameter("target", target);
         List<Contactlist> resultList = query.getResultList();
         return resultList.isEmpty() ? null : resultList.get(0);
+    }
+    
+    /**
+     * Loads all subscribers in internal contact list.
+     * @param owner
+     * @param target
+     * @return 
+     */
+    public List<Contactlist> getContactlistForSubscriber(Subscriber owner){
+        if (owner==null){
+            throw new IllegalArgumentException("Some of argument is NULL, what is forbidden");
+        }
+        
+        // now loading whitelist entries from database for owner, for intern user destination
+        String queryGet = "SELECT cl FROM contactlist cl "
+                    + " WHERE cl.owner=:owner";
+        TypedQuery<Contactlist> query = em.createQuery(queryGet, Contactlist.class);
+        query.setParameter("owner", owner);
+        List<Contactlist> resultList = query.getResultList();
+        return resultList;
+    }
+    
+    /**
+     * Fetches internal user from contact list and returns mapping subscriber id -> subscriber.
+     * @param clist
+     * @return 
+     */
+    public Map<Integer, Subscriber> getInternalUsersInContactlist(List<Contactlist> clist){
+        if (clist==null){
+            throw new NullPointerException("contact list cannot be empty");
+        }
+        
+        Map<Integer, Subscriber> ret = new HashMap<Integer, Subscriber>();
+        Set<Integer> usr2load = new HashSet<Integer>();
+        for(Contactlist ce : clist){
+            ContactlistObjType ctype = ce.getObjType();
+            if (ctype!=ContactlistObjType.INTERNAL_USER){
+                continue;
+            }
+            
+            Subscriber s = ce.getObj().getIntern_user();
+            if (s==null){
+                log.error("User is internal and still has null subscriber: " + ce.toString());
+                continue;
+            }
+            
+            ret.put(s.getId(), s);
+        }
+        
+        return ret;
+    }
+    
+    /**
+     * Loads presence rules policy template from resources.
+     * @param sips
+     * @return 
+     */
+    public String loadPresenceRulesPolicyTemplate() throws IOException{
+        InputStream resourceAsStream = PhoenixDataService.class.getClassLoader().getResourceAsStream(PRESENCE_RULES_TEMPLATE);
+        return convertStreamToStr(resourceAsStream);
+    }
+    
+    /**
+     * Parses input template and builds new template adding all sips to the whitelist.
+     * @param sips
+     * @return 
+     */
+    public String completePresenceRulesPolicyTemplate(String template, List<String> sips){
+        if (sips==null){
+            throw new NullPointerException("Sips list is null");
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        for(String s : sips){
+            // check string s for valid characters
+            if (s.matches("[a-zA-Z0-9_\\-]+@[a-zA-Z0-9\\._\\-]+")==false){
+                log.warn("Illegal sip passed: " + s);
+                continue;
+            }
+            sb.append("                   <cp:one id=\"sip:").append(s).append("\" />\n");
+        }
+        
+        return template.replace("[[[RULES]]]", sb.toString());
     }
     
     /**
@@ -518,6 +612,32 @@ public class PhoenixDataService {
         this.em.remove(o);
         if (flush){
             this.em.flush();
+        }
+    }
+    
+    /**
+     * To convert the InputStream to String we use the Reader.read(char[]
+     * buffer) method. We iterate until the Reader return -1 which means
+     * there's no more data to read. We use the StringWriter class to
+     * produce the string.
+     */
+    public static String convertStreamToStr(InputStream is) throws IOException {
+        if (is != null) {
+            Writer writer = new StringWriter();
+
+            char[] buffer = new char[1024];
+            try {
+                Reader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                int n;
+                while ((n = reader.read(buffer)) != -1) {
+                    writer.write(buffer, 0, n);
+                }
+            } finally {
+                is.close();
+            }
+            return writer.toString();
+        } else {
+            return "";
         }
     }
     
