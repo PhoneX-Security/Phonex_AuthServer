@@ -871,6 +871,11 @@ public class PhoenixEndpoint {
                 continue;
             }
             
+            // init return structure
+            wr.setStatus(CertificateStatus.MISSING);
+            wr.setUser(PhoenixDataService.getSIP(s));
+            wr.setCertificate(null);
+            
             // logic change: certificate loading is done before 
             // adding user to contact list, so I need it...
             if (false){
@@ -884,7 +889,7 @@ public class PhoenixEndpoint {
                 }
             }
             
-            // if user provided certificate hash, first check whether it is valid
+            // If user provided certificate hash, first check whether it is valid
             // and real certificate for user. If yes, then just confirm this to save
             // bandwidth. No certificate is really sent to user, no real certificate
             // checks are done (expiration, signature, etc...)
@@ -901,7 +906,6 @@ public class PhoenixEndpoint {
                 if (valid==true){
                     wr.setProvidedCertStatus(CertificateStatus.OK);
                     wr.setStatus(CertificateStatus.OK);
-                    wr.setUser(PhoenixDataService.getSIP(s));
                     wr.setCertificate(null);
                     response.getReturn().add(wr);
                     continue;
@@ -940,7 +944,10 @@ public class PhoenixEndpoint {
                 // is revoked?
                 Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
                 if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
-                    throw new CertificateException("Certificate is revoked - according to DB");
+                    log.info("Certificate for user is revoked");
+                    wr.setStatus(CertificateStatus.REVOKED);
+                    response.getReturn().add(wr);
+                    continue;
                 }
             } catch(Exception e){
                 // certificate is invalid
@@ -952,7 +959,6 @@ public class PhoenixEndpoint {
             
             // now just add certificate to response
             wr.setStatus(CertificateStatus.OK);
-            wr.setUser(PhoenixDataService.getSIP(s));
             wr.setCertificate(cert509.getEncoded());
             response.getReturn().add(wr);
         }
