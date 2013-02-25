@@ -90,7 +90,7 @@ public class PhoenixDataService {
             // build string with IN (...)
             String querySIP2ID = "SELECT u FROM Subscriber u WHERE CONCAT(u.username, '@', u.domain) = :sip";
             TypedQuery<Subscriber> query = em.createQuery(querySIP2ID, Subscriber.class);
-            query.setParameter("sip", sip);
+            query.setParameter("sip", sip).setMaxResults(1);
             // iterate over result set and add ID 
             List<Subscriber> resultList = query.getResultList();
             return resultList.isEmpty() ? null : resultList.get(0);
@@ -394,7 +394,7 @@ public class PhoenixDataService {
                             .getSingleResult();
             return userCert;
         } catch(Exception ex){
-            log.info("Problem occurred during loading user from database", ex);
+            //log.info("Problem occurred during loading user from database", ex);
             return null;
         }
     }

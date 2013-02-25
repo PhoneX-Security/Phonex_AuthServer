@@ -270,10 +270,12 @@ public class PhoenixServerCASigner {
         try {
             //String digest = this.getCertificateDigest(cert);
             String query = "SELECT ca FROM CAcertsSigned ca"
-                    + " WHERE ca.serial=:s AND ca.isRevoked=1";
+                    + " WHERE ca.serial=:s AND ca.isRevoked=true";
             CAcertsSigned r = em.createQuery(query, CAcertsSigned.class)
                     .setParameter("s", cert.getSerialNumber().longValue())
+                    .setMaxResults(1)
                     .getSingleResult();
+            log.info("Certificate returned, should be revoked: " + r.toString());
             return true;
         } catch(NoResultException e){
             // not a revoked certificate

@@ -58,6 +58,24 @@ public class EndpointAuth {
         
         // probably OK now
     }
+
+    /**
+     * Returns certificate chain from connection.
+     * If there is none, null is returned
+     */
+    public X509Certificate[] getCertificateChainFromConnection(MessageContext context, HttpServletRequest request){
+        try {
+            // at first obtain cipher suite from servlet request
+            String cipherSuite = (String) request.getAttribute("javax.servlet.request.cipher_suite");
+            if (cipherSuite != null) {
+                // get certificate chain from cert - to verify trust
+                X509Certificate certChain[] = (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
+                return certChain;
+            } else return null;
+        } catch(Exception e){
+            return null;
+        }
+    }
     
     /**
      * Entry method for checking client's certificate - signed by CA, validity.

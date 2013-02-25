@@ -87,6 +87,7 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
+import org.bouncycastle.cert.jcajce.JcaX500NameUtil;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.springframework.ws.context.MessageContext;
@@ -869,6 +870,8 @@ public class PhoenixEndpoint {
                 wr.setStatus(CertificateStatus.NOUSER);
                 response.getReturn().add(wr);
                 continue;
+            } else {
+                log.info("User to obtain certificate for: " + s.getUsername());
             }
             
             // init return structure
@@ -917,7 +920,7 @@ public class PhoenixEndpoint {
             // obtain certificate for particular subscriber
             CAcertsSigned cert = this.dataService.getCertificateForUser(s);
             if (cert==null || cert.getCert()==null){
-                log.info("Certificate for user is null");
+                log.info("Certificate for user ["+s.getUsername()+"] is null");
                 log.info("cert: " + cert);
                 if (cert!=null){
                     log.info("Cert not null: " + cert.getCert());
@@ -931,7 +934,7 @@ public class PhoenixEndpoint {
             
             // certificate
             X509Certificate cert509 = cert.getCert();
-            log.info("cert is not null! " + cert509);
+            log.info("cert is not null!; DBserial=[" + cert.getSerial() + "] Real ceritificate: " + cert509);
             
             // time validity
             try{
@@ -944,7 +947,7 @@ public class PhoenixEndpoint {
                 // is revoked?
                 Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
                 if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
-                    log.info("Certificate for user is revoked");
+                    log.info("Certificate for user is revoked: " + cert509.getSerialNumber().longValue());
                     wr.setStatus(CertificateStatus.REVOKED);
                     response.getReturn().add(wr);
                     continue;
@@ -1120,6 +1123,7 @@ public class PhoenixEndpoint {
         AuthCheckResponse resp = new AuthCheckResponse();
         resp.setAuthHashValid(TrueFalse.FALSE);
         resp.setCertValid(TrueFalseNA.NA);
+        resp.setCertStatus(CertificateStatus.MISSING);
         resp.setForcePasswordChange(TrueFalse.FALSE);
         try {            
             /*
@@ -1164,6 +1168,18 @@ public class PhoenixEndpoint {
                 return resp;
             }
             
+            // password change?
+            Boolean passwdChange = localUser.getForcePasswordChange();
+            if (passwdChange!=null && passwdChange==true){
+                resp.setForcePasswordChange(TrueFalse.TRUE);
+            }
+            
+            // if we have some certificate, we can continue with checks
+            X509Certificate[] chain = auth.getCertificateChainFromConnection(context, this.request);
+            if (chain==null){
+                return resp;
+            }
+            
             // now try to test certificate if any provided
             try {
                 Subscriber owner = this.authUserFromCert(context, this.request);
@@ -1179,15 +1195,33 @@ public class PhoenixEndpoint {
                     return resp;
                 }
                 
-                // now we should check certificate validity, but screw it now...
-                resp.setCertValid(TrueFalseNA.TRUE);
+                // Get certificate chain from cert parameter. Obtain user certificate
+                // that was used in connection
+                X509Certificate certChain[] = auth.getCertChain(context, this.request);
+                // client certificate SHOULD be stored first here, so assume it
+                X509Certificate cert509 = certChain[0];
+                // time-date validity
+                cert509.checkValidity();
+                // is signed by server CA?
+                cert509.verify(this.trustManager.getServerCA().getPublicKey());
+                // is revoked?
+                Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
+                if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
+                    log.info("Certificate for user is revoked: " + cert509.getSerialNumber().longValue());
+                    resp.setCertValid(TrueFalseNA.FALSE);
+                    resp.setCertStatus(CertificateStatus.REVOKED);
+                } else {
+                    resp.setCertValid(TrueFalseNA.TRUE);
+                    resp.setCertStatus(CertificateStatus.OK);
+                }
             } catch (Exception e){
                 // no certificate, just return response, exception is 
                 // actually really expected :)
+                log.debug("Certificate was not valid: ", e);
+                resp.setCertValid(TrueFalseNA.FALSE);
+                resp.setCertStatus(CertificateStatus.INVALID);
                 return resp;
             }
-            
-            
          } catch(Exception e){
              log.warn("Exception in password change procedure", e);
              throw new RuntimeException(e);
@@ -1376,7 +1410,7 @@ public class PhoenixEndpoint {
             
             // here should be generated new serial
             Query query = em.createNativeQuery("SELECT LAST_INSERT_ID()");
-            Long newSerial = ((BigInteger) query.getSingleResult()).longValue() +1;
+            Long newSerial = ((BigInteger) query.getSingleResult()).longValue();
 
             // prepare certificate basic attributes - serial number - unique
             BigInteger serial = new BigInteger(newSerial.toString());

@@ -665,6 +665,7 @@
             <xs:sequence>
                 <xs:element name="authHashValid" type="hr:trueFalse"/>
                 <xs:element name="certValid" type="hr:trueFalseNA"/>
+                <xs:element name="certStatus" type="hr:certificateStatus"/>
                 <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
             </xs:sequence>
         </xs:complexType>
