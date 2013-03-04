@@ -21,6 +21,7 @@ public class ServerCommandExecutor extends Thread {
     private static final Logger log = LoggerFactory.getLogger(ServerCommandExecutor.class);
     private static final String opensispsctl="/usr/sbin/opensipsctl";
     private static final String shell="/bin/sh";
+    private static final String sudo="/usr/bin/sudo";
     
     // command queue here
     private ConcurrentLinkedQueue<ServerMICommand> commandQueue = new ConcurrentLinkedQueue<ServerMICommand>();
@@ -52,7 +53,8 @@ public class ServerCommandExecutor extends Thread {
             
             // execute here server call - executing external command
             List<String> params  = new LinkedList<String>();
-            params.add(shell);
+            //params.add(shell);
+            params.add(sudo);
             params.add(opensispsctl);
             params.add("fifo");
             params.add(cmd.getCommandName());

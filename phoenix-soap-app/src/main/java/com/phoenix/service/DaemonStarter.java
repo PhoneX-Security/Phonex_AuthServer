@@ -28,7 +28,7 @@ public class DaemonStarter implements ServletContextListener {
         log.info("Context initialized, starting server communication thread");
         
         ServletContext context = sce.getServletContext();
-        context.setAttribute("MY_EXECUTOR", EXECUTOR_NAME);
+        context.setAttribute(DaemonStarter.EXECUTOR_NAME, this);
         
         if (cexecutor.isAlive()){
             log.warn("Cexecutor is already alive, nothing to start");

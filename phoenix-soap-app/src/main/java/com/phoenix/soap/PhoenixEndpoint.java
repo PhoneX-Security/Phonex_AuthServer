@@ -150,8 +150,13 @@ public class PhoenixEndpoint {
         
         try {
             DaemonStarter dstarter = (DaemonStarter) this.request.getServletContext().getAttribute(DaemonStarter.EXECUTOR_NAME);
-            executor = dstarter.getCexecutor();
+            if (dstarter==null){
+                log.warn("Daemon starter is null, wtf?");
+                return null;
+            }
             
+            executor = dstarter.getCexecutor();
+            log.info("Executor loaded: " + executor.toString());
         }catch(Exception ex){
             log.error("Exception during getExecutor()", ex);
         }
@@ -736,7 +741,7 @@ public class PhoenixEndpoint {
                     //
                     // XCAP table update;
                     //
-                    Query delQuery = this.em.createQuery("DELETE FROM xcap x "
+                    Query delQuery = this.em.createQuery("DELETE FROM Xcap x "
                             + " WHERE x.username=:uname AND x.domain=:domain AND doc_type=2");
                     delQuery.setParameter("uname", tuser.getUsername());
                     delQuery.setParameter("domain", tuser.getDomain());
@@ -756,6 +761,10 @@ public class PhoenixEndpoint {
                     // refreshWatchers sip:test3@voip.net-wings.eu presence 1
                     ServerMICommand cmd = new ServerMICommand("refreshWatchers");
                     cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("0");
+                    executor.addToQueue(cmd);
+                    
+                    cmd = new ServerMICommand("refreshWatchers");
+                    cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("1");
                     executor.addToQueue(cmd);
                 } catch(Exception ex){
                     log.error("Exception during presence rules generation for: " + entry.getValue(), ex);
