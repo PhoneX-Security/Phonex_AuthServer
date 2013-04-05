@@ -127,6 +127,7 @@
         </xs:annotation>
         <xs:restriction base="xs:string">
             <xs:enumeration value="add"/>
+            <xs:enumeration value="update"/>
             <xs:enumeration value="remove"/>
             <xs:enumeration value="enable"/>
             <xs:enumeration value="disable"/>
@@ -280,6 +281,7 @@
             <xs:element name="user" type="hr:userIdentifier"/>
             <xs:element name="action" type="hr:contactlistAction"/>
             <xs:element name="whitelistAction" type="hr:whitelistAction"/>
+            <xs:element name="displayName" type="xs:string" />
         </xs:sequence>
     </xs:complexType>
     
@@ -298,6 +300,7 @@
             <xs:element name="contactlistStatus" type="hr:enabledDisabled"/>
             <xs:element name="whitelistStatus" type="hr:userWhitelistStatus"/>
             <xs:element name="hideInContactList" type="xs:boolean"/>
+            <xs:element name="displayName" type="xs:string" />
         </xs:sequence>
     </xs:complexType>
     

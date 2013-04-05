@@ -136,6 +136,7 @@ public class PhoenixEndpoint {
     
     // owner SIP obtained from certificate
     private String owner_sip;
+    public static final String DISPLAY_NAME_REGEX="^[a-zA-Z0-9_\\-\\s\\./]+$";
 
     public PhoenixEndpoint() {
     }
@@ -505,6 +506,7 @@ public class PhoenixEndpoint {
             if (clistEntries.containsKey(o.getId())){
                 Contactlist cl = clistEntries.get(o.getId());
                 elem.setWhitelistStatus(cl.isInWhitelist() ? UserWhitelistStatus.IN : UserWhitelistStatus.NOTIN);
+                elem.setDisplayName(cl.getDisplayName());
             }
             
             /**
@@ -654,6 +656,22 @@ public class PhoenixEndpoint {
                             continue;
                         }
                         
+                        // update - displayName
+                        if (action==ContactlistAction.UPDATE && elem.getDisplayName()!=null){
+                            final String newDispName = elem.getDisplayName();
+                            if (newDispName.isEmpty()==false && newDispName.matches(DISPLAY_NAME_REGEX)==false){
+                                ret.setResultCode(-5);
+                                response.getReturn().add(ret);
+                                log.info("Display name regex fail: [" + newDispName + "]");
+                                continue;
+                            }
+                            
+                            cl.setDisplayName(newDispName);
+                            this.dataService.persist(cl, true);
+                            ret.setResultCode(1);
+                            response.getReturn().add(ret);
+                        }
+                        
                         // whitelist action
                         WhitelistAction waction = elem.getWhitelistAction();
                         if (waction!=null && waction!=WhitelistAction.NOTHING){
@@ -695,6 +713,7 @@ public class PhoenixEndpoint {
                             cl.setObjType(ContactlistObjType.INTERNAL_USER);
                             cl.setObj(new ContactlistDstObj(s));
                             cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
+                            cl.setDisplayName(elem.getDisplayName());
                             
                             // whitelist state
                             WhitelistAction waction = elem.getWhitelistAction();
@@ -759,12 +778,17 @@ public class PhoenixEndpoint {
                     //
                     // Server update trigger
                     // refreshWatchers sip:test3@voip.net-wings.eu presence 1
-                    ServerMICommand cmd = new ServerMICommand("refreshWatchers");
+                    ServerMICommand cmd;
+                    cmd = new ServerMICommand("refreshWatchers");
+                    cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("1");
+                    executor.addToQueue(cmd);
+                    
+                    cmd= new ServerMICommand("refreshWatchers");
                     cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("0");
                     executor.addToQueue(cmd);
                     
-                    cmd = new ServerMICommand("refreshWatchers");
-                    cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("1");
+                    cmd= new ServerMICommand("refreshWatchers");
+                    cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("0");
                     executor.addToQueue(cmd);
                 } catch(Exception ex){
                     log.error("Exception during presence rules generation for: " + entry.getValue(), ex);

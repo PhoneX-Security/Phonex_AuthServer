@@ -66,6 +66,9 @@ public class Contactlist implements Serializable {
     @Column(nullable = false, columnDefinition = "TINYINT(1)")
     private boolean hideInContactList=false;
     
+    @Column(nullable = true, columnDefinition = "VARCHAR(64)")
+    private String displayName;
+    
     public Long getId() {
         return id;
     }
@@ -145,6 +148,14 @@ public class Contactlist implements Serializable {
     public void setHideInContactList(boolean hideInContactList) {
         this.hideInContactList = hideInContactList;
     }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
     
     @Override
     public int hashCode() {
@@ -186,6 +197,6 @@ public class Contactlist implements Serializable {
 
     @Override
     public String toString() {
-        return "Contactlist{" + "id=" + id + ", owner=" + owner + ", objType=" + objType + ", obj=" + obj + ", entryState=" + entryState + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + ", inWhitelist=" + inWhitelist + ", inBlacklist=" + inBlacklist + ", hideInContactList=" + hideInContactList + '}';
+        return "Contactlist{" + "id=" + id + ", owner=" + owner + ", objType=" + objType + ", obj=" + obj + ", entryState=" + entryState + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + ", inWhitelist=" + inWhitelist + ", inBlacklist=" + inBlacklist + ", hideInContactList=" + hideInContactList + ", displayName=" + displayName + '}';
     }
 }
