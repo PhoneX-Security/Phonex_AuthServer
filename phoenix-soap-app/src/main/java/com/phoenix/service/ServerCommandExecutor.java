@@ -4,6 +4,8 @@
  */
 package com.phoenix.service;
 
+import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.db.opensips.Xcap;
 import com.phoenix.utils.SpringInitializer;
 import java.io.InputStream;
 import java.util.LinkedList;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.TypedQuery;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,13 +56,29 @@ public class ServerCommandExecutor extends Thread {
     /**
      * Reload presence meta data
      */
-    public void reload(){
+    public void reloadPresence(){
         long cmilli = System.currentTimeMillis();
-        if ((lastRefresh - cmilli) > 1000*60*60){
-            log.info("Presence auth data sync");
-            
-            
+        if ((cmilli - lastRefresh) > 1000*60*60){
             lastRefresh = cmilli;
+            
+            // fetch all presence policies to refresh from database
+            try {
+                log.info("Batch presence auth data sync");
+                String querySql = "SELECT x FROM Xcap x";
+                TypedQuery<Xcap> query = em.createQuery(querySql, Xcap.class);
+                List<Xcap> resultList = query.getResultList();
+                if (resultList!=null && resultList.size() > 0){
+                   for(Xcap e : resultList){
+                        ServerMICommand cmd;
+                        cmd = new ServerMICommand("refreshWatchers");
+                        cmd.setOnRequest(false);
+                        cmd.addParameter("sip:" + e.getUsername() + "@" + e.getDomain()).addParameter("presence").addParameter("0");
+                        this.addToQueue(cmd);
+                   }
+                }
+            } catch(Exception ex){
+                log.info("Problem occurred during loading Xcap from database", ex);
+            }
         }
     }
     
@@ -101,6 +120,9 @@ public class ServerCommandExecutor extends Thread {
                 running=false;
                 break;
             }
+            
+            // reload presence rules automatically
+            this.reloadPresence();
             
             if (commandQueue.isEmpty()) continue;
             ServerMICommand cmd = commandQueue.poll();

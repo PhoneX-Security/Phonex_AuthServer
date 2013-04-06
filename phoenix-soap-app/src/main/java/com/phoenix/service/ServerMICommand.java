@@ -16,6 +16,7 @@ import java.util.List;
 public class ServerMICommand {
     private String commandName;
     private List<String> parameters;
+    private boolean onRequest=true;
     
     public ServerMICommand(String commandName) {
         this.commandName = commandName;
@@ -56,6 +57,14 @@ public class ServerMICommand {
         this.parameters = parameters;
     }
 
+    public boolean isOnRequest() {
+        return onRequest;
+    }
+
+    public void setOnRequest(boolean onRequest) {
+        this.onRequest = onRequest;
+    }
+
     @Override
     public String toString() {
         StringBuilder par = new StringBuilder();
@@ -63,8 +72,7 @@ public class ServerMICommand {
             par.append("'").append(s).append("', ");
         }
         
-        return "ServerMICommand{" + "commandName=" + commandName + ", parameters=" + par.toString() + '}';
+        return "ServerMICommand{" + "commandName=" + commandName + ", parameters=" + par.toString() + "; onRequest="+(onRequest ? "true":"false")+'}';
     }
-    
     
 }
