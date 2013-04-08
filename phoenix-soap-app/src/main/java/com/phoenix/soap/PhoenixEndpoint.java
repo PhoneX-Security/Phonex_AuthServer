@@ -781,14 +781,17 @@ public class PhoenixEndpoint {
                     ServerMICommand cmd;
                     cmd = new ServerMICommand("refreshWatchers");
                     cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("1");
+                    cmd.setPreDelay(1500);
                     executor.addToQueue(cmd);
                     
                     cmd= new ServerMICommand("refreshWatchers");
                     cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("0");
+                    cmd.setPreDelay(1500);
                     executor.addToQueue(cmd);
                     
                     cmd= new ServerMICommand("refreshWatchers");
                     cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("0");
+                    cmd.setPreDelay(1500);
                     executor.addToQueue(cmd);
                 } catch(Exception ex){
                     log.error("Exception during presence rules generation for: " + entry.getValue(), ex);
@@ -1205,6 +1208,17 @@ public class PhoenixEndpoint {
             Boolean passwdChange = localUser.getForcePasswordChange();
             if (passwdChange!=null && passwdChange==true){
                 resp.setForcePasswordChange(TrueFalse.TRUE);
+            }
+            
+            // unregister if auth is OK?
+            if (request.getUnregisterIfOK() == TrueFalse.TRUE && passwdChange!=true){
+                log.info("Unregistering user, auth was OK so far");
+                ServerCommandExecutor executor = getExecutor(context);
+                
+                ServerMICommand cmd = new ServerMICommand("ul_rm");
+                cmd.addParameter("location").addParameter(sip);
+                cmd.setPriority(1);
+                executor.addToHiPriorityQueue(cmd);
             }
             
             // if we have some certificate, we can continue with checks

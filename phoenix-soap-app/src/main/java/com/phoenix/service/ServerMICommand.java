@@ -13,10 +13,14 @@ import java.util.List;
  * Command can be in queue to be sent over FIFO to OpenSips.
  * @author ph4r05
  */
-public class ServerMICommand {
+public class ServerMICommand implements Comparable<Object> {
     private String commandName;
     private List<String> parameters;
     private boolean onRequest=true;
+    private long preDelay=0;
+    private long postDelay=0;
+    private long priority = 100;
+    private long timeAdded = 0;
     
     public ServerMICommand(String commandName) {
         this.commandName = commandName;
@@ -65,6 +69,38 @@ public class ServerMICommand {
         this.onRequest = onRequest;
     }
 
+    public long getPreDelay() {
+        return preDelay;
+    }
+
+    public void setPreDelay(long preDelay) {
+        this.preDelay = preDelay;
+    }
+
+    public long getPostDelay() {
+        return postDelay;
+    }
+
+    public void setPostDelay(long postDelay) {
+        this.postDelay = postDelay;
+    }
+
+    public long getPriority() {
+        return priority;
+    }
+
+    public void setPriority(long priority) {
+        this.priority = priority;
+    }
+
+    public long getTimeAdded() {
+        return timeAdded;
+    }
+
+    public void setTimeAdded(long timeAdded) {
+        this.timeAdded = timeAdded;
+    }
+
     @Override
     public String toString() {
         StringBuilder par = new StringBuilder();
@@ -72,7 +108,19 @@ public class ServerMICommand {
             par.append("'").append(s).append("', ");
         }
         
-        return "ServerMICommand{" + "commandName=" + commandName + ", parameters=" + par.toString() + "; onRequest="+(onRequest ? "true":"false")+'}';
+        return "ServerMICommand{" + "commandName=" + commandName + ", parameters=" + par.toString() + ", onRequest=" + onRequest + ", preDelay=" + preDelay + ", postDelay=" + postDelay + ", priority=" + priority + ", timeAdded=" + timeAdded + '}';
     }
-    
+
+    @Override
+    public int compareTo(Object o) {
+        if ((o instanceof ServerMICommand)==false) return -1;
+        final ServerMICommand cmd = (ServerMICommand) o;
+        
+        if (priority == cmd.getPriority()){
+            if (timeAdded == cmd.getTimeAdded()) return 0;
+            return timeAdded < cmd.getTimeAdded() ? -1 : 1;
+        } else {
+            return priority < cmd.getPriority() ? -1 : 1;
+        }
+    }
 }

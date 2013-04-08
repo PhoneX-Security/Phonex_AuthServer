@@ -654,6 +654,7 @@
             <xs:sequence>
                 <xs:element name="targetUser" type="hr:userSIP"/>
                 <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="unregisterIfOK" type="hr:trueFalse"/>
             </xs:sequence>   
         </xs:complexType>
     </xs:element>

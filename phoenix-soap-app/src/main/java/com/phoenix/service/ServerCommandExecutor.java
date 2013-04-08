@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.TypedQuery;
@@ -34,7 +35,9 @@ public class ServerCommandExecutor extends Thread {
     private static final String sudo="/usr/bin/sudo";
     
     // command queue here
-    private ConcurrentLinkedQueue<ServerMICommand> commandQueue = new ConcurrentLinkedQueue<ServerMICommand>();
+    //private ConcurrentLinkedQueue<ServerMICommand> commandQueue = new ConcurrentLinkedQueue<ServerMICommand>();
+    private PriorityBlockingQueue<ServerMICommand> commandQueue = new PriorityBlockingQueue<ServerMICommand>();
+    private PriorityBlockingQueue<ServerMICommand> hiPriorityCommandQueue = new PriorityBlockingQueue<ServerMICommand>();
     private boolean running = true;
     
     // Spring application context - dependency injector
@@ -72,6 +75,7 @@ public class ServerCommandExecutor extends Thread {
                         ServerMICommand cmd;
                         cmd = new ServerMICommand("refreshWatchers");
                         cmd.setOnRequest(false);
+                        cmd.setPreDelay(1500);
                         cmd.addParameter("sip:" + e.getUsername() + "@" + e.getDomain()).addParameter("presence").addParameter("0");
                         this.addToQueue(cmd);
                    }
@@ -111,15 +115,21 @@ public class ServerCommandExecutor extends Thread {
         
         // daemon loop
         while(running==true){
-            
             // at first sleep for a while and if interrupted, end this thread
+            
+            // High priority commands at first, all of them, fast
+            this.handleHighPriority();
+            
             try {
-                Thread.sleep(1500);
+                Thread.sleep(10);
             } catch (InterruptedException ex) {
                 log.error("Thread sleep interrupted, has to exit, in queue left elements: " + commandQueue.size(), ex);
                 running=false;
                 break;
             }
+            
+            // High priority commands at first, all of them, fast
+            this.handleHighPriority();
             
             // reload presence rules automatically
             this.reloadPresence();
@@ -128,32 +138,68 @@ public class ServerCommandExecutor extends Thread {
             ServerMICommand cmd = commandQueue.poll();
             if (cmd==null) continue;
             
-            log.info("Going to execute server command: " + cmd.toString());
-            
-            // execute here server call - executing external command
-            List<String> params  = new LinkedList<String>();
-            //params.add(shell);
-            params.add(sudo);
-            params.add(opensispsctl);
-            params.add("fifo");
-            params.add(cmd.getCommandName());
-            params.addAll(cmd.getParameters());
-            
-            ProcessBuilder b = new ProcessBuilder(params);
-            try {
-                Process p = b.start();
-                p.waitFor();
-                
-                // To capture output from the shell
-                InputStream shellIn = p.getInputStream();
-                int shellExitStatus = p.waitFor();
-                String response = PhoenixDataService.convertStreamToStr(shellIn);
-                shellIn.close();
-                
-                log.info("Execution finished, exit code: [" + shellExitStatus + "]. Result=[" + response + "]");
-            } catch(Exception ex){
-                log.error("Exception during executing process", b);
+            // pre-execution delay
+            long preDelay = cmd.getPreDelay();
+            if (preDelay>0){
+                long waitStart = System.currentTimeMillis();
+                long counter = preDelay/10;
+                try {
+                    while((counter--) > 0){
+                        this.handleHighPriority();
+                        
+                        Thread.sleep(10);
+                        if ((System.currentTimeMillis() - waitStart) >= preDelay) break;
+                    }
+                } catch (InterruptedException ex) {
+                    log.error("Thread sleep interrupted, has to exit, in queue left elements: " + commandQueue.size(), ex);
+                    running=false;
+                    break;
+                }
             }
+            
+            this.executeCommand(cmd);
+        }
+    }
+    
+    /**
+     * Handles content of high priority queue
+     */
+    protected void handleHighPriority(){
+        while(this.hiPriorityCommandQueue.isEmpty()==false){
+            ServerMICommand cmd = hiPriorityCommandQueue.poll();
+            if (cmd==null) continue;
+            
+            this.executeCommand(cmd);
+        }
+    }
+    
+    public void executeCommand(ServerMICommand cmd){
+        if (cmd==null) throw new NullPointerException("Command to execute cannot be null");
+        log.info("Going to execute server command: " + cmd.toString());
+        
+        // execute here server call - executing external command
+        List<String> params  = new LinkedList<String>();
+        //params.add(shell);
+        params.add(sudo);
+        params.add(opensispsctl);
+        params.add("fifo");
+        params.add(cmd.getCommandName());
+        params.addAll(cmd.getParameters());
+
+        ProcessBuilder b = new ProcessBuilder(params);
+        try {
+            Process p = b.start();
+            p.waitFor();
+
+            // To capture output from the shell
+            InputStream shellIn = p.getInputStream();
+            int shellExitStatus = p.waitFor();
+            String response = PhoenixDataService.convertStreamToStr(shellIn);
+            shellIn.close();
+
+            log.info("Execution finished, exit code: [" + shellExitStatus + "]. Result=[" + response + "]");
+        } catch(Exception ex){
+            log.error("Exception during executing process", b, ex);
         }
     }
     
@@ -168,7 +214,16 @@ public class ServerCommandExecutor extends Thread {
         
         log.debug("Adding command to execute: " + command.toString());
         this.commandQueue.add(command);
-    }    
+    }  
+    
+    public void addToHiPriorityQueue(ServerMICommand command){
+        if (command==null){
+            throw new NullPointerException("Command to be inserted to command queue cannot be null");
+        }
+        
+        log.debug("Adding high priority command to execute: " + command.toString());
+        this.hiPriorityCommandQueue.add(command);
+    }
     
     /**
      * Stops thread from running
