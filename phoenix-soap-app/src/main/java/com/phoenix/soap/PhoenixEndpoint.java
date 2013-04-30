@@ -1215,10 +1215,10 @@ public class PhoenixEndpoint {
                 log.info("Unregistering user, auth was OK so far");
                 ServerCommandExecutor executor = getExecutor(context);
                 
-                ServerMICommand cmd = new ServerMICommand("ul_rm");
+                /*ServerMICommand cmd = new ServerMICommand("ul_rm");
                 cmd.addParameter("location").addParameter(sip);
                 cmd.setPriority(1);
-                executor.addToHiPriorityQueue(cmd);
+                executor.addToHiPriorityQueue(cmd);*/
             }
             
             // if we have some certificate, we can continue with checks
