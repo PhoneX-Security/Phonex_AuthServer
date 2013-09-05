@@ -19,6 +19,8 @@ derby.log
 *.log.*
 **/db.properties
 */db.properties
+**/persistence.xml
+*persistence.xml
 phoenix-soap-app/src/main/resources/properties/db.properties
 phoenix-soap-app/src/test/resources/db.properties
 phoenix-soap-app/target/cards-management-application-1.0.0-SNAPSHOT/WEB-INF/classes/properties/db.properties
@@ -28,3 +30,4 @@ phoenix-soap-ftest/target/
 *db.properties*
 /phoenix-soap-ftest/target/
 
+/phoenix-soap-app/src/test/resources/testCards/vizitka.jpg

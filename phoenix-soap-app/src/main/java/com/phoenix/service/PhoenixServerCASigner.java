@@ -95,7 +95,7 @@ public class PhoenixServerCASigner {
     
     //private static final String keystoreResource = "serverCA.jks";
     private static final String keystoreResource = "signing-ca-1.p12";
-    private static final String keystorePass = "marklar";
+    private static final String keystorePass = "Eep5aih3yeiH";
     private static final String keystoreAlias = "signing-ca-1";
     private RSAPrivateCrtKeyParameters caPrivateKey;
     private X509Certificate caCert;
@@ -152,8 +152,12 @@ public class PhoenixServerCASigner {
             }
             
             log.info("Successfully loaded CA key and certificate. CA DN is '" + caCert.getSubjectDN().getName() + "'");
-            caCert.verify(this.trustManager.getPrimaryCA().getPublicKey());
-            log.info("Successfully verified CA certificate with Primary CA.");
+            
+            // 
+            // Code below is disabled - no need to be paranoid and verify certificates
+            //
+            //caCert.verify(this.trustManager.getPrimaryCA().getPublicKey());
+            //log.info("Successfully verified CA certificate with Primary CA.");
             
             //
             // Code below is disabled - verification with own public key.

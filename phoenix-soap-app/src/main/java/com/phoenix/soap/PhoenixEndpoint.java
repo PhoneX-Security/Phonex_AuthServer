@@ -977,8 +977,8 @@ public class PhoenixEndpoint {
                 // time-date validity
                 cert509.checkValidity();
                 
-                // is signed by server CA?
-                cert509.verify(this.trustManager.getServerCA().getPublicKey());
+                // is certificate valid?
+                this.trustManager.checkTrusted(cert509);
                 
                 // is revoked?
                 Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
@@ -1250,7 +1250,9 @@ public class PhoenixEndpoint {
                 // time-date validity
                 cert509.checkValidity();
                 // is signed by server CA?
-                cert509.verify(this.trustManager.getServerCA().getPublicKey());
+                //cert509.verify(this.trustManager.getServerCA().getPublicKey());
+                trustManager.checkTrusted(cert509);
+                
                 // is revoked?
                 Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
                 if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
