@@ -2,12 +2,15 @@ package com.phoenix.db.opensips;
 
 // Generated Dec 2, 2012 7:18:24 PM by Hibernate Tools 3.4.0.CR1
 
+import java.util.Calendar;
+import java.util.Date;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import static javax.persistence.GenerationType.IDENTITY;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.persistence.Temporal;
 import javax.persistence.UniqueConstraint;
 
 /**
@@ -18,21 +21,48 @@ import javax.persistence.UniqueConstraint;
 		"username", "domain" }))
 public class Subscriber implements java.io.Serializable {
 
+        @Id
+        @GeneratedValue(strategy = IDENTITY)
+        @Column(name = "id", unique = true, nullable = false)
 	private Integer id;
+        @Column(name = "username", nullable = false, length = 64)
 	private String username;
+        @Column(name = "domain", nullable = false, length = 64)
 	private String domain;
+        @Column(name = "password", nullable = false, length = 25)
 	private String password;
+        @Column(name = "email_address", nullable = false, length = 64)
 	private String emailAddress;
+        @Column(name = "ha1", nullable = false, length = 64)
 	private String ha1;
+        @Column(name = "ha1b", nullable = false, length = 64)
 	private String ha1b;
+        @Column(name = "rpid", length = 64)
 	private String rpid;
+        @Column(name = "isAdmin", nullable = false)
 	private boolean isAdmin;
+        @Column(name = "primaryGroup")
 	private Integer primaryGroup;
         
-        // can user sign new certificate?
+        // Can user sign new certificate?
+        @Column(name = "canSignNewCert", nullable = false, columnDefinition = "TINYINT(1)")
         private Boolean canSignNewCert=false;
-        // should be user forced to change this password during first login?
+        // Should be user forced to change this password during first login?
+        @Column(name = "forcePasswordChange", nullable = false, columnDefinition = "TINYINT(1)")
         private Boolean forcePasswordChange=false;
+        // Account was issued on (datetime)
+        // Has to add "&amp;zeroDateTimeBehavior=convertToNull" to connection string
+        // Problem [http://stackoverflow.com/questions/11133759/0000-00-00-000000-can-not-be-represented-as-java-sql-timestamp-error]
+        @Column(name = "issued_on", nullable = true, columnDefinition = "DATETIME")
+        @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+        private java.util.Calendar issued;
+        // Account will expire on (datetime)
+        @Column(name = "expires_on", nullable = true, columnDefinition = "DATETIME")
+        @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+        private java.util.Calendar expires;
+        // Should account be considered as deleted / not valid?
+        @Column(name = "deleted", nullable = false, columnDefinition = "TINYINT(1)")
+	private Boolean deleted=false;
 
 	public Subscriber() {
 	}
@@ -62,9 +92,6 @@ public class Subscriber implements java.io.Serializable {
 		this.primaryGroup = primaryGroup;
 	}
 
-	@Id
-	@GeneratedValue(strategy = IDENTITY)
-	@Column(name = "id", unique = true, nullable = false)
 	public Integer getId() {
 		return this.id;
 	}
@@ -73,7 +100,6 @@ public class Subscriber implements java.io.Serializable {
 		this.id = id;
 	}
 
-	@Column(name = "username", nullable = false, length = 64)
 	public String getUsername() {
 		return this.username;
 	}
@@ -82,7 +108,6 @@ public class Subscriber implements java.io.Serializable {
 		this.username = username;
 	}
 
-	@Column(name = "domain", nullable = false, length = 64)
 	public String getDomain() {
 		return this.domain;
 	}
@@ -91,7 +116,6 @@ public class Subscriber implements java.io.Serializable {
 		this.domain = domain;
 	}
 
-	@Column(name = "password", nullable = false, length = 25)
 	public String getPassword() {
 		return this.password;
 	}
@@ -100,7 +124,6 @@ public class Subscriber implements java.io.Serializable {
 		this.password = password;
 	}
 
-	@Column(name = "email_address", nullable = false, length = 64)
 	public String getEmailAddress() {
 		return this.emailAddress;
 	}
@@ -109,7 +132,6 @@ public class Subscriber implements java.io.Serializable {
 		this.emailAddress = emailAddress;
 	}
 
-	@Column(name = "ha1", nullable = false, length = 64)
 	public String getHa1() {
 		return this.ha1;
 	}
@@ -118,7 +140,6 @@ public class Subscriber implements java.io.Serializable {
 		this.ha1 = ha1;
 	}
 
-	@Column(name = "ha1b", nullable = false, length = 64)
 	public String getHa1b() {
 		return this.ha1b;
 	}
@@ -127,7 +148,6 @@ public class Subscriber implements java.io.Serializable {
 		this.ha1b = ha1b;
 	}
 
-	@Column(name = "rpid", length = 64)
 	public String getRpid() {
 		return this.rpid;
 	}
@@ -136,7 +156,6 @@ public class Subscriber implements java.io.Serializable {
 		this.rpid = rpid;
 	}
 
-	@Column(name = "isAdmin", nullable = false)
 	public boolean isIsAdmin() {
 		return this.isAdmin;
 	}
@@ -145,7 +164,6 @@ public class Subscriber implements java.io.Serializable {
 		this.isAdmin = isAdmin;
 	}
 
-	@Column(name = "primaryGroup")
 	public Integer getPrimaryGroup() {
 		return this.primaryGroup;
 	}
@@ -158,7 +176,6 @@ public class Subscriber implements java.io.Serializable {
         *
         * @return
         */
-        @Column(name = "canSignNewCert", nullable = false, columnDefinition = "TINYINT(1)")
         public Boolean isCanSignNewCert() {
             return canSignNewCert;
         }
@@ -167,12 +184,35 @@ public class Subscriber implements java.io.Serializable {
             this.canSignNewCert = canSignNewCert;
         }
 
-        @Column(name = "forcePasswordChange", nullable = false, columnDefinition = "TINYINT(1)")
         public Boolean getForcePasswordChange() {
             return forcePasswordChange;
         }
 
         public void setForcePasswordChange(Boolean forcePasswordChange) {
             this.forcePasswordChange = forcePasswordChange;
+        }
+
+        public Calendar getIssued() {
+            return issued;
+        }
+
+        public void setIssued(Calendar issued) {
+            this.issued = issued;
+        }
+
+        public Calendar getExpires() {
+            return expires;
+        }
+
+        public void setExpires(Calendar expires) {
+            this.expires = expires;
+        }
+
+        public Boolean isDeleted() {
+            return deleted;
+        }
+
+        public void setDeleted(Boolean deleted) {
+            this.deleted = deleted;
         }
 }

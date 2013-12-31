@@ -64,14 +64,14 @@
       <property name="hibernate.hbm2ddl.auto" value="update"/>
       <property name="hibernate.search.default.indexBase" value="/tmp/test_index"/>
       <property name="openjpa.ConnectionDriverName" value="com.mysql.jdbc.Driver"/>      
-      <property name="javax.persistence.jdbc.url" value="${db.properties}?useUnicode=true&amp;connectionCollation=utf8_general_ci&amp;characterSetResults=utf8&amp;autoReconnect=true&amp;characterEncoding=UTF-8"/>
+      <property name="javax.persistence.jdbc.url" value="${db.properties}?useUnicode=true&amp;connectionCollation=utf8_general_ci&amp;characterSetResults=utf8&amp;autoReconnect=true&amp;characterEncoding=UTF-8&amp;zeroDateTimeBehavior=convertToNull"/>
       
       <!-- production values -->
       <property name="javax.persistence.jdbc.password" value="DzSpf8s8KC7RDb3b"/>
       <property name="javax.persistence.jdbc.user" value="opensips"/>
       <property name="openjpa.ConnectionUserName" value="opensips"/>
       <property name="openjpa.ConnectionPassword" value="DzSpf8s8KC7RDb3b"/>
-      <property name="openjpa.ConnectionURL" value="jdbc:mysql://89.29.122.86:3306/opensips?useUnicode=true&amp;connectionCollation=utf8_general_ci&amp;characterSetResults=utf8&amp;autoReconnect=true&amp;characterEncoding=UTF-8"/>
+      <property name="openjpa.ConnectionURL" value="jdbc:mysql://89.29.122.86:3306/opensips?useUnicode=true&amp;connectionCollation=utf8_general_ci&amp;characterSetResults=utf8&amp;autoReconnect=true&amp;characterEncoding=UTF-8&amp;zeroDateTimeBehavior=convertToNull"/>
     </properties>
   </persistence-unit>
   <!--<property name="javax.persistence.jdbc.url" value="jdbc:derby://localhost:1527/vizitky"/>

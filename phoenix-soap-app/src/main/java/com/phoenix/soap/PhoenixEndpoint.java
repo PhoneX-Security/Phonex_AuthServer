@@ -25,7 +25,9 @@ import com.phoenix.service.ServerCommandExecutor;
 import com.phoenix.service.ServerMICommand;
 import com.phoenix.service.TrustVerifier;
 import com.phoenix.soap.beans.AuthCheckRequest;
+import com.phoenix.soap.beans.AuthCheckRequestV2;
 import com.phoenix.soap.beans.AuthCheckResponse;
+import com.phoenix.soap.beans.AuthCheckResponseV2;
 import com.phoenix.soap.beans.TrueFalse;
 import com.phoenix.soap.beans.TrueFalseNA;
 import com.phoenix.soap.beans.CertificateRequestElement;
@@ -75,7 +77,9 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -87,6 +91,9 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
+import javax.xml.datatype.DatatypeConfigurationException;
+import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.XMLGregorianCalendar;
 import org.bouncycastle.cert.jcajce.JcaX500NameUtil;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
@@ -1161,7 +1168,7 @@ public class PhoenixEndpoint {
         resp.setCertValid(TrueFalseNA.NA);
         resp.setCertStatus(CertificateStatus.MISSING);
         resp.setForcePasswordChange(TrueFalse.FALSE);
-        try {            
+        try {
             /*
              * ONE time tokens are disabled at this moment for simplicity...
              * 
@@ -1276,6 +1283,187 @@ public class PhoenixEndpoint {
              throw new RuntimeException(e);
          }
          
+        return resp;
+    }
+    
+    /**
+     * Converts Date to XMLGregorianCalendar used in SOAP responses. 
+     * 
+     * @param d
+     * @return
+     * @throws DatatypeConfigurationException 
+     */
+    public static XMLGregorianCalendar getXMLDate(Date d) throws DatatypeConfigurationException{
+        GregorianCalendar c = new GregorianCalendar();
+        c.setTime(d);
+        return DatatypeFactory.newInstance().newXMLGregorianCalendar(c);
+    }
+    
+    /**
+     * Testing authentication.
+     * 
+     * User can provide its auth hash and test its authentication with password.
+     * This service is available on both ports with user certificate required or not.
+     * Thus user can provide certificate and in this case it will be tested as well.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "authCheckRequestV2", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AuthCheckResponseV2 authCheckV2(@RequestPayload AuthCheckRequestV2 request, MessageContext context) throws CertificateException {
+        // protect user identity and avoid MITM, require SSL
+        this.checkOneSideSSL(context, this.request);
+        
+        AuthCheckResponseV2 resp = new AuthCheckResponseV2();
+        resp.setAuthHashValid(TrueFalse.FALSE);
+        resp.setCertValid(TrueFalseNA.NA);
+        resp.setCertStatus(CertificateStatus.MISSING);
+        resp.setForcePasswordChange(TrueFalse.FALSE);
+        resp.setAccountDisabled(true);
+        resp.setAuxVersion(0);
+        resp.setAuxJSON("");
+        resp.setErrCode(404);
+        try {
+            // Date conversion can throw exception
+            resp.setAccountExpires(getXMLDate(new Date()));
+            resp.setServerTime(getXMLDate(new Date()));
+        
+            /*
+             * ONE time tokens are disabled at this moment for simplicity...
+             * 
+            // check token here!
+            boolean ott_valid = this.dataService.isOneTimeTokenValid(sip, request.getUsrToken(), request.getServerToken(), "");
+            if (ott_valid==false){
+                log.warn("Invalid one time token");
+                throw new RuntimeException("Not authorized");
+            }*/
+            
+            // user is provided in request thus try to load it from database
+            String sip = request.getTargetUser();
+            log.info("User [" + sip + "] is asking to verify credentials");
+            
+            // user matches, load subscriber data for him
+            Subscriber localUser = this.dataService.getLocalUser(sip);
+            if (localUser == null){
+                log.warn("Local user was not found in database for: " + sip);
+                return resp;
+            }
+            
+            // check user AUTH hash
+            // generate 3 tokens, for 3 time slots
+            boolean authHash_valid=false;
+            for (int i=-1, c=0; i <=1 ; i++, c++){
+                String userHash = this.dataService.generateUserAuthToken(
+                    sip, localUser.getHa1(), 
+                    "", "", 
+                    1000 * 60, i);
+                
+                log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+userHash+"]");
+                if (userHash.equals(request.getAuthHash())){
+                    resp.setAuthHashValid(TrueFalse.TRUE);
+                    authHash_valid=true;
+                    break;
+                }
+            }
+            
+            if (authHash_valid==false){
+                return resp;
+            }
+            
+            // User valid ?
+            resp.setAccountDisabled(localUser.isDeleted());
+            
+            // Time can be null
+            Calendar cal = localUser.getExpires();
+            if (cal==null){ 
+                resp.setAccountExpires(null);
+            } else {
+                resp.setAccountExpires(getXMLDate(cal.getTime()));
+            }
+       
+            // If user was deleted, login was not successful.
+            if (localUser.isDeleted()){
+                resp.setErrCode(405);
+                return resp;
+            }
+            
+            // password change?
+            Boolean passwdChange = localUser.getForcePasswordChange();
+            if (passwdChange!=null && passwdChange==true){
+                resp.setForcePasswordChange(TrueFalse.TRUE);
+            }
+            
+            // if we have some certificate, we can continue with checks
+            X509Certificate[] chain = auth.getCertificateChainFromConnection(context, this.request);
+            if (chain==null){
+                return resp;
+            }
+            
+            // now try to test certificate if any provided
+            try {
+                Subscriber owner = this.authUserFromCert(context, this.request);
+                String certSip = auth.getSIPFromCertificate(context, this.request);
+                log.info("User provided also certificate: " + owner);
+                if (owner == null || certSip == null){
+                    return resp;
+                }
+                
+                // check user validity
+                if (certSip.equals(sip)==false){
+                    resp.setCertValid(TrueFalseNA.FALSE);
+                    return resp;
+                }
+                
+                // Get certificate chain from cert parameter. Obtain user certificate
+                // that was used in connection
+                X509Certificate certChain[] = auth.getCertChain(context, this.request);
+                // client certificate SHOULD be stored first here, so assume it
+                X509Certificate cert509 = certChain[0];
+                // time-date validity
+                cert509.checkValidity();
+                // is signed by server CA?
+                //cert509.verify(this.trustManager.getServerCA().getPublicKey());
+                trustManager.checkTrusted(cert509);
+                
+                // is revoked?
+                Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
+                if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
+                    log.info("Certificate for user is revoked: " + cert509.getSerialNumber().longValue());
+                    resp.setCertValid(TrueFalseNA.FALSE);
+                    resp.setCertStatus(CertificateStatus.REVOKED);
+                } else {
+                    resp.setCertValid(TrueFalseNA.TRUE);
+                    resp.setCertStatus(CertificateStatus.OK);
+                }
+            } catch (Exception e){
+                // no certificate, just return response, exception is 
+                // actually really expected :)
+                log.debug("Certificate was not valid: ", e);
+                resp.setCertValid(TrueFalseNA.FALSE);
+                resp.setCertStatus(CertificateStatus.INVALID);
+                return resp;
+            }
+            
+            // Unregister if auth is OK?
+            if (request.getUnregisterIfOK() == TrueFalse.TRUE && passwdChange!=true){
+                log.info("Unregistering user, auth was OK so far");
+                ServerCommandExecutor executor = getExecutor(context);
+                
+                /*ServerMICommand cmd = new ServerMICommand("ul_rm");
+                cmd.addParameter("location").addParameter(sip);
+                cmd.setPriority(1);
+                executor.addToHiPriorityQueue(cmd);*/
+            }
+         } catch(Exception e){
+             log.warn("Exception in password change procedure", e);
+             throw new RuntimeException(e);
+         }
+         
+        resp.setErrCode(0);
         return resp;
     }
     
