@@ -196,6 +196,11 @@ public class PhoenixEndpoint {
                 throw new CertificateException("You are not authorized, go away!");
             }
             
+            // Is user is deleted/disabled, no further operation is allowed
+            if (subs.isDeleted()){
+                throw new CertificateException("You are not authorized, go away!");
+            }
+            
             return subs;
         } catch (CertificateException ex) {
             log.info("User check failed", ex);
@@ -250,6 +255,7 @@ public class PhoenixEndpoint {
      * @param request
      * @param context
      * @return 
+     * @throws java.security.cert.CertificateException 
      */
     @PayloadRoot(localPart = "whitelistRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
@@ -359,6 +365,7 @@ public class PhoenixEndpoint {
      * @param request
      * @param context
      * @return 
+     * @throws java.security.cert.CertificateException 
      */
     @PayloadRoot(localPart = "whitelistGetRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
@@ -393,6 +400,7 @@ public class PhoenixEndpoint {
      * @param request
      * @param context
      * @return 
+     * @throws java.security.cert.CertificateException 
      */
     @PayloadRoot(localPart = "contactlistGetRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
@@ -539,6 +547,7 @@ public class PhoenixEndpoint {
      * @param request
      * @param context
      * @return 
+     * @throws java.security.cert.CertificateException 
      */
     @PayloadRoot(localPart = "contactlistChangeRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
@@ -866,7 +875,7 @@ public class PhoenixEndpoint {
             dstObj.setIntern_user(sub);
         }
         
-        // still nul? 
+        // still null? 
         if (sub==null && rem==null){
             throw new IllegalArgumentException("User you are claiming you are does not exist!");
         }
@@ -1040,6 +1049,10 @@ public class PhoenixEndpoint {
             log.warn("Local user was not found in database for: " + sip);
             throw new IllegalArgumentException("Not authorized");
         }
+        if (owner.isDeleted()){
+            log.warn("Local user is deleted/disabled. SIP: " + sip);
+            throw new IllegalArgumentException("Not authorized");
+        }
         log.info("User connected: " + sip);
         
         // construct response wrapper
@@ -1159,6 +1172,7 @@ public class PhoenixEndpoint {
     @PayloadRoot(localPart = "authCheckRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    @Deprecated
     public AuthCheckResponse authCheck(@RequestPayload AuthCheckRequest request, MessageContext context) throws CertificateException {
         // protect user identity and avoid MITM, require SSL
         this.checkOneSideSSL(context, this.request);
@@ -1187,6 +1201,12 @@ public class PhoenixEndpoint {
             Subscriber localUser = this.dataService.getLocalUser(sip);
             if (localUser == null){
                 log.warn("Local user was not found in database for: " + sip);
+                return resp;
+            }
+            
+            // If user was deleted, login was not successful.
+            if (localUser.isDeleted()){
+                resp.setAuthHashValid(TrueFalse.FALSE);
                 return resp;
             }
             
@@ -1521,6 +1541,10 @@ public class PhoenixEndpoint {
                 log.warn("Local user was not found in database for: " + reqUser);
                 throw new IllegalArgumentException("Not authorized");
             }
+            if (localUser.isDeleted()){
+                log.warn("Local user was deleted/disabled. SIP: " + reqUser);
+                throw new IllegalArgumentException("Not authorized");
+            }
             
             // check token here!
             boolean ott_valid = this.dataService.isOneTimeTokenValid(reqUser, request.getUsrToken(), request.getServerToken(), "");
@@ -1703,7 +1727,8 @@ public class PhoenixEndpoint {
     }
     
      /**
-     * Contact list change request
+     * Obtains one time token. 
+     * Required for some special further actions.
      * @param request
      * @param context
      * @return 
