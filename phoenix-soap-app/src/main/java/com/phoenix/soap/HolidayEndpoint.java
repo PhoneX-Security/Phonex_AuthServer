@@ -16,7 +16,7 @@
 
 package com.phoenix.soap;
 
-import java.text.ParseException;
+/*import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.w3c.dom.Document;
-import org.w3c.dom.Text;
+import org.w3c.dom.Text;*/
 
 /**
  * This endpoint handles holiday requests. It uses a combination of JDOM and XPath to extract interesting pieces of XML
@@ -59,9 +59,9 @@ import org.w3c.dom.Text;
  *
  * @author Arjen Poutsma
  */
-@Endpoint
+//@Endpoint
 public class HolidayEndpoint {
-    private static final Logger log = LoggerFactory.getLogger(HolidayEndpoint.class);
+    /*private static final Logger log = LoggerFactory.getLogger(HolidayEndpoint.class);
     
     private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
     private XPathExpression<Element> startDateExpression;
@@ -71,16 +71,16 @@ public class HolidayEndpoint {
     private final DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
     private static final String NL = "\r\n";
 
-    @Autowired
+    //@Autowired
     private SessionFactory sessionFactory;
     
-    @PersistenceContext
+    //@PersistenceContext
     protected EntityManager em;
     
-    @Autowired(required=true)
+    //@Autowired(required=true)
     private HttpServletRequest request;
     
-    @Autowired(required=true)
+    //@Autowired(required=true)
     private X509TrustManager trustManager;
     
     public HolidayEndpoint() throws JDOMException {
@@ -92,9 +92,10 @@ public class HolidayEndpoint {
         lastNameExpression = xPathFactory.compile("//hr:LastName", Filters.element(), null, namespace);
     }
     
-    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "HolidayRequest")
-    @ResponsePayload 
-    public org.w3c.dom.Element handleHolidayRequest(@RequestPayload HolidayRequest holidayRequest, MessageContext context) throws Exception {
+    //@PayloadRoot(namespace = NAMESPACE_URI, localPart = "HolidayRequest")
+    //@ResponsePayload 
+    //public org.w3c.dom.Element handleHolidayRequest(@RequestPayload HolidayRequest holidayRequest, MessageContext context) throws Exception {
+    public org.w3c.dom.Element handleHolidayRequest(HolidayRequest holidayRequest, MessageContext context) throws Exception {
         StringBuilder sb = new StringBuilder();
         sb.append("Shit happened? ").append(NL);
         
@@ -230,5 +231,5 @@ public class HolidayEndpoint {
 
     public void setEm(EntityManager em) {
         this.em = em;
-    }
+    }*/
 }

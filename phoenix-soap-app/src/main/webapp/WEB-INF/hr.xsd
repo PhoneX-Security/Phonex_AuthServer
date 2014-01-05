@@ -694,6 +694,60 @@
         </xs:complexType>
     </xs:element>
     
+    <xs:complexType name="AuthCheckResponseBodyV1">
+        <xs:sequence>
+            <xs:element name="authHashValid" type="hr:trueFalse"/>
+            <xs:element name="certValid" type="hr:trueFalseNA"/>
+            <xs:element name="certStatus" type="hr:certificateStatus"/>
+            <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:complexType name="AuthCheckResponseBodyV2">
+        <xs:complexContent>
+            <xs:extension base="hr:AuthCheckResponseBodyV1">
+                <xs:sequence>
+                    <xs:element name="errCode" type="xs:int"/>
+                    <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                    <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                    <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
+                    <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                    <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <xs:element name="authCheckResponseV1a">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 1a
+            </xs:documentation>
+        </xs:annotation>
+        
+        <xs:complexType > 
+        <xs:complexContent> 
+            <xs:extension base="hr:AuthCheckResponseBodyV1"/> 
+        </xs:complexContent> 
+        </xs:complexType > 
+    </xs:element>
+    
+    <xs:element name="authCheckResponseV2a">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 2a
+            </xs:documentation>
+        </xs:annotation>
+        
+        <xs:complexType > 
+        <xs:complexContent> 
+            <xs:extension base="hr:AuthCheckResponseBodyV2"/> 
+        </xs:complexContent> 
+        </xs:complexType > 
+    </xs:element>
+    
     <xs:element name="authCheckResponseV2">
         <xs:annotation>
             <xs:documentation>
@@ -765,28 +819,4 @@
             </xs:sequence> 
         </xs:complexType>
     </xs:element>
-    
-    <xs:element name="HolidayResponse2" nillable="true" type="xs:string"/>
-    <xs:element name="HolidayResponse" type="xs:string" />
-    <xs:element name="HolidayRequest">
-        <xs:complexType>
-            <xs:all>
-                <xs:element name="Holiday" type="hr:HolidayType"/>
-                <xs:element name="Employee" type="hr:EmployeeType"/>
-            </xs:all>
-        </xs:complexType>
-    </xs:element>
-    <xs:complexType name="HolidayType">
-        <xs:sequence>
-            <xs:element name="StartDate" type="xs:date"/>
-            <xs:element name="EndDate" type="xs:date"/>
-        </xs:sequence>
-    </xs:complexType>
-    <xs:complexType name="EmployeeType">
-        <xs:sequence>
-            <xs:element name="Number" type="xs:integer"/>
-            <xs:element name="FirstName" type="xs:string"/>
-            <xs:element name="LastName" type="xs:string"/>
-        </xs:sequence>
-    </xs:complexType>
 </xs:schema>
