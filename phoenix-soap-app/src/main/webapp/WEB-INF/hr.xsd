@@ -239,7 +239,7 @@
         <xs:choice>
                <xs:element name="userSIP" type="hr:userSIP"/>
                <xs:element name="userID" type="hr:userID"/>
-            </xs:choice>
+        </xs:choice>
     </xs:complexType>
     
     <xs:complexType name="groupIdentifier">
@@ -819,4 +819,165 @@
             </xs:sequence> 
         </xs:complexType>
     </xs:element>
+    
+    <!--
+    
+    File Transfer part
+    
+    -->
+    
+     <xs:simpleType name="ftNonce">
+        <xs:annotation>
+            <xs:documentation>
+                24 ASCII characters in base64 -> 18 byte nonce.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:minLength value="24"/>
+            <xs:maxLength value="24"/>
+            <xs:pattern value="[a-zA-Z0-9+=/]{24}"/> 
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:complexType name="dhKey">
+        <xs:annotation>
+            <xs:documentation>
+                Diffie-Hellman offline-keys.
+                Used for uploading new keys from the creator to the server cache.
+            </xs:documentation>
+        </xs:annotation>
+        
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="aEncBlock" type="hr:binaryPayload"/>
+            <xs:element name="sEncBlock" type="hr:binaryPayload"/>
+            <xs:element name="nonce1"  type="hr:ftNonce"/>
+            <xs:element name="nonce2"  type="hr:ftNonce"/>
+            <xs:element name="sig1"  type="hr:binaryPayload"/>
+            <xs:element name="sig2"  type="hr:binaryPayload" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="expires" type="xs:dateTime"/>
+            
+            <xs:element name="creatorCertInfo" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="userCertInfo" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:element name="ftAddDHKeysRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Message for adding Diffie Hellman keys to the server cache.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="dhkeys" type="hr:dhKey" minOccurs="0" maxOccurs="1000"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:simpleType name="ftAddDHKeysReturn">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist request response type - integer
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:int"/>
+    </xs:simpleType>
+    
+    <xs:element name="ftAddDHKeysResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Message for adding Diffie Hellman keys to the server cache.
+                Response.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return" type="hr:ftAddDHKeysReturn" minOccurs="0" maxOccurs="1000"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="ftRemoveDHKeysRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Message for removing all Diffie-Hellman keys from the server for the caller.
+            </xs:documentation>
+        </xs:annotation>
+    </xs:element>
+    
+    <xs:element name="ftRemoveDHKeysResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Message for removing all Diffie-Hellman keys from the server for the caller.
+                Response.
+            </xs:documentation>
+        </xs:annotation>
+    </xs:element>
+    
+    <xs:element name="ftGetDHKeyRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Message to obtain one Diffie-Hellman key from the server for 
+                particular user.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="ftGetDHKeyResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Response on ftGetDHKeyRequest.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="aEncBlock" type="hr:binaryPayload"/>
+                <xs:element name="sEncBlock" type="hr:binaryPayload"/>
+                <xs:element name="sig1"  type="hr:binaryPayload"/>
+                <xs:element name="created" type="xs:dateTime"/>
+                <xs:element name="expires" type="xs:dateTime"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="ftGetDHKeyPart2Request">
+        <xs:annotation>
+            <xs:documentation>
+                Message to obtain one Diffie-Hellman key from the server for 
+                particular user. Second message to obtain nonce2.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="nonce1"  type="hr:ftNonce"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="ftGetDHKeyPart2Response">
+        <xs:annotation>
+            <xs:documentation>
+                Response on ftGetDHKeyPart2Request, returns nonce2 to the user.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="nonce2"  type="hr:ftNonce"/>
+                <xs:element name="sig2"  type="hr:binaryPayload" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    
 </xs:schema>
