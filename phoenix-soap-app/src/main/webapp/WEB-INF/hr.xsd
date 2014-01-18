@@ -839,7 +839,7 @@
         </xs:restriction>
     </xs:simpleType>
     
-    <xs:complexType name="dhKey">
+    <xs:complexType name="ftDHKey">
         <xs:annotation>
             <xs:documentation>
                 Diffie-Hellman offline-keys.
@@ -857,6 +857,9 @@
             <xs:element name="sig2"  type="hr:binaryPayload" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="expires" type="xs:dateTime"/>
             
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="creatorCertInfo" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="userCertInfo" type="xs:string" minOccurs ="0" maxOccurs="1"/>
         </xs:sequence>
@@ -870,7 +873,7 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="dhkeys" type="hr:dhKey" minOccurs="0" maxOccurs="1000"/>
+                <xs:element name="dhkeys" type="hr:ftDHKey" minOccurs="0" maxOccurs="1000"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -893,7 +896,7 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="return" type="hr:ftAddDHKeysReturn" minOccurs="0" maxOccurs="1000"/>
+                <xs:element name="result" type="hr:ftAddDHKeysReturn" minOccurs="0" maxOccurs="1000"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -904,6 +907,13 @@
                 Message for removing all Diffie-Hellman keys from the server for the caller.
             </xs:documentation>
         </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
     </xs:element>
     
     <xs:element name="ftRemoveDHKeysResponse">
@@ -913,6 +923,105 @@
                 Response.
             </xs:documentation>
         </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:simpleType name="ftDHkeyState">
+        <xs:annotation>
+            <xs:documentation>
+                White list action type - inside whitelist change request
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ready"/>
+            <xs:enumeration value="used"/>
+            <xs:enumeration value="expired"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:complexType name="ftDHKeyUserInfo">
+        <xs:annotation>
+            <xs:documentation>
+                Diffie-Hellman offline-keys information provided by server to
+                the creator for a particular user.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="nonce2" type="hr:ftNonce"/>
+            <xs:element name="status" type="hr:ftDHkeyState"/>
+            <xs:element name="expires" type="xs:dateTime"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:complexType name="ftDHKeyUserStats">
+        <xs:annotation>
+            <xs:documentation>
+                Diffie-Hellman offline-keys simple stats provided by server to
+                the creator for a particular user.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="readyCount" type="xs:int"/>
+            <xs:element name="usedCount" type="xs:int"/>
+            <xs:element name="expiredCount" type="xs:int"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ftDHKeyUserInfoArr">
+        <xs:sequence>
+             <xs:element name="dhkeys" type="hr:ftDHKeyUserStats" minOccurs ="0" maxOccurs="unbounded"/>
+         </xs:sequence>
+    </xs:complexType>
+   
+   <xs:complexType name="ftDHKeyUserStatsArr">
+        <xs:sequence>
+             <xs:element name="dhkeys" type="hr:ftDHKeyUserStats" minOccurs ="0" maxOccurs="unbounded"/>
+         </xs:sequence>
+    </xs:complexType>
+        
+    <xs:element name="ftGetStoredDHKeysInfoRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Message to obtain statistics about stored DHkeys from the server.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="users" type="hr:sipList"/>
+                <xs:element name="detailed" type="xs:boolean" default="false" minOccurs ="0" maxOccurs="1"/>
+                
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="ftGetStoredDHKeysInfoResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Message to obtain statistics about stored DHkeys from the server.
+                Note: could use just private types, but our translator to KSOAP 
+                entities is not able to cope with internal classes.
+                
+                Note: Choice should be here for UserInfo,Stats, but due to need
+                to have every type externaly defined we can live with this definition
+                also.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="info" type="hr:ftDHKeyUserInfoArr" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="stats" type="hr:ftDHKeyUserStatsArr" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
     </xs:element>
     
     <xs:element name="ftGetDHKeyRequest">
@@ -925,6 +1034,9 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -959,6 +1071,9 @@
             <xs:sequence>
                 <xs:element name="user" type="hr:userSIP"/>
                 <xs:element name="nonce1"  type="hr:ftNonce"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -978,6 +1093,94 @@
             </xs:sequence>
         </xs:complexType>
     </xs:element>
+
+    <xs:complexType name="ftNonceList">
+        <xs:sequence>
+            <xs:element name="nonce" type="hr:ftNonce" minOccurs ="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
     
+    <xs:element name="ftDeleteFilesRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Message to delete files from the server.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="deleteAll" type="xs:boolean" default="false"/>
+                <xs:element name="nonceList" type="hr:ftNonceList" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="users" type="hr:sipList" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="deleteDownloaded" type="xs:boolean" default="false" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="deleteOlderThan" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="ftDeleteFilesResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Response to delete files from the server requests.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:complexType name="ftStoredFile">
+        <xs:annotation>
+            <xs:documentation>
+                Structure describing stored file archive together with meta files.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="sender" type="hr:userSIP"/>
+            <xs:element name="sentDate" type="xs:dateTime"/>
+            <xs:element name="nonce2" type="hr:ftNonce"/>
+            <xs:element name="hashMeta" type="xs:string"/>
+            <xs:element name="hashPack" type="xs:string"/>
+            <xs:element name="sizeMeta" type="xs:int" />
+            <xs:element name="sizePack" type="xs:int" />
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:element name="ftGetStoredFilesRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Message to retrieve all stored files on the server side.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="getAll" type="xs:boolean" default="false"/>
+                <xs:element name="users" type="hr:sipList" minOccurs ="0" maxOccurs="1"/>
+                
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="ftGetStoredFilesResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Response to delete files from the server requests.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="storedFile" type="hr:ftStoredFile" minOccurs ="0" maxOccurs="unbounded" />
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
     
 </xs:schema>
