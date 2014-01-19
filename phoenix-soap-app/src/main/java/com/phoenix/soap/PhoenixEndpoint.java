@@ -7,6 +7,7 @@ package com.phoenix.soap;
 import com.phoenix.db.CAcertsSigned;
 import com.phoenix.db.Contactlist;
 import com.phoenix.db.ContactlistDstObj;
+import com.phoenix.db.DHKeys;
 import com.phoenix.db.RemoteUser;
 import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
@@ -52,6 +53,12 @@ import com.phoenix.soap.beans.ContactlistGetRequest;
 import com.phoenix.soap.beans.ContactlistGetResponse;
 import com.phoenix.soap.beans.ContactlistReturn;
 import com.phoenix.soap.beans.EnabledDisabled;
+import com.phoenix.soap.beans.FtAddDHKeysRequest;
+import com.phoenix.soap.beans.FtAddDHKeysResponse;
+import com.phoenix.soap.beans.FtRemoveDHKeysRequest;
+import com.phoenix.soap.beans.FtRemoveDHKeysResponse;
+import com.phoenix.soap.beans.*;
+import com.phoenix.soap.beans.FtDHKey;
 import com.phoenix.soap.beans.GetCertificateRequest;
 import com.phoenix.soap.beans.GetCertificateResponse;
 import com.phoenix.soap.beans.GetOneTimeTokenRequest;
@@ -85,16 +92,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
 import javax.servlet.http.HttpServletRequest;
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
-import org.bouncycastle.cert.jcajce.JcaX500NameUtil;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.springframework.ws.context.MessageContext;
@@ -1320,6 +1326,18 @@ public class PhoenixEndpoint {
     }
     
     /**
+     * Converts XML:GregorianCalendar to Date.
+     * @param c
+     * @return 
+     */
+    public static Date getDate(XMLGregorianCalendar c){
+        if(c == null) {
+            return null;
+        }
+        return c.toGregorianCalendar().getTime();
+    }
+    
+    /**
      * Testing authentication.
      * 
      * User can provide its auth hash and test its authentication with password.
@@ -1498,7 +1516,7 @@ public class PhoenixEndpoint {
      *  1. user must be in database -> local user
      *  2. user has to have enabled flag allowing signing new certificate
      *      this flag is immediately reseted after signing. Only manual intervention
-     *      can revert value of flag to enable signing again.
+     *      can revert value of the flag to enable signing again.
      *  3. user has to provide AUTH token to prove identity
      *      sha1(challenge, time_block, user, hashed_password_to_sip_server) 
      *  4. connection has to use SSL to avoid MITM.
@@ -1732,6 +1750,8 @@ public class PhoenixEndpoint {
      * @param request
      * @param context
      * @return 
+     * @throws java.security.cert.CertificateException 
+     * @throws java.security.NoSuchAlgorithmException 
      */
     @PayloadRoot(localPart = "getOneTimeTokenRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
@@ -1748,6 +1768,345 @@ public class PhoenixEndpoint {
         response.setUser(request.getUser());
         response.setUserToken(request.getUserToken());
         response.setServerToken(ott);
+        return response;
+    }
+    
+    /**
+     * Logic for adding new Diffie-Hellman offline keys to the server.
+     * 
+     * @param request
+     * @param context
+     * @return 
+     * @throws java.security.cert.CertificateException 
+     */
+    @PayloadRoot(localPart = "ftAddDHKeysRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public FtAddDHKeysResponse ftAddDHKeys(@RequestPayload FtAddDHKeysRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        String ownerSip = PhoenixDataService.getSIP(owner);
+        log.info("User connected: " + owner);
+        
+        // construct response, then add results iteratively
+        FtAddDHKeysResponse response = new FtAddDHKeysResponse();
+        // analyze request
+        List<FtDHKey> dhkeys = request.getDhkeys();
+        if (dhkeys==null || dhkeys.isEmpty()){
+            log.info("dhkeysr list is empty");
+            response.setErrCode(-1);
+            return response;
+        }
+        
+        // Iterating over the request.
+        log.info("dhkeys is not null; size: " + dhkeys.size());
+        try {
+            for(FtDHKey key : dhkeys){
+                Integer result=-1;
+                
+                try {
+                    DHKeys entity = new DHKeys();
+
+                    entity.setExpired(false);
+                    entity.setUsed(false);
+
+                    entity.setCreated(new Date());
+                    entity.setExpires(getDate(key.getExpires()));
+                    entity.setForUser(key.getUser());
+                    entity.setNonce1(key.getNonce1());
+                    entity.setNonce2(key.getNonce2());
+                    entity.setOwner(owner);
+                    entity.setSig1(key.getSig1());
+                    entity.setSig2(key.getSig2());
+                    entity.setaAncBlock(key.getAEncBlock());
+                    entity.setsAncBlock(key.getSEncBlock());
+                    
+                    this.dataService.persist(entity, true);
+                    result=1;
+                } catch(Exception e){
+                    log.warn("Exception when adding DH key to the database", e);
+                } finally {
+                    response.getResult().add(result);
+                }
+            }
+        } catch(Exception e){
+            log.error("Exception in AddDHKeys", e);
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Logic for removing all Diffie-Hellman offline keys on the server.
+     * 
+     * @param request
+     * @param context
+     * @return 
+     * @throws java.security.cert.CertificateException 
+     */
+    @PayloadRoot(localPart = "ftRemoveDHKeysRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public FtRemoveDHKeysResponse ftRemoveDHKeys(@RequestPayload FtRemoveDHKeysRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        String ownerSip = PhoenixDataService.getSIP(owner);
+        log.info("User connected: " + owner);
+        
+        // construct response, then add results iteratively
+        Integer result = -1;
+        FtRemoveDHKeysResponse response = new FtRemoveDHKeysResponse();
+        
+        try {
+            Query delQuery = this.em.createQuery("DELETE FROM DHKeys d "
+                    + " WHERE d.owner=:owner");
+            delQuery.setParameter("owner", owner);
+            delQuery.executeUpdate();
+            result = 1;
+        } catch(Exception e){
+            log.error("Exception in deleting all DH keys", e);
+        } finally {
+            response.setErrCode(result);
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Logic for obtaining information about stored DH keys.
+     * 
+     * @param request
+     * @param context
+     * @return 
+     * @throws java.security.cert.CertificateException 
+     */
+    @PayloadRoot(localPart = "ftGetStoredDHKeysInfoRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public FtGetStoredDHKeysInfoResponse ftGetStoredDHKeysInfo(@RequestPayload FtGetStoredDHKeysInfoRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        String ownerSip = PhoenixDataService.getSIP(owner);
+        log.info("User connected: " + owner);
+        
+        // construct response, then add results iteratively
+        FtGetStoredDHKeysInfoResponse response = new FtGetStoredDHKeysInfoResponse();
+        int result = -1;
+
+        try {
+            if (request.isDetailed()){
+                // Want detailed DH keys information, for all key separately.
+                FtDHKeyUserInfoArr infoArr = new FtDHKeyUserInfoArr();
+                List<FtDHKeyUserInfo> dhkeys = infoArr.getDhkeys();
+                
+                // Query to fetch only neccessary information from DB.
+                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.nonce2, dh.expires, dh.used FROM DHKeys dh "
+                        + " WHERE dh.owner=:s ORDER BY dh.forUser";
+                TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
+                query.setParameter("s", owner);
+                
+                List<DHKeys> resultList = query.getResultList();
+                for(DHKeys keyInfo : resultList){
+                    FtDHKeyUserInfo i = new FtDHKeyUserInfo();
+                    i.setUser(keyInfo.getForUser());
+                    i.setNonce2(keyInfo.getNonce2());
+                    i.setExpires(getXMLDate(keyInfo.getExpires()));
+                    if (keyInfo.isUsed()){
+                        i.setStatus(FtDHkeyState.USED);
+                    } else if (keyInfo.getExpires().before(new Date())){
+                        i.setStatus(FtDHkeyState.EXPIRED);
+                    } else {
+                        i.setStatus(FtDHkeyState.READY);
+                    }
+                    
+                    dhkeys.add(i);
+                }
+                
+                response.setInfo(infoArr);
+                
+            } else {
+                // Want only statistical information about keys for each user.
+                class tmpStats {
+                    public int ready=0;
+                    public int used=0;
+                    public int expired=0;
+                }
+                
+                FtDHKeyUserStatsArr statsArr = new FtDHKeyUserStatsArr();
+                List<FtDHKeyUserStats> dhkeys = statsArr.getDhkeys();
+                Map<String, tmpStats> stats = new HashMap<String, tmpStats>(); // Mapping user -> key statistics
+                
+                // Query to fetch only neccessary information from DB.
+                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.expires, dh.used FROM DHKeys dh "
+                        + " WHERE dh.owner=:s";
+                TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
+                query.setParameter("s", owner);
+                
+                List<DHKeys> resultList = query.getResultList();
+                for(DHKeys keyInfo : resultList){
+                    // Ensure user entry exists in the hash map
+                    final String user = keyInfo.getForUser();
+                    if (!stats.containsKey(user)){
+                        stats.put(user, new tmpStats());
+                    }
+                    
+                    tmpStats s = stats.get(user);
+                    if (keyInfo.isUsed()){
+                        s.used += 1;
+                    } else if (keyInfo.getExpires().before(new Date())){
+                        s.expired += 1;
+                    } else {
+                        s.ready += 1;
+                    }
+                    
+                    stats.put(user, s);
+                }
+                
+                // Harvest processed entries in HashMap and produce response.
+                for(Entry<String, tmpStats> e : stats.entrySet()){
+                    FtDHKeyUserStats s = new FtDHKeyUserStats();
+                    s.setUser(e.getKey());
+                    s.setUsedCount(e.getValue().used);
+                    s.setExpiredCount(e.getValue().expired);
+                    s.setReadyCount(e.getValue().ready);
+                    
+                    dhkeys.add(s);
+                }
+                
+                response.setStats(statsArr);
+            }
+            
+            result = 1;
+        } catch(Exception e){
+            log.error("Exception in obtaining DH keys info", e);
+        } finally {
+            response.setErrCode(result);
+        }
+        
+        return response;
+    }
+    
+    /**
+     * First message of getDH key protocol.
+     * 
+     * @param request
+     * @param context
+     * @return 
+     * @throws java.security.cert.CertificateException 
+     */
+    @PayloadRoot(localPart = "ftGetDHKeyRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public FtGetDHKeyResponse ftGetDHKey(@RequestPayload FtGetDHKeyRequest request, MessageContext context) throws CertificateException {
+        String caller = this.authRemoteUserFromCert(context, this.request);
+        log.info("Remote user connected: " + caller);
+        
+        // construct response, then add results iteratively
+        FtGetDHKeyResponse response = new FtGetDHKeyResponse();
+        response.setErrCode(-1);
+
+        try {
+            // Has to obtain targer local user at first - needed for later query,
+            // verification the user exists and so on.
+            Subscriber owner = this.dataService.getLocalUser(request.getUser());
+            if (owner==null){
+                return response;
+            }
+            
+            // Query to fetch DH key from database
+            String queryStats = "SELECT dh FROM DHKeys dh "
+                    + " WHERE dh.owner=:s AND dh.forUser=:c AND dh.used=:u AND dh.expired=:e AND dh.expires>:n"
+                    + " ORDER BY dh.expires ASC";
+            TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
+            query.setParameter("s", owner)
+                    .setParameter("c", caller)
+                    .setParameter("u", Boolean.FALSE)
+                    .setParameter("e", Boolean.FALSE)
+                    .setParameter("n", new Date())
+                    .setMaxResults(1);
+            
+            List<DHKeys> resultList = query.getResultList();
+            if (resultList==null || resultList.isEmpty()){
+                response.setErrCode(-2);
+                return response;
+            }
+            
+            final DHKeys e = resultList.get(0);
+            response.setCreated(getXMLDate(e.getCreated()));
+            response.setExpires(getXMLDate(e.getExpires()));
+            response.setUser(request.getUser());
+            response.setAEncBlock(e.getaAncBlock());
+            response.setSEncBlock(e.getsAncBlock());
+            response.setSig1(e.getSig1());
+            response.setErrCode(1);
+            
+            return response;
+        } catch(Exception e){
+            log.error("Exception in obtaining DH keys info", e);
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Second message of getDH key protocol
+     * 
+     * @param request
+     * @param context
+     * @return 
+     * @throws java.security.cert.CertificateException 
+     */
+    @PayloadRoot(localPart = "ftGetDHKeyPart2Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public FtGetDHKeyPart2Response ftGetDHKeyPart2(@RequestPayload FtGetDHKeyPart2Request request, MessageContext context) throws CertificateException {
+        String caller = this.authRemoteUserFromCert(context, this.request);
+        log.info("Remote user connected: " + caller);
+        
+        // construct response, then add results iteratively
+        FtGetDHKeyPart2Response response = new FtGetDHKeyPart2Response();
+        response.setErrCode(-1);
+        
+        try {
+            // Has to obtain targer local user at first - needed for later query,
+            // verification the user exists and so on.
+            Subscriber owner = this.dataService.getLocalUser(request.getUser());
+            if (owner==null){
+                return response;
+            }
+            
+            // Query to fetch DH key from database
+            String queryStats = "SELECT dh FROM DHKeys dh "
+                    + " WHERE dh.owner=:s AND dh.forUser=:c AND dh.nonce1=:h dh.used=:u AND dh.expired=:e AND dh.expires>:n"
+                    + " ORDER BY dh.expires ASC";
+            TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
+            query.setParameter("s", owner)
+                    .setParameter("c", caller)
+                    .setParameter("h", request.getNonce1())
+                    .setParameter("u", Boolean.FALSE)
+                    .setParameter("e", Boolean.FALSE)
+                    .setParameter("n", new Date())
+                    .setMaxResults(1);
+            
+            DHKeys e = query.getSingleResult();
+            if (e==null){
+                response.setErrCode(-2);
+                return response;
+            }
+            
+            response.setNonce2(e.getNonce2());
+            response.setSig2(e.getSig2());
+            response.setUser(request.getUser());
+            response.setErrCode(1);
+            
+            // Update DH key in database, mark as used and store when was this 
+            // key marked as used.
+            e.setUsed(Boolean.TRUE);
+            e.setWhenUsed(new Date());
+            this.dataService.persist(e, true);
+            
+            return response;
+        } catch(Exception e){
+            log.error("Exception in obtaining DH keys info", e);
+        }
+        
         return response;
     }
     

@@ -39,7 +39,7 @@ public class StoredFiles {
     private String sender;
     
     @Index(name="nonce2Index")
-    @Column(nullable = true, columnDefinition = "VARCHAR(24)")
+    @Column(nullable = true, columnDefinition = "VARCHAR(24)", unique = true)
     private String nonce2;
     
     @Column(nullable = false)

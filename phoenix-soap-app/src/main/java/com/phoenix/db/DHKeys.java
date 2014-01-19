@@ -26,6 +26,10 @@ import org.hibernate.annotations.Index;
  */
 @Entity(name = "dhkeys")
 public class DHKeys {
+    /*public static final String FIELD_ID = "id";
+    public static final String FIELD_OWNER = "subscriber_id";
+    public static final String FIELD_FOR_USER = "for_user";*/
+    
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", unique = true, nullable = false)
@@ -42,18 +46,18 @@ public class DHKeys {
     
     @Lob
     @Column(nullable = false)
-    private byte[] aAncBlock;
+    private byte[] aEncBlock;
     
     @Lob
     @Column(nullable = false)
-    private byte[] sAncBlock;
+    private byte[] sEncBlock;
     
     @Index(name="nonce1Index")
-    @Column(nullable = false, columnDefinition = "VARCHAR(24)")
+    @Column(nullable = false, columnDefinition = "VARCHAR(44)", unique = true)
     private String nonce1;
     
     @Index(name="nonce2Index")
-    @Column(nullable = false, columnDefinition = "VARCHAR(24)")
+    @Column(nullable = false, columnDefinition = "VARCHAR(24)", unique = true)
     private String nonce2;
     
     @Lob
@@ -78,11 +82,63 @@ public class DHKeys {
     
     @Index(name="usedIndex")
     @Column(nullable = false, columnDefinition = "TINYINT(1)")
-    private boolean used=false;
+    private Boolean used;
     
     @Column(nullable = false, columnDefinition = "TINYINT(1)")
-    private boolean expired=false;
+    private Boolean expired;
 
+    public DHKeys() {
+    }
+
+    public DHKeys(Long id, Subscriber owner, String forUser, byte[] aEncBlock, byte[] sEncBlock, String nonce1, String nonce2, byte[] sig1, byte[] sig2, Date created, Date whenUsed, Date expires, Boolean used, Boolean expired) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.aEncBlock = aEncBlock;
+        this.sEncBlock = sEncBlock;
+        this.nonce1 = nonce1;
+        this.nonce2 = nonce2;
+        this.sig1 = sig1;
+        this.sig2 = sig2;
+        this.created = created;
+        this.whenUsed = whenUsed;
+        this.expires = expires;
+        this.used = used;
+        this.expired = expired;
+    }
+
+    public DHKeys(Long id) {
+        this.id = id;
+    }
+
+    public DHKeys(Long id, Subscriber owner, String forUser, String nonce1, String nonce2, Date created, Date whenUsed, Date expires) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.nonce1 = nonce1;
+        this.nonce2 = nonce2;
+        this.created = created;
+        this.whenUsed = whenUsed;
+        this.expires = expires;
+    }
+
+    public DHKeys(Long id, Subscriber owner, String forUser, String nonce2, Date expires, Boolean used) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.nonce2 = nonce2;
+        this.expires = expires;
+        this.used = used;
+    }
+    
+    public DHKeys(Long id, Subscriber owner, String forUser, Date expires, Boolean used) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.expires = expires;
+        this.used = used;
+    }
+    
     public Long getId() {
         return id;
     }
@@ -108,19 +164,19 @@ public class DHKeys {
     }
 
     public byte[] getaAncBlock() {
-        return aAncBlock;
+        return aEncBlock;
     }
 
     public void setaAncBlock(byte[] aAncBlock) {
-        this.aAncBlock = aAncBlock;
+        this.aEncBlock = aAncBlock;
     }
 
     public byte[] getsAncBlock() {
-        return sAncBlock;
+        return sEncBlock;
     }
 
     public void setsAncBlock(byte[] sAncBlock) {
-        this.sAncBlock = sAncBlock;
+        this.sEncBlock = sAncBlock;
     }
 
     public String getNonce1() {
@@ -171,20 +227,44 @@ public class DHKeys {
         this.expires = expires;
     }
 
-    public boolean isUsed() {
+    public Boolean isUsed() {
         return used;
     }
 
-    public void setUsed(boolean used) {
+    public void setUsed(Boolean used) {
         this.used = used;
     }
 
-    public boolean isExpired() {
+    public Boolean isExpired() {
         return expired;
     }
 
-    public void setExpired(boolean expired) {
+    public void setExpired(Boolean expired) {
         this.expired = expired;
+    }
+
+    public byte[] getaEncBlock() {
+        return aEncBlock;
+    }
+
+    public void setaEncBlock(byte[] aEncBlock) {
+        this.aEncBlock = aEncBlock;
+    }
+
+    public byte[] getsEncBlock() {
+        return sEncBlock;
+    }
+
+    public void setsEncBlock(byte[] sEncBlock) {
+        this.sEncBlock = sEncBlock;
+    }
+
+    public Date getWhenUsed() {
+        return whenUsed;
+    }
+
+    public void setWhenUsed(Date whenUsed) {
+        this.whenUsed = whenUsed;
     }
 
     @Override
@@ -193,8 +273,8 @@ public class DHKeys {
         hash = 29 * hash + (this.id != null ? this.id.hashCode() : 0);
         hash = 29 * hash + (this.owner != null ? this.owner.hashCode() : 0);
         hash = 29 * hash + (this.forUser != null ? this.forUser.hashCode() : 0);
-        hash = 29 * hash + Arrays.hashCode(this.aAncBlock);
-        hash = 29 * hash + Arrays.hashCode(this.sAncBlock);
+        hash = 29 * hash + Arrays.hashCode(this.aEncBlock);
+        hash = 29 * hash + Arrays.hashCode(this.sEncBlock);
         hash = 29 * hash + (this.nonce1 != null ? this.nonce1.hashCode() : 0);
         hash = 29 * hash + (this.nonce2 != null ? this.nonce2.hashCode() : 0);
         hash = 29 * hash + Arrays.hashCode(this.sig1);
@@ -224,10 +304,10 @@ public class DHKeys {
         if ((this.forUser == null) ? (other.forUser != null) : !this.forUser.equals(other.forUser)) {
             return false;
         }
-        if (!Arrays.equals(this.aAncBlock, other.aAncBlock)) {
+        if (!Arrays.equals(this.aEncBlock, other.aEncBlock)) {
             return false;
         }
-        if (!Arrays.equals(this.sAncBlock, other.sAncBlock)) {
+        if (!Arrays.equals(this.sEncBlock, other.sEncBlock)) {
             return false;
         }
         if ((this.nonce1 == null) ? (other.nonce1 != null) : !this.nonce1.equals(other.nonce1)) {

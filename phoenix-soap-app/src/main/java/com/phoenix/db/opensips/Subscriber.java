@@ -29,7 +29,7 @@ public class Subscriber implements java.io.Serializable {
 	private String username;
         @Column(name = "domain", nullable = false, length = 64)
 	private String domain;
-        @Column(name = "password", nullable = false, length = 25)
+        @Column(name = "password", nullable = false, length = 32)
 	private String password;
         @Column(name = "email_address", nullable = false, length = 64)
 	private String emailAddress;

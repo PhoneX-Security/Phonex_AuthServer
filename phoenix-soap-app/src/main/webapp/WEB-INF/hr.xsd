@@ -839,6 +839,19 @@
         </xs:restriction>
     </xs:simpleType>
     
+    <xs:simpleType name="ftHash256">
+        <xs:annotation>
+            <xs:documentation>
+                Base64 encoded 256byte hash
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:minLength value="43"/>
+            <xs:maxLength value="43"/>
+            <xs:pattern value="[a-zA-Z0-9+=/]{43}"/> 
+        </xs:restriction>
+    </xs:simpleType>
+    
     <xs:complexType name="ftDHKey">
         <xs:annotation>
             <xs:documentation>
@@ -851,7 +864,7 @@
             <xs:element name="user" type="hr:userSIP"/>
             <xs:element name="aEncBlock" type="hr:binaryPayload"/>
             <xs:element name="sEncBlock" type="hr:binaryPayload"/>
-            <xs:element name="nonce1"  type="hr:ftNonce"/>
+            <xs:element name="nonce1"  type="hr:ftHash256"/>
             <xs:element name="nonce2"  type="hr:ftNonce"/>
             <xs:element name="sig1"  type="hr:binaryPayload"/>
             <xs:element name="sig2"  type="hr:binaryPayload" minOccurs ="0" maxOccurs="1"/>
@@ -896,6 +909,7 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
                 <xs:element name="result" type="hr:ftAddDHKeysReturn" minOccurs="0" maxOccurs="1000"/>
             </xs:sequence>
         </xs:complexType>
@@ -975,7 +989,7 @@
 
     <xs:complexType name="ftDHKeyUserInfoArr">
         <xs:sequence>
-             <xs:element name="dhkeys" type="hr:ftDHKeyUserStats" minOccurs ="0" maxOccurs="unbounded"/>
+             <xs:element name="dhkeys" type="hr:ftDHKeyUserInfo" minOccurs ="0" maxOccurs="unbounded"/>
          </xs:sequence>
     </xs:complexType>
    
@@ -1070,7 +1084,7 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="user" type="hr:userSIP"/>
-                <xs:element name="nonce1"  type="hr:ftNonce"/>
+                <xs:element name="nonce1"  type="hr:ftHash256"/>
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>

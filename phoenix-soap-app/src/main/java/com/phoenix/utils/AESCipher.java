@@ -54,7 +54,8 @@ public class AESCipher {
      * Encrypt plaintext with given key
      *
      * @param plaintext
-     * @param key
+     * @param password
+     * @param rand
      * @return
      * @throws InvalidKeyException
      * @throws InvalidAlgorithmParameterException
@@ -66,40 +67,39 @@ public class AESCipher {
      * @throws InvalidKeySpecException
      * @throws InvalidParameterSpecException
      */
-    public static byte[] encrypt(byte[] plaintext, char[] password) throws InvalidKeyException, InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, InvalidParameterSpecException {
-        Random rand = new Random();
-        //SecureRandom srand = new SecureRandom();
-
+    public static byte[] encrypt(byte[] plaintext, char[] password, Random rand) throws InvalidKeyException, InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, InvalidParameterSpecException {
         // generate salt
         byte[] salt = new byte[SALT_SIZE];
         rand.nextBytes(salt);
-
+        
         // derive AES encryption key using password and salt
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
         KeySpec spec = new PBEKeySpec(password, salt, KEY_GEN_ITERATIONS, AES_KEY_SIZE * 8);
         SecretKey tmp = factory.generateSecret(spec);
         SecretKey secret = new SecretKeySpec(tmp.getEncoded(), "AES");
 
-        // do encryption
-        Cipher cipher = Cipher.getInstance(AES, new BouncyCastleProvider());
-        cipher.init(Cipher.ENCRYPT_MODE, secret);
-        AlgorithmParameters params = cipher.getParameters();
+        // generate initialization vector of the size of one AES block
+        byte iv[] = new byte[16];
+        rand.nextBytes(iv);
+        IvParameterSpec ivspec = new IvParameterSpec(iv);
 
-        byte[] iv = params.getParameterSpec(IvParameterSpec.class).getIV();
+        // do encryption
+        Cipher cipher = Cipher.getInstance(AES);
+        cipher.init(Cipher.ENCRYPT_MODE, secret, ivspec);
         byte[] ciphertext = cipher.doFinal(plaintext);
 
         byte[] result = new byte[salt.length + iv.length + ciphertext.length];
-        System.arraycopy(salt, 0, result, 0, salt.length);
-        System.arraycopy(iv, 0, result, salt.length, iv.length);
-        System.arraycopy(ciphertext, 0, result, salt.length + iv.length, ciphertext.length);
+        System.arraycopy(salt, 		 0, result, 0, 							salt.length);
+        System.arraycopy(iv, 		 0, result, salt.length, 				iv.length);
+        System.arraycopy(ciphertext, 0, result, salt.length + iv.length, 	ciphertext.length);
         return result;
     }
 
     /**
      * Decrypt ciphertext, assume structure salt:iv:ciphertext. 4:16:x bytes
      *
-     * @param plaintext
-     * @param key
+     * @param cipherblock
+     * @param password
      * @return
      * @throws InvalidKeyException
      * @throws InvalidAlgorithmParameterException
