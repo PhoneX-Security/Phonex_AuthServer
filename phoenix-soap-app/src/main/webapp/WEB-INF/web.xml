@@ -49,6 +49,42 @@
         <listener-class>org.springframework.web.util.Log4jConfigListener</listener-class>
     </listener>
     
+    <!-- The definition of the Root Spring Container shared by all Servlets and Filters -->
+    <context-param>
+            <param-name>contextConfigLocation</param-name>
+            <param-value>/WEB-INF/applicationContext.xml</param-value>
+    </context-param>
+        
+    <!-- Creates the Spring Container shared by all Servlets and Filters.
+         Context can be shared between Spring MVC (DispatcherServlet) and
+         Spring WebServices (MessageDispatcherServlet).
+         
+         Not needed at this point.
+    -->
+    <listener>
+        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+    </listener>
+    
+    <!-- Spring MVC servlet for REST interface - file uploading.
+         Spring Web Services can be also wired in this servlet, for more 
+         try to search in [http://docs.spring.io/spring-ws/sites/1.5/reference/html/server.html]
+         for "5.3.2. Wiring up Spring-WS in a DispatcherServlet"    -->
+    <servlet>
+        <servlet-name>spring-rest</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <init-param>
+            <!-- No explicit configuration file reference here: everything is configured in the root container for simplicity -->       
+            <param-name>contextConfigLocation</param-name>
+            <param-value></param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>spring-rest</servlet-name>
+        <url-pattern>/rest/*</url-pattern>
+    </servlet-mapping>
+    
+    <!-- Spring Web Services servlet, SOAP interface. -->
     <servlet>
         <servlet-name>spring-ws</servlet-name>
         <servlet-class>org.springframework.ws.transport.http.MessageDispatcherServlet</servlet-class>
@@ -56,10 +92,15 @@
             <param-name>transformWsdlLocations</param-name>
             <param-value>true</param-value>
         </init-param>
+        <load-on-startup>1</load-on-startup>
     </servlet>
     <servlet-mapping>
         <servlet-name>spring-ws</servlet-name>
         <url-pattern>/*</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>spring-ws</servlet-name>
+        <url-pattern>*.wsdl</url-pattern>
     </servlet-mapping>
     
     <!--

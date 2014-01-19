@@ -96,7 +96,6 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
-import javax.persistence.criteria.CriteriaBuilder;
 import javax.servlet.http.HttpServletRequest;
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -1897,7 +1896,7 @@ public class PhoenixEndpoint {
                 List<FtDHKeyUserInfo> dhkeys = infoArr.getDhkeys();
                 
                 // Query to fetch only neccessary information from DB.
-                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.nonce2, dh.expires, dh.used FROM DHKeys dh "
+                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.nonce2, dh.expires, dh.used, dh.uploaded FROM DHKeys dh "
                         + " WHERE dh.owner=:s ORDER BY dh.forUser";
                 TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
                 query.setParameter("s", owner);
@@ -1908,7 +1907,9 @@ public class PhoenixEndpoint {
                     i.setUser(keyInfo.getForUser());
                     i.setNonce2(keyInfo.getNonce2());
                     i.setExpires(getXMLDate(keyInfo.getExpires()));
-                    if (keyInfo.isUsed()){
+                    if (keyInfo.isUploaded()){
+                        i.setStatus(FtDHkeyState.UPLOADED);
+                    } else if (keyInfo.isUsed()){
                         i.setStatus(FtDHkeyState.USED);
                     } else if (keyInfo.getExpires().before(new Date())){
                         i.setStatus(FtDHkeyState.EXPIRED);
@@ -1927,6 +1928,7 @@ public class PhoenixEndpoint {
                     public int ready=0;
                     public int used=0;
                     public int expired=0;
+                    public int uploaded=0;
                 }
                 
                 FtDHKeyUserStatsArr statsArr = new FtDHKeyUserStatsArr();
@@ -1934,7 +1936,7 @@ public class PhoenixEndpoint {
                 Map<String, tmpStats> stats = new HashMap<String, tmpStats>(); // Mapping user -> key statistics
                 
                 // Query to fetch only neccessary information from DB.
-                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.expires, dh.used FROM DHKeys dh "
+                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.expires, dh.used, dh.uploaded FROM DHKeys dh "
                         + " WHERE dh.owner=:s";
                 TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
                 query.setParameter("s", owner);
@@ -1948,7 +1950,9 @@ public class PhoenixEndpoint {
                     }
                     
                     tmpStats s = stats.get(user);
-                    if (keyInfo.isUsed()){
+                    if (keyInfo.isUploaded()){
+                        s.uploaded += 1;
+                    } else if (keyInfo.isUsed()){
                         s.used += 1;
                     } else if (keyInfo.getExpires().before(new Date())){
                         s.expired += 1;
@@ -2109,6 +2113,8 @@ public class PhoenixEndpoint {
         
         return response;
     }
+    
+    
     
     /**
      * Unwraps hibernate session from JPA 2

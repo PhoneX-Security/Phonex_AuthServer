@@ -954,6 +954,7 @@
             <xs:enumeration value="ready"/>
             <xs:enumeration value="used"/>
             <xs:enumeration value="expired"/>
+            <xs:enumeration value="uploaded"/>
         </xs:restriction>
     </xs:simpleType>
     
@@ -984,6 +985,7 @@
             <xs:element name="readyCount" type="xs:int"/>
             <xs:element name="usedCount" type="xs:int"/>
             <xs:element name="expiredCount" type="xs:int"/>
+            <xs:element name="uploadedCount" type="xs:int"/>
         </xs:sequence>
     </xs:complexType>
 

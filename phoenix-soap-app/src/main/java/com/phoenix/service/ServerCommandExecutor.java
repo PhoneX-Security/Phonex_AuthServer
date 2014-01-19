@@ -15,6 +15,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.TypedQuery;
+import javax.servlet.http.HttpServletRequest;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +55,23 @@ public class ServerCommandExecutor extends Thread {
     
     public ServerCommandExecutor() {
         this.setName("ServerCommandExecutor");
+    }
+    
+    /**
+     * Obtains serverCommandExecutor instance from servlet context.
+     * @param request
+     * @return 
+     */
+    public static ServerCommandExecutor getExecutor(HttpServletRequest request){
+        ServerCommandExecutor executor = null;
+        DaemonStarter dstarter = (DaemonStarter) request.getServletContext().getAttribute(DaemonStarter.EXECUTOR_NAME);
+        if (dstarter==null){
+            log.warn("Daemon starter is null, wtf?");
+            return null;
+        }
+            
+        executor = dstarter.getCexecutor();
+        return executor;
     }
     
     /**

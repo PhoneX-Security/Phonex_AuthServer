@@ -81,10 +81,14 @@ public class DHKeys {
     private Date expires;
     
     @Index(name="usedIndex")
-    @Column(nullable = false, columnDefinition = "TINYINT(1)")
+    @Column(nullable = false, columnDefinition = "TINYINT(1) default 0")
     private Boolean used;
     
-    @Column(nullable = false, columnDefinition = "TINYINT(1)")
+    @Index(name="uploadedIndex")
+    @Column(nullable = false, columnDefinition = "TINYINT(1) default 0")
+    private Boolean uploaded;
+    
+    @Column(nullable = false, columnDefinition = "TINYINT(1) default 0")
     private Boolean expired;
 
     public DHKeys() {
@@ -122,6 +126,16 @@ public class DHKeys {
         this.expires = expires;
     }
 
+    public DHKeys(Long id, Subscriber owner, String forUser, String nonce2, Date expires, Boolean used, Boolean uploaded) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.nonce2 = nonce2;
+        this.expires = expires;
+        this.used = used;
+        this.uploaded = uploaded;
+    }
+
     public DHKeys(Long id, Subscriber owner, String forUser, String nonce2, Date expires, Boolean used) {
         this.id = id;
         this.owner = owner;
@@ -129,6 +143,25 @@ public class DHKeys {
         this.nonce2 = nonce2;
         this.expires = expires;
         this.used = used;
+    }
+
+    public DHKeys(Long id, Subscriber owner, String forUser, Date expires, Boolean used, Boolean uploaded) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.expires = expires;
+        this.used = used;
+        this.uploaded = uploaded;
+    }
+
+    public DHKeys(Long id, Subscriber owner, String forUser, Date expires, Boolean used, Boolean uploaded, Boolean expired) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.expires = expires;
+        this.used = used;
+        this.uploaded = uploaded;
+        this.expired = expired;
     }
     
     public DHKeys(Long id, Subscriber owner, String forUser, Date expires, Boolean used) {
@@ -265,6 +298,14 @@ public class DHKeys {
 
     public void setWhenUsed(Date whenUsed) {
         this.whenUsed = whenUsed;
+    }
+
+    public Boolean isUploaded() {
+        return uploaded;
+    }
+
+    public void setUploaded(Boolean uploaded) {
+        this.uploaded = uploaded;
     }
 
     @Override

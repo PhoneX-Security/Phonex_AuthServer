@@ -32,7 +32,9 @@ public class SpringInitializer implements ApplicationContextInitializer<Configur
             return profile;
         }
         
-        if (hostname.contains("net-wings") || hostname.contains("phoenix")) {
+        if (hostname.contains("net-wings") 
+                || hostname.contains("phoenix")
+                || hostname.contains("phone-x")) {
             logger.info("Running in production environment, hostname: " + hostname);
             profile="prod";
         } else {
