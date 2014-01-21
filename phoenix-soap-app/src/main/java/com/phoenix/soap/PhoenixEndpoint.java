@@ -20,6 +20,7 @@ import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.db.opensips.Xcap;
 import com.phoenix.service.DaemonStarter;
 import com.phoenix.service.EndpointAuth;
+import com.phoenix.service.FileManager;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
 import com.phoenix.service.ServerCommandExecutor;
@@ -145,6 +146,9 @@ public class PhoenixEndpoint {
     
     @Autowired(required = true)
     private PhoenixServerCASigner signer;
+    
+    @Autowired(required = true)
+    private FileManager fmanager;
     
     // owner SIP obtained from certificate
     private String owner_sip;
@@ -2155,5 +2159,13 @@ public class PhoenixEndpoint {
 
     public void setOwner_sip(String owner_sip) {
         this.owner_sip = owner_sip;
+    }
+
+    public FileManager getFmanager() {
+        return fmanager;
+    }
+
+    public void setFmanager(FileManager fmanager) {
+        this.fmanager = fmanager;
     }
 }

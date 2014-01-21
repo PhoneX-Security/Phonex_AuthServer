@@ -19,13 +19,6 @@
         <param-name>org.richfaces.fileUpload.createTempFiles</param-name>
         <param-value>true</param-value>
     </context-param>
-    <context-param>
-        <param-name>contextConfigLocation</param-name>
-        <param-value>
-            /WEB-INF/applicationContext.xml
-            /WEB-INF/applicationContext-security.xml
-        </param-value>
-    </context-param>
     <!-- Set log4j configuration file path -->
     <context-param>
         <param-name>log4jConfigLocation</param-name>
@@ -49,26 +42,32 @@
         <listener-class>org.springframework.web.util.Log4jConfigListener</listener-class>
     </listener>
     
-    <!-- The definition of the Root Spring Container shared by all Servlets and Filters -->
+    <!-- 
+        The definition of the Root Spring Container shared by all Servlets and Filters.
+        param-value can contain multiple configuration files separated by a whitespace/newline.
+        For SpringSecurity add another configuration file.
+    -->
     <context-param>
             <param-name>contextConfigLocation</param-name>
             <param-value>/WEB-INF/applicationContext.xml</param-value>
     </context-param>
         
-    <!-- Creates the Spring Container shared by all Servlets and Filters.
+    <!-- 
+         Loads the root application context of this web app at startup.
+         Creates the Spring Container shared by all Servlets and Filters.
          Context can be shared between Spring MVC (DispatcherServlet) and
          Spring WebServices (MessageDispatcherServlet).
-         
-         Not needed at this point.
     -->
     <listener>
         <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
     </listener>
     
-    <!-- Spring MVC servlet for REST interface - file uploading.
+    <!-- 
+         Spring MVC servlet for REST interface - file uploading.
          Spring Web Services can be also wired in this servlet, for more 
          try to search in [http://docs.spring.io/spring-ws/sites/1.5/reference/html/server.html]
-         for "5.3.2. Wiring up Spring-WS in a DispatcherServlet"    -->
+         for "5.3.2. Wiring up Spring-WS in a DispatcherServlet"    
+    -->
     <servlet>
         <servlet-name>spring-rest</servlet-name>
         <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
@@ -103,6 +102,15 @@
         <url-pattern>*.wsdl</url-pattern>
     </servlet-mapping>
     
+    <listener>
+        <listener-class>com.phoenix.service.DaemonStarter</listener-class>
+    </listener>
+    
+    <!-- Needed for reques/session scoped entities -->
+    <listener>
+        <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
+    </listener>
+    
     <!--
      JAXB servlet is disabled now, we are using contract first Spring servlet
     <servlet>
@@ -119,24 +127,16 @@
         <listener-class>com.sun.xml.ws.transport.http.servlet.WSServletContextListener</listener-class>
     </listener>-->
     
-    <!-- Needed for reques/session scoped entities -->
-    <listener>
-        <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
-    </listener>
-    <!-- - Loads the root application context of this web app at startup. -->
-    <listener>
-        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
-    </listener>
     <!-- - Publishes events for session creation and destruction through the 
 		application - context. Optional unless concurrent session control is being 
-		used. -->
+		used.
     <listener>
         <listener-class>org.springframework.security.web.session.HttpSessionEventPublisher</listener-class>
     </listener>
+    -->
     
-    <listener>
-        <listener-class>com.phoenix.service.DaemonStarter</listener-class>
-    </listener>
+    <!-- JSP and Spring Security is disabled since no real web pages 
+        are used.
     
     <filter>
         <filter-name>springSecurityFilterChain</filter-name>
@@ -167,15 +167,12 @@
         <url-pattern>*.xhtml</url-pattern>
         <url-pattern>/faces/*</url-pattern>
     </servlet-mapping>
-    <!-- Image serving servlet is disabled
-    <servlet>
-    	<servlet-name>imageServlet</servlet-name>
-    	<servlet-class>cz.muni.fi.pa165.cards.servlets.ImageServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-    	<servlet-name>imageServlet</servlet-name>
-    	<url-pattern>/img/*</url-pattern>
-    </servlet-mapping> -->
+    -->
+    
+    <!-- 
+        Demonstration servlet for serving images from database.
+        Not used.
+    
     <servlet>
         <servlet-name>imageServletFromDatabase</servlet-name>
         <servlet-class>org.springframework.web.context.support.HttpRequestHandlerServlet</servlet-class>
@@ -184,6 +181,7 @@
         <servlet-name>imageServletFromDatabase</servlet-name>
         <url-pattern>/img/*</url-pattern>
     </servlet-mapping>
+    -->
     <welcome-file-list>
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>

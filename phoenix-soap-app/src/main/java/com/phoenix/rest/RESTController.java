@@ -8,6 +8,7 @@ package com.phoenix.rest;
 
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.EndpointAuth;
+import com.phoenix.service.FileManager;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.TrustVerifier;
 import java.io.FileInputStream;
@@ -58,8 +59,14 @@ public class RESTController {
     @Autowired(required = true)
     private PhoenixDataService dataService;
     
+    @Autowired(required = true)
+    private FileManager fmanager;
+    
     // owner SIP obtained from certificate
     private String owner_sip;
+
+    public RESTController() {
+    }
     
      /**
      * Authenticate user from its certificate, returns subscriber data.
@@ -140,9 +147,11 @@ public class RESTController {
      * Main file upload processing method, using POST HTTP method.
      * File sending is implemented in this way.
      * 
-     * @param nonce2
-     * @param user
-     * @param dhpub
+     * @param nonce2    nonce2 obtained from getKey protocol
+     * @param user      sender
+     * @param dhpub     final message for key-agreement protocol. Complex type.
+     * @param hashmeta  hash of meta file, verifies correct upload
+     * @param hashpack  hash of pack file, verifies correct upload
      * @param metafile
      * @param packfile
      * @param request
@@ -156,6 +165,8 @@ public class RESTController {
             @RequestParam("nonce2") String nonce2,
             @RequestParam("user") String user,
             @RequestParam("dhpub") String dhpub,
+            @RequestParam("hashmeta") String hashmeta,
+            @RequestParam("hashpack") String hashpack,
             @RequestParam("metafile") MultipartFile metafile,
             @RequestParam("packfile") MultipartFile packfile, 
             HttpServletRequest request,
@@ -228,5 +239,61 @@ public class RESTController {
             log.info("Error writing file to output stream. ", e);
             throw new RuntimeException("IOError writing file to output stream");
         }
+    }
+
+    public SessionFactory getSessionFactory() {
+        return sessionFactory;
+    }
+
+    public void setSessionFactory(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
+    }
+
+    public EndpointAuth getAuth() {
+        return auth;
+    }
+
+    public void setAuth(EndpointAuth auth) {
+        this.auth = auth;
+    }
+
+    public EntityManager getEm() {
+        return em;
+    }
+
+    public void setEm(EntityManager em) {
+        this.em = em;
+    }
+
+    public TrustVerifier getTrustManager() {
+        return trustManager;
+    }
+
+    public void setTrustManager(TrustVerifier trustManager) {
+        this.trustManager = trustManager;
+    }
+
+    public PhoenixDataService getDataService() {
+        return dataService;
+    }
+
+    public void setDataService(PhoenixDataService dataService) {
+        this.dataService = dataService;
+    }
+
+    public String getOwner_sip() {
+        return owner_sip;
+    }
+
+    public void setOwner_sip(String owner_sip) {
+        this.owner_sip = owner_sip;
+    }
+
+    public FileManager getFmanager() {
+        return fmanager;
+    }
+
+    public void setFmanager(FileManager fmanager) {
+        this.fmanager = fmanager;
     }
 }

@@ -14,7 +14,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
+import javax.servlet.ServletContextEvent;
 import javax.servlet.http.HttpServletRequest;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
@@ -22,13 +24,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
  * Executes server commands in separate thread
  * @author ph4r05
  */
 @Service
+@Repository
 public class ServerCommandExecutor extends Thread {
     private static final Logger log = LoggerFactory.getLogger(ServerCommandExecutor.class);
     private static final String opensispsctl="/usr/sbin/opensipsctl";
@@ -47,7 +53,7 @@ public class ServerCommandExecutor extends Thread {
     @Autowired
     private SessionFactory sessionFactory;
     
-    //@PersistenceContext
+    @PersistenceContext
     protected EntityManager em;
     
     // last refresh of presence auth
@@ -104,6 +110,37 @@ public class ServerCommandExecutor extends Thread {
         }
     }
     
+    /**
+     * Called on servlet context initialized event.
+     * SpringContext is loaded and autowiring is performed. 
+     * 
+     * @param sce 
+     */
+    public void onContextInitialized(ServletContextEvent sce){
+        // spring application context init
+        log.info("Spring context manual initialization");
+        SpringInitializer springInitializer = new SpringInitializer();
+        
+        // Set current active profile, otherwise no profile will be loaded -> no database classes
+        System.setProperty("spring.profiles.active", springInitializer.getCurrentProfile());
+        
+        // Obtain web application context defined for this servlet context.
+        final WebApplicationContext wAppContext = WebApplicationContextUtils.getWebApplicationContext(sce.getServletContext());
+        final ApplicationContext pAppContext = wAppContext.getParent();
+        this.appContext = pAppContext!=null ? pAppContext : wAppContext;
+        
+        // Perform autowiring on this bean instructed by annotations.
+        this.appContext.getAutowireCapableBeanFactory().autowireBean(this);
+        log.info("Autowiring call finished. "
+                + " EM=" + (em==null ? "null" : "OK") + "; open=" + (em==null ? "null" : em.isOpen())
+                + " SF=" + (sessionFactory==null ? "null" : "OK"));
+        log.info("All dependencies initialized");
+    }
+    
+    /**
+     * Old manual context initialization.
+     * @deprecated 
+     */
     public void initContext(){
         // spring application context init
         log.info("Spring context manual initialization");
@@ -129,7 +166,7 @@ public class ServerCommandExecutor extends Thread {
         log.info("ServerCommandExecutor thread started");
         
         // init spring context
-        this.initContext();
+        //this.initContext();
         
         // daemon loop
         while(running==true){

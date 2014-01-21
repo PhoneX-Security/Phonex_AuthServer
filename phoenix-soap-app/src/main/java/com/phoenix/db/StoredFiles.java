@@ -35,12 +35,15 @@ public class StoredFiles {
     private Subscriber owner;
     
     @Index(name="userIndex")
-    @Column(nullable = true, columnDefinition = "VARCHAR(128)")
+    @Column(nullable = false, columnDefinition = "VARCHAR(128)")
     private String sender;
     
     @Index(name="nonce2Index")
-    @Column(nullable = true, columnDefinition = "VARCHAR(24)", unique = true)
+    @Column(nullable = false, columnDefinition = "VARCHAR(24)", unique = true)
     private String nonce2;
+    
+    @Column(nullable = false)
+    private byte[] dhpublic;
     
     @Column(nullable = false)
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
@@ -61,7 +64,28 @@ public class StoredFiles {
     
     @Column(nullable = false)
     private long sizePack;
+    
+    @Column(nullable = false)
+    private int protocolVersion;
 
+    public StoredFiles() {
+    }
+    
+    public StoredFiles(Long id, Subscriber owner, String sender, String nonce2, byte[] dhpublic, Date created, Date expires, String hashMeta, String hashPack, long sizeMeta, long sizePack, int protocolVersion) {
+        this.id = id;
+        this.owner = owner;
+        this.sender = sender;
+        this.nonce2 = nonce2;
+        this.dhpublic = dhpublic;
+        this.created = created;
+        this.expires = expires;
+        this.hashMeta = hashMeta;
+        this.hashPack = hashPack;
+        this.sizeMeta = sizeMeta;
+        this.sizePack = sizePack;
+        this.protocolVersion = protocolVersion;
+    }
+    
     public Long getId() {
         return id;
     }
@@ -141,6 +165,20 @@ public class StoredFiles {
     public void setSizePack(long sizePack) {
         this.sizePack = sizePack;
     }
-    
-    
+
+    public byte[] getDhpublic() {
+        return dhpublic;
+    }
+
+    public void setDhpublic(byte[] dhpublic) {
+        this.dhpublic = dhpublic;
+    }
+
+    public int getProtocolVersion() {
+        return protocolVersion;
+    }
+
+    public void setProtocolVersion(int protocolVersion) {
+        this.protocolVersion = protocolVersion;
+    }
 }

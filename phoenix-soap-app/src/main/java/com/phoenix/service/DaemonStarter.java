@@ -9,8 +9,9 @@ import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
  * Daemon starter class - takes care about background operations in Tomcat.
@@ -21,7 +22,7 @@ public class DaemonStarter implements ServletContextListener {
     private static final Logger log = LoggerFactory.getLogger(DaemonStarter.class);
     public static final String EXECUTOR_NAME = "DAEMON_STARTER_EXECUTOR";
     
-    private ServerCommandExecutor cexecutor = new ServerCommandExecutor();
+    private final ServerCommandExecutor cexecutor = new ServerCommandExecutor();
     
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -34,6 +35,7 @@ public class DaemonStarter implements ServletContextListener {
             log.warn("Cexecutor is already alive, nothing to start");
         } else {
             log.info("Starting command executor thread");
+            cexecutor.onContextInitialized(sce);
             cexecutor.setDaemon(true);
             cexecutor.start();
         }

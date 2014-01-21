@@ -90,6 +90,9 @@ public class DHKeys {
     
     @Column(nullable = false, columnDefinition = "TINYINT(1) default 0")
     private Boolean expired;
+    
+    @Column(nullable = false)
+    private int protocolVersion;
 
     public DHKeys() {
     }
@@ -170,6 +173,25 @@ public class DHKeys {
         this.forUser = forUser;
         this.expires = expires;
         this.used = used;
+    }
+
+    public DHKeys(Long id, Subscriber owner, String forUser, byte[] aEncBlock, byte[] sEncBlock, String nonce1, String nonce2, byte[] sig1, byte[] sig2, Date created, Date whenUsed, Date expires, Boolean used, Boolean uploaded, Boolean expired, int protocolVersion) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.aEncBlock = aEncBlock;
+        this.sEncBlock = sEncBlock;
+        this.nonce1 = nonce1;
+        this.nonce2 = nonce2;
+        this.sig1 = sig1;
+        this.sig2 = sig2;
+        this.created = created;
+        this.whenUsed = whenUsed;
+        this.expires = expires;
+        this.used = used;
+        this.uploaded = uploaded;
+        this.expired = expired;
+        this.protocolVersion = protocolVersion;
     }
     
     public Long getId() {
@@ -308,6 +330,14 @@ public class DHKeys {
         this.uploaded = uploaded;
     }
 
+    public int getProtocolVersion() {
+        return protocolVersion;
+    }
+
+    public void setProtocolVersion(int protocolVersion) {
+        this.protocolVersion = protocolVersion;
+    }
+    
     @Override
     public int hashCode() {
         int hash = 3;

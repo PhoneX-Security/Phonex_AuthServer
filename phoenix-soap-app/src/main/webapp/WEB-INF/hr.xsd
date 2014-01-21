@@ -869,6 +869,7 @@
             <xs:element name="sig1"  type="hr:binaryPayload"/>
             <xs:element name="sig2"  type="hr:binaryPayload" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="expires" type="xs:dateTime"/>
+            <xs:element name="protocolVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
             
             <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
@@ -1050,6 +1051,8 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="protocolVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
@@ -1072,6 +1075,7 @@
                 <xs:element name="sig1"  type="hr:binaryPayload"/>
                 <xs:element name="created" type="xs:dateTime"/>
                 <xs:element name="expires" type="xs:dateTime"/>
+                <xs:element name="protocolVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -1164,6 +1168,8 @@
             <xs:element name="hashPack" type="xs:string"/>
             <xs:element name="sizeMeta" type="xs:int" />
             <xs:element name="sizePack" type="xs:int" />
+            <xs:element name="key" type="hr:binaryPayload"/>
+            <xs:element name="protocolVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
         </xs:sequence>
     </xs:complexType>
     
