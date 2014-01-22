@@ -2020,12 +2020,13 @@ public class PhoenixEndpoint {
             
             // Query to fetch DH key from database
             String queryStats = "SELECT dh FROM DHKeys dh "
-                    + " WHERE dh.owner=:s AND dh.forUser=:c AND dh.used=:u AND dh.expired=:e AND dh.expires>:n"
+                    + " WHERE dh.owner=:s AND dh.forUser=:c AND dh.used=:u AND dh.expired=:e AND dh.uploaded=:up AND dh.expires>:n"
                     + " ORDER BY dh.expires ASC";
             TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
             query.setParameter("s", owner)
                     .setParameter("c", caller)
                     .setParameter("u", Boolean.FALSE)
+                    .setParameter("up", Boolean.FALSE)
                     .setParameter("e", Boolean.FALSE)
                     .setParameter("n", new Date())
                     .setMaxResults(1);
