@@ -61,6 +61,15 @@
     <listener>
         <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
     </listener>
+        
+    <listener>
+        <listener-class>com.phoenix.service.DaemonStarter</listener-class>
+    </listener>
+    
+    <!-- Needed for reques/session scoped entities -->
+    <listener>
+        <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
+    </listener>
     
     <!-- 
          Spring MVC servlet for REST interface - file uploading.
@@ -74,9 +83,9 @@
         <init-param>
             <!-- No explicit configuration file reference here: everything is configured in the root container for simplicity -->       
             <param-name>contextConfigLocation</param-name>
-            <param-value></param-value>
+            <param-value>/WEB-INF/spring-rest-servlet.xml</param-value>
         </init-param>
-        <load-on-startup>1</load-on-startup>
+        <load-on-startup>2</load-on-startup>
     </servlet>
     <servlet-mapping>
         <servlet-name>spring-rest</servlet-name>
@@ -101,15 +110,6 @@
         <servlet-name>spring-ws</servlet-name>
         <url-pattern>*.wsdl</url-pattern>
     </servlet-mapping>
-    
-    <listener>
-        <listener-class>com.phoenix.service.DaemonStarter</listener-class>
-    </listener>
-    
-    <!-- Needed for reques/session scoped entities -->
-    <listener>
-        <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
-    </listener>
     
     <!--
      JAXB servlet is disabled now, we are using contract first Spring servlet
@@ -183,6 +183,6 @@
     </servlet-mapping>
     -->
     <welcome-file-list>
-        <welcome-file>index.jsp</welcome-file>
+        <welcome-file></welcome-file>
     </welcome-file-list>
 </web-app>

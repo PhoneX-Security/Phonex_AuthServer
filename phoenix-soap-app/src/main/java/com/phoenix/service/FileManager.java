@@ -51,7 +51,7 @@ public class FileManager {
 
     @PostConstruct
     public void init(){
-        log.info("PostContruct called on file manager; tempDir=" + tempDir);
+        log.info("PostContruct called on file manager; tempDir=" + tempDir + "; this="+this);
     }
     
     public SessionFactory getSessionFactory() {

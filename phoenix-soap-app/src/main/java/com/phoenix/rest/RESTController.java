@@ -15,6 +15,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.cert.CertificateException;
+import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.servlet.http.HttpServletRequest;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -39,10 +41,8 @@ import org.springframework.web.multipart.MultipartFile;
  * @author ph4r05
  */
 @Controller
-@RequestMapping("/phonex")
 public class RESTController {
     private static final Logger log = LoggerFactory.getLogger(RESTController.class);
-    private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -142,6 +142,16 @@ public class RESTController {
             throw new CertificateException("You are not authorized, go away!");
         }
     }
+   
+    @PostConstruct
+    public void postInit(){
+        log.info("REST controller postInit() called");
+    }
+    
+    @RequestMapping("/simple")
+    public @ResponseBody String simple() {
+            return "Hello world! " + fmanager.getTempDir() + "; " + fmanager;
+    }
     
     /**
      * Main file upload processing method, using POST HTTP method.
@@ -159,7 +169,7 @@ public class RESTController {
      * @throws IOException 
      * @throws java.security.cert.CertificateException 
      */
-    @RequestMapping(value = "/upload", method=RequestMethod.POST)
+    @RequestMapping(value = "/rest/upload", method=RequestMethod.POST)
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public void processUpload(
             @RequestParam("nonce2") String nonce2,
@@ -208,7 +218,7 @@ public class RESTController {
      * @param response
      * @throws java.security.cert.CertificateException 
      */
-    @RequestMapping(value = "/download/{nonce2}/{filetype}", method=RequestMethod.GET)
+    @RequestMapping(value = "/rest/download/{nonce2}/{filetype}", method=RequestMethod.GET)
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public void processDownload(
             @PathVariable String nonce2, 
