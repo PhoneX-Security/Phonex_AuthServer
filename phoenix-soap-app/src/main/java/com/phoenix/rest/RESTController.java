@@ -16,18 +16,26 @@ import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.FileManager;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.TrustVerifier;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
+import java.util.zip.GZIPOutputStream;
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.IOUtils;
@@ -76,6 +84,10 @@ public class RESTController {
     
     // owner SIP obtained from certificate
     private String owner_sip;
+    
+    private static final int DEFAULT_BUFFER_SIZE = 20480; // ..bytes = 20KB.
+    private static final long DEFAULT_EXPIRE_TIME = 604800000L; // ..ms = 1 week.
+    private static final String MULTIPART_BOUNDARY = "MULTIPART_BYTERANGES";
 
     public RESTController() {
     }
@@ -211,6 +223,10 @@ public class RESTController {
             HttpServletRequest request,
             HttpServletResponse response) throws IOException, CertificateException {
         
+        checkInputStringPathValidity(nonce2, 44);
+        checkInputStringPathValidity(hashmeta, 300);
+        checkInputStringPathValidity(hashpack, 300);
+        
         // Some SSL check at first
         String caller = this.authRemoteUserFromCert(request);
         log.info("Remote user connected: " + caller);
@@ -240,8 +256,7 @@ public class RESTController {
                     + "     AND dh.uploaded:up "
                     + "     AND dh.expired=:e "
                     + "     AND dh.expires>:n "
-                    + "     AND dh.nonce2=:nonc"
-                    + " ORDER BY dh.expires ASC";
+                    + "     AND dh.nonce2=:nonc ";
             TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
             query.setParameter("s", owner)
                     .setParameter("c", caller)
@@ -264,34 +279,40 @@ public class RESTController {
             // OR transfering metafile to temporary files menawhile
             // metafile.transferTo(null);
 
-            final File tempMeta = fmanager.createTempFileEx(nonce2, FileManager.FTYPE_META);
-            final File tempPack = fmanager.createTempFileEx(nonce2, FileManager.FTYPE_PACK);
-            final FileOutputStream fosMeta = new FileOutputStream(tempMeta);
-            final FileOutputStream fosPack = new FileOutputStream(tempPack);
-            // Use buffering provided by Apache Commons IO
-            IOUtils.copy(metaInputStream, fosMeta);
-            IOUtils.copy(packInputStream, fosPack);
-
-            // If file saving to temporary file was successfull, mark DHkeys as 
-            // uploaded to disable nonce2 file upload again.
-            // Finally move uploaded files to final destinations.
-            final String rHashMeta = FileManager.sha256(tempMeta);
-            final String rHashPack = FileManager.sha256(tempPack);
-            if (rHashMeta.equals(hashmeta)==false || rHashPack.equals(hashpack)==false){
-                // Invalid hash, remove uploaded files and signalize error.
-                tempMeta.delete();
-                tempPack.delete();
-
-                ret.setErrorCode(-2);
-                ret.setMessage("Hashes of uploaded files do not match");
-                return ret;
-            }
-            
-            // Files are uploaded, DHPub key is correctly used in database.
-            // 1. Move files from temporary to permanent location
-            final File permMeta = fmanager.getPermFile(nonce2, FileManager.FTYPE_META);
-            final File permPack = fmanager.getPermFile(nonce2, FileManager.FTYPE_PACK);
+            File tempMeta = null;
+            File tempPack = null;
+            File permMeta = null;
+            File permPack = null;
             try {
+                tempMeta = fmanager.createTempFileEx(nonce2, FileManager.FTYPE_META);
+                tempPack = fmanager.createTempFileEx(nonce2, FileManager.FTYPE_PACK);
+                final FileOutputStream fosMeta = new FileOutputStream(tempMeta);
+                final FileOutputStream fosPack = new FileOutputStream(tempPack);
+                // Use buffering provided by Apache Commons IO
+                IOUtils.copy(metaInputStream, fosMeta);
+                IOUtils.copy(packInputStream, fosPack);
+                fosMeta.close();
+                fosPack.close();
+
+                // If file saving to temporary file was successfull, mark DHkeys as 
+                // uploaded to disable nonce2 file upload again.
+                // Finally move uploaded files to final destinations.
+                final String rHashMeta = FileManager.sha256(tempMeta);
+                final String rHashPack = FileManager.sha256(tempPack);
+                if (rHashMeta.equals(hashmeta)==false || rHashPack.equals(hashpack)==false){
+                    // Invalid hash, remove uploaded files and signalize error.
+                    tempMeta.delete();
+                    tempPack.delete();
+
+                    ret.setErrorCode(-2);
+                    ret.setMessage("Hashes of uploaded files do not match");
+                    return ret;
+                }
+
+                // Files are uploaded, DHPub key is correctly used in database.
+                // 1. Move files from temporary to permanent location
+                permMeta = fmanager.getPermFile(nonce2, FileManager.FTYPE_META);
+                permPack = fmanager.getPermFile(nonce2, FileManager.FTYPE_PACK);
                 Files.move(tempMeta, permMeta);
                 Files.move(tempPack, permPack);
                 
@@ -323,12 +344,13 @@ public class RESTController {
             
             } catch(Exception e){
                 log.error("Problem with moving files to permanent storage and finalization.", e);
+                if (permMeta!=null) permMeta.delete();
+                if (permPack!=null) permPack.delete();
+                
                 return ret;
             } finally {
-                tempMeta.delete();
-                tempPack.delete();
-                permMeta.delete();
-                permPack.delete();
+                if (tempMeta!=null) tempMeta.delete();
+                if (tempPack!=null) tempPack.delete();
             }
         } catch(Exception e){
             log.error("Exception in uploading files to storage.", e);
@@ -355,24 +377,52 @@ public class RESTController {
             HttpServletRequest request,
             HttpServletResponse response) throws CertificateException, IOException {
         
+        checkInputStringPathValidity(nonce2, 44);
+        checkInputStringPathValidity(filetype, 10);
+        
         // Local verified user is needed
         Subscriber owner = this.authUserFromCert(request);
         String ownerSip = PhoenixDataService.getSIP(owner);
         log.info("User connected: " + owner);
         
-        // File downloading logic
-        // TODO: finish this implementation
-        response.sendError(404);
-        
         try {
-            // Open file input stream for sending to the client.
-            FileInputStream fis = null;
-
+            //
+            // Checking if given file exists in database.
+            //
+            String queryStats = "SELECT sf FROM StoredFiles sf "
+                    + " WHERE "
+                    + "     sf.owner=:s "
+                    + "     AND sf.nonce2=:c ";
+            TypedQuery<StoredFiles> query = em.createQuery(queryStats, StoredFiles.class);
+            query.setParameter("s", owner)
+                    .setParameter("nonc", nonce2)
+                    .setMaxResults(1);
+            StoredFiles sf = query.getSingleResult();
+            if (sf==null){
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+            
+            // File exists in database, verify now existence on file system
+            File wfile = fmanager.getPermFile(nonce2, filetype);
+            if (wfile.exists()==false || wfile.isDirectory() || wfile.canRead()==false){
+                log.warn("File inconsistency detected. "
+                        + " File is in DB but not readable from storage. "
+                        + " nonce2=["+nonce2+"] "
+                        + " file=["+wfile+"]");
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+            
+            // Stream file to the user, if there is Range defined in the headers
+            // try to serve a given portion of the file.
+            processRequest(request, response, wfile, true);
+            
             // For ByteArrayHttpMessageConverter
-            response.setContentType("application/octet-stream");
+            //response.setContentType("application/octet-stream");
             // copy it to response's OutputStream
-            IOUtils.copy(fis, response.getOutputStream());
-            response.flushBuffer();
+            //IOUtils.copy(fis, response.getOutputStream());
+            //response.flushBuffer();
             
         } catch(Exception e){
             log.info("Error writing file to output stream. ", e);
@@ -380,6 +430,387 @@ public class RESTController {
         }
     }
 
+    /**
+     * Process the actual request.
+     * @param request The request to be processed.
+     * @param response The response to be created.
+     * @param content Whether the request body should be written (GET) or not (HEAD).
+     * @throws IOException If something fails at I/O level.
+     */
+    private void processRequest(HttpServletRequest request, HttpServletResponse response, File file, boolean content) throws IOException
+    {
+        // Prepare some variables. The ETag is an unique identifier of the file.
+        String fileName = file.getName();
+        long length = file.length();
+        long lastModified = file.lastModified();
+        String eTag = fileName + "_" + length + "_" + lastModified;
+        long expires = System.currentTimeMillis() + DEFAULT_EXPIRE_TIME;
+
+
+        // Validate request headers for caching ---------------------------------------------------
+
+        // If-None-Match header should contain "*" or ETag. If so, then return 304.
+        String ifNoneMatch = request.getHeader("If-None-Match");
+        if (ifNoneMatch != null && matches(ifNoneMatch, eTag)) {
+            response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+            response.setHeader("ETag", eTag); // Required in 304.
+            response.setDateHeader("Expires", expires); // Postpone cache with 1 week.
+            return;
+        }
+
+        // If-Modified-Since header should be greater than LastModified. If so, then return 304.
+        // This header is ignored if any If-None-Match header is specified.
+        long ifModifiedSince = request.getDateHeader("If-Modified-Since");
+        if (ifNoneMatch == null && ifModifiedSince != -1 && ifModifiedSince + 1000 > lastModified) {
+            response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+            response.setHeader("ETag", eTag); // Required in 304.
+            response.setDateHeader("Expires", expires); // Postpone cache with 1 week.
+            return;
+        }
+
+
+        // Validate request headers for resume ----------------------------------------------------
+
+        // If-Match header should contain "*" or ETag. If not, then return 412.
+        String ifMatch = request.getHeader("If-Match");
+        if (ifMatch != null && !matches(ifMatch, eTag)) {
+            response.sendError(HttpServletResponse.SC_PRECONDITION_FAILED);
+            return;
+        }
+
+        // If-Unmodified-Since header should be greater than LastModified. If not, then return 412.
+        long ifUnmodifiedSince = request.getDateHeader("If-Unmodified-Since");
+        if (ifUnmodifiedSince != -1 && ifUnmodifiedSince + 1000 <= lastModified) {
+            response.sendError(HttpServletResponse.SC_PRECONDITION_FAILED);
+            return;
+        }
+
+
+        // Validate and process range -------------------------------------------------------------
+
+        // Prepare some variables. The full Range represents the complete file.
+        Range full = new Range(0, length - 1, length);
+        List<Range> ranges = new ArrayList<Range>();
+
+        // Validate and process Range and If-Range headers.
+        String range = request.getHeader("Range");
+        if (range != null) {
+
+            // Range header should match format "bytes=n-n,n-n,n-n...". If not, then return 416.
+            if (!range.matches("^bytes=\\d*-\\d*(,\\d*-\\d*)*$")) {
+                response.setHeader("Content-Range", "bytes */" + length); // Required in 416.
+                response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+                return;
+            }
+
+            // If-Range header should either match ETag or be greater then LastModified. If not,
+            // then return full file.
+            String ifRange = request.getHeader("If-Range");
+            if (ifRange != null && !ifRange.equals(eTag)) {
+                try {
+                    long ifRangeTime = request.getDateHeader("If-Range"); // Throws IAE if invalid.
+                    if (ifRangeTime != -1 && ifRangeTime + 1000 < lastModified) {
+                        ranges.add(full);
+                    }
+                } catch (IllegalArgumentException ignore) {
+                    ranges.add(full);
+                }
+            }
+
+            // If any valid If-Range header, then process each part of byte range.
+            if (ranges.isEmpty()) {
+                for (String part : range.substring(6).split(",")) {
+                    // Assuming a file with length of 100, the following examples returns bytes at:
+                    // 50-80 (50 to 80), 40- (40 to length=100), -20 (length-20=80 to length=100).
+                    long start = sublong(part, 0, part.indexOf("-"));
+                    long end = sublong(part, part.indexOf("-") + 1, part.length());
+
+                    if (start == -1) {
+                        start = length - end;
+                        end = length - 1;
+                    } else if (end == -1 || end > length - 1) {
+                        end = length - 1;
+                    }
+
+                    // Check if Range is syntactically valid. If not, then return 416.
+                    if (start > end) {
+                        response.setHeader("Content-Range", "bytes */" + length); // Required in 416.
+                        response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+                        return;
+                    }
+
+                    // Add range.
+                    ranges.add(new Range(start, end, length));
+                }
+            }
+        }
+
+
+        // Prepare and initialize response --------------------------------------------------------
+
+        // Get content type by file name and set default GZIP support and content disposition.
+        String contentType = request.getServletContext().getMimeType(fileName);
+        boolean acceptsGzip = false;
+        String disposition = "inline";
+
+        // If content type is unknown, then set the default value.
+        // For all content types, see: http://www.w3schools.com/media/media_mimeref.asp
+        // To add new content types, add new mime-mapping entry in web.xml.
+        if (contentType == null) {
+            contentType = "application/octet-stream";
+        }
+
+        // If content type is text, then determine whether GZIP content encoding is supported by
+        // the browser and expand content type with the one and right character encoding.
+        if (contentType.startsWith("text")) {
+            String acceptEncoding = request.getHeader("Accept-Encoding");
+            acceptsGzip = acceptEncoding != null && accepts(acceptEncoding, "gzip");
+            contentType += ";charset=UTF-8";
+        } 
+
+        // Else, expect for images, determine content disposition. If content type is supported by
+        // the browser, then set to inline, else attachment which will pop a 'save as' dialogue.
+        else if (!contentType.startsWith("image")) {
+            String accept = request.getHeader("Accept");
+            disposition = accept != null && accepts(accept, contentType) ? "inline" : "attachment";
+        }
+
+        // Initialize response.
+        response.reset();
+        response.setBufferSize(DEFAULT_BUFFER_SIZE);
+        response.setHeader("Content-Disposition", disposition + ";filename=\"" + fileName + "\"");
+        response.setHeader("Accept-Ranges", "bytes");
+        response.setHeader("ETag", eTag);
+        response.setDateHeader("Last-Modified", lastModified);
+        response.setDateHeader("Expires", expires);
+
+
+        // Send requested file (part(s)) to client ------------------------------------------------
+
+        // Prepare streams.
+        RandomAccessFile input = null;
+        OutputStream output = null;
+
+        try {
+            // Open streams.
+            input = new RandomAccessFile(file, "r");
+            output = response.getOutputStream();
+
+            if (ranges.isEmpty() || ranges.get(0) == full) {
+
+                // Return full file.
+                Range r = full;
+                response.setContentType(contentType);
+                response.setHeader("Content-Range", "bytes " + r.start + "-" + r.end + "/" + r.total);
+
+                if (content) {
+                    if (acceptsGzip) {
+                        // The browser accepts GZIP, so GZIP the content.
+                        response.setHeader("Content-Encoding", "gzip");
+                        output = new GZIPOutputStream(output, DEFAULT_BUFFER_SIZE);
+                    } else {
+                        // Content length is not directly predictable in case of GZIP.
+                        // So only add it if there is no means of GZIP, else browser will hang.
+                        response.setHeader("Content-Length", String.valueOf(r.length));
+                    }
+
+                    // Copy full range.
+                    copy(input, output, r.start, r.length);
+                }
+
+            } else if (ranges.size() == 1) {
+
+                // Return single part of file.
+                Range r = ranges.get(0);
+                response.setContentType(contentType);
+                response.setHeader("Content-Range", "bytes " + r.start + "-" + r.end + "/" + r.total);
+                response.setHeader("Content-Length", String.valueOf(r.length));
+                response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT); // 206.
+
+                if (content) {
+                    // Copy single part range.
+                    copy(input, output, r.start, r.length);
+                }
+
+            } else {
+
+                // Return multiple parts of file.
+                response.setContentType("multipart/byteranges; boundary=" + MULTIPART_BOUNDARY);
+                response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT); // 206.
+
+                if (content) {
+                    // Cast back to ServletOutputStream to get the easy println methods.
+                    ServletOutputStream sos = (ServletOutputStream) output;
+
+                    // Copy multi part range.
+                    for (Range r : ranges) {
+                        // Add multipart boundary and header fields for every range.
+                        sos.println();
+                        sos.println("--" + MULTIPART_BOUNDARY);
+                        sos.println("Content-Type: " + contentType);
+                        sos.println("Content-Range: bytes " + r.start + "-" + r.end + "/" + r.total);
+
+                        // Copy single part range of multi part range.
+                        copy(input, output, r.start, r.length);
+                    }
+
+                    // End with multipart boundary.
+                    sos.println();
+                    sos.println("--" + MULTIPART_BOUNDARY + "--");
+                }
+            }
+        } finally {
+            // Gently close streams.
+            close(output);
+            close(input);
+        }
+    }
+    
+    
+    // Helpers (can be refactored to public utility class) ----------------------------------------
+
+    /**
+     * Returns true if the given accept header accepts the given value.
+     * @param acceptHeader The accept header.
+     * @param toAccept The value to be accepted.
+     * @return True if the given accept header accepts the given value.
+     */
+    private static boolean accepts(String acceptHeader, String toAccept) {
+        String[] acceptValues = acceptHeader.split("\\s*(,|;)\\s*");
+        Arrays.sort(acceptValues);
+        return Arrays.binarySearch(acceptValues, toAccept) > -1
+            || Arrays.binarySearch(acceptValues, toAccept.replaceAll("/.*$", "/*")) > -1
+            || Arrays.binarySearch(acceptValues, "*/*") > -1;
+    }
+
+    /**
+     * Returns true if the given match header matches the given value.
+     * @param matchHeader The match header.
+     * @param toMatch The value to be matched.
+     * @return True if the given match header matches the given value.
+     */
+    private static boolean matches(String matchHeader, String toMatch) {
+        String[] matchValues = matchHeader.split("\\s*,\\s*");
+        Arrays.sort(matchValues);
+        return Arrays.binarySearch(matchValues, toMatch) > -1
+            || Arrays.binarySearch(matchValues, "*") > -1;
+    }
+
+    /**
+     * Returns a substring of the given string value from the given begin index to the given end
+     * index as a long. If the substring is empty, then -1 will be returned
+     * @param value The string value to return a substring as long for.
+     * @param beginIndex The begin index of the substring to be returned as long.
+     * @param endIndex The end index of the substring to be returned as long.
+     * @return A substring of the given string value as long or -1 if substring is empty.
+     */
+    private static long sublong(String value, int beginIndex, int endIndex) {
+        String substring = value.substring(beginIndex, endIndex);
+        return (substring.length() > 0) ? Long.parseLong(substring) : -1;
+    }
+
+    /**
+     * Copy the given byte range of the given input to the given output.
+     * @param input The input to copy the given range to the given output for.
+     * @param output The output to copy the given range from the given input for.
+     * @param start Start of the byte range.
+     * @param length Length of the byte range.
+     * @throws IOException If something fails at I/O level.
+     */
+    private static void copy(RandomAccessFile input, OutputStream output, long start, long length)
+        throws IOException
+    {
+        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+        int read;
+
+        if (input.length() == length) {
+            // Write full range.
+            while ((read = input.read(buffer)) > 0) {
+                output.write(buffer, 0, read);
+            }
+        } else {
+            // Write partial range.
+            input.seek(start);
+            long toRead = length;
+
+            while ((read = input.read(buffer)) > 0) {
+                if ((toRead -= read) > 0) {
+                    output.write(buffer, 0, read);
+                } else {
+                    output.write(buffer, 0, (int) toRead + read);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Close the given resource.
+     * @param resource The resource to be closed.
+     */
+    private static void close(Closeable resource) {
+        if (resource != null) {
+            try {
+                resource.close();
+            } catch (IOException ignore) {
+                // Ignore IOException. If you want to handle this anyway, it might be useful to know
+                // that this will generally only be thrown when the client aborted the request.
+            }
+        }
+    }
+    
+    /**
+     * This class represents a byte range.
+     */
+    protected class Range {
+        long start;
+        long end;
+        long length;
+        long total;
+
+        /**
+         * Construct a byte range.
+         * @param start Start of the byte range.
+         * @param end End of the byte range.
+         * @param total Total length of the byte source.
+         */
+        public Range(long start, long end, long total) {
+            this.start = start;
+            this.end = end;
+            this.length = end - start + 1;
+            this.total = total;
+        }
+
+    }
+    
+    /**
+     * Checks input string for validity with regex.
+     * If string contains illegal characters exception is thrown.
+     * @param toCheck
+     * @param regex
+     * @param maxSize
+     */
+    protected void checkInputStringValidity(String toCheck, String regex, int maxSize){
+        if (toCheck==null || toCheck.isEmpty()) return;
+        // MaxSize or Regex violation
+        if (toCheck.length() > maxSize
+           || toCheck.matches(regex)) {
+            
+            log.warn("Illegal string passed to the check ["+toCheck.substring(0, toCheck.length() > 140 ? 140 : toCheck.length())+"]");
+            throw new SecurityException("Illegal input parameter");
+        }
+    }
+    
+    /**
+     * Checks input string for validity with regex.
+     * If string contains illegal characters exception is thrown.
+     * @param toCheck
+     * @param maxSize
+     */
+    protected void checkInputStringPathValidity(String toCheck, int maxSize){
+        checkInputStringValidity(toCheck, "[a-zA-Z0-9_\\-+=@]*", maxSize);
+    }
+    
     public SessionFactory getSessionFactory() {
         return sessionFactory;
     }
