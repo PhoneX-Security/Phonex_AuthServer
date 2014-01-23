@@ -247,7 +247,9 @@ public class RESTController {
                 return ret;
             }
             
-            // Query to fetch DH key from database
+            // Query to fetch DH key from database.
+            // Corresponding DH key has to exist on the server side in order to
+            // upload the file. It gives unique permission to upload the file.
             String queryStats = "SELECT dh FROM DHKeys dh "
                     + " WHERE "
                     + "     dh.owner=:s "
@@ -273,6 +275,24 @@ public class RESTController {
                 return ret;
             }
             
+            // Get number of stored files, may be limited...
+            List<StoredFiles> storedFilesFromUser = fmanager.getStoredFilesFromUser(owner, caller);
+            if (storedFilesFromUser!=null && storedFilesFromUser.size() >= fmanager.getMaxFileCount(owner, user)){
+                log.info("Cannot upload new files for user ["+owner.getUsername()+"] from sender ["+caller+"], quota exceeded.");
+                
+                ret.setErrorCode(-8);
+                ret.setMessage("Quota exceeded");
+                return ret;
+            }
+            
+            // File size limit, if the file is too big, file has to be rejected.
+            if (metafile.getSize() > fmanager.getMaxFileSize(FileManager.FTYPE_META, owner)
+                    || packfile.getSize() > fmanager.getMaxFileSize(FileManager.FTYPE_PACK, owner)){
+                ret.setErrorCode(-10);
+                ret.setMessage("Files are too big");
+                return ret;
+            }
+            
             // Metadata input stream
             final InputStream metaInputStream = metafile.getInputStream();
             final InputStream packInputStream = packfile.getInputStream();
@@ -294,6 +314,17 @@ public class RESTController {
                 fosMeta.close();
                 fosPack.close();
 
+                // Check real file size after upload.
+                if (tempMeta.length() > fmanager.getMaxFileSize(FileManager.FTYPE_META, owner)
+                        || tempMeta.length() > fmanager.getMaxFileSize(FileManager.FTYPE_PACK, owner)){
+                    tempMeta.delete();
+                    tempPack.delete();
+                    
+                    ret.setErrorCode(-10);
+                    ret.setMessage("Files are too big");
+                    return ret;
+                }
+                
                 // If file saving to temporary file was successfull, mark DHkeys as 
                 // uploaded to disable nonce2 file upload again.
                 // Finally move uploaded files to final destinations.
@@ -370,7 +401,7 @@ public class RESTController {
      * @throws java.security.cert.CertificateException 
      */
     @RequestMapping(value = "/rest/download/{nonce2}/{filetype}", method=RequestMethod.GET)
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public void processDownload(
             @PathVariable String nonce2, 
             @PathVariable String filetype, 
@@ -389,15 +420,7 @@ public class RESTController {
             //
             // Checking if given file exists in database.
             //
-            String queryStats = "SELECT sf FROM StoredFiles sf "
-                    + " WHERE "
-                    + "     sf.owner=:s "
-                    + "     AND sf.nonce2=:c ";
-            TypedQuery<StoredFiles> query = em.createQuery(queryStats, StoredFiles.class);
-            query.setParameter("s", owner)
-                    .setParameter("nonc", nonce2)
-                    .setMaxResults(1);
-            StoredFiles sf = query.getSingleResult();
+            StoredFiles sf = fmanager.getStoredFile(owner, nonce2);
             if (sf==null){
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
@@ -432,6 +455,7 @@ public class RESTController {
 
     /**
      * Process the actual request.
+     * Inspiration took from: http://balusc.blogspot.in/2009/02/fileservlet-supporting-resume-and.html
      * @param request The request to be processed.
      * @param response The response to be created.
      * @param content Whether the request body should be written (GET) or not (HEAD).
@@ -808,7 +832,7 @@ public class RESTController {
      * @param maxSize
      */
     protected void checkInputStringPathValidity(String toCheck, int maxSize){
-        checkInputStringValidity(toCheck, "[a-zA-Z0-9_\\-+=@]*", maxSize);
+        checkInputStringValidity(toCheck, FileManager.PATH_VALID_REGEX, maxSize);
     }
     
     public SessionFactory getSessionFactory() {

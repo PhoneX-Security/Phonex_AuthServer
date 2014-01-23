@@ -6,19 +6,20 @@
 
 package com.phoenix.service;
 
+import com.phoenix.db.StoredFiles;
+import com.phoenix.db.opensips.Subscriber;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Formatter;
+import java.util.List;
 import javax.annotation.PostConstruct;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
 import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
@@ -27,6 +28,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * File manager service - for file transfer feature.
@@ -39,6 +43,10 @@ public class FileManager {
     private static final Logger log = LoggerFactory.getLogger(FileManager.class);
     public static final String FTYPE_META="meta";
     public static final String FTYPE_PACK="pack";
+    public static final String PATH_VALID_REGEX="[a-zA-Z0-9_\\-+=@]*";
+    public static final long PACK_FILE_SIZE_LIMIT = 1024*1024*100; // 100MB
+    public static final long META_FILE_SIZE_LIMIT = 1024*1024*5; // 5MB
+    public static final int  MAX_NUMBER_FILES = 5; // Maximum number of stored files for one subscriber per one user.
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -156,12 +164,200 @@ public class FileManager {
     
     /**
      * Generates basic file name defined by its nonce2 identifier and type.
+     * Basic security test is performed on input parameters in order to 
+     * avoid simple attacks with path injection (character "/" in nonce2/type, etc...)
+     * 
      * @param nonce2
      * @param type
      * @return 
      */
     public String generateFileName(String nonce2, String type){
+        if (nonce2==null 
+                || nonce2.length()==0 
+                || nonce2.length()>512
+                || nonce2.matches(PATH_VALID_REGEX)==false){
+            throw new SecurityException("Nonce2 is invalid");
+        }
+        
+        if (type==null 
+                || type.length()==0 
+                || type.length()>32
+                || type.matches(PATH_VALID_REGEX)==false){
+            throw new SecurityException("type is invalid");
+        }
+        
         return nonce2+"_"+type;
+    }
+    
+    /**
+     * Returns maximal file size for given owner.
+     * Prepared for configurable and per-user settings, but at this moment 
+     * only static maximal limits are provided. 
+     * 
+     * @param ftype
+     * @param owner
+     * @return 
+     */
+    public long getMaxFileSize(String ftype, Subscriber owner){
+        return getMaxFileSize(ftype, owner, null);
+    }
+    
+    /**
+     * Returns maximal file size for given owner.
+     * Prepared for configurable and per-user settings, but at this moment 
+     * only static maximal limits are provided. 
+     * 
+     * @param ftype
+     * @param owner
+     * @param user
+     * @return 
+     */
+    public long getMaxFileSize(String ftype, Subscriber owner, String user){
+       if (FTYPE_META.equals(ftype)){
+           return META_FILE_SIZE_LIMIT;
+       } else if (FTYPE_PACK.equals(ftype)){
+           return PACK_FILE_SIZE_LIMIT;
+       } else {
+           throw new RuntimeException("Unknown file type");
+       }
+    }
+    
+    /**
+     * Returns maximal count of the uploaded files for one user.
+     * Prepared for configurable and per-user settings, but at this moment 
+     * only static maximal limits are provided. 
+     * 
+     * @param owner
+     * @param user
+     * @return 
+     */
+    public int getMaxFileCount(Subscriber owner, String user){
+        return MAX_NUMBER_FILES;
+    }
+    
+    /**
+     * Returns list of a stored files for a given subscriber.
+     * 
+     * @param owner
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public List<StoredFiles> getStoredFiles(Subscriber owner){
+        String queryStats = "SELECT sf FROM StoredFiles sf WHERE sf.owner=:s ";
+        TypedQuery<StoredFiles> query = em.createQuery(queryStats, StoredFiles.class);
+        query.setParameter("s", owner);
+        return query.getResultList();
+    }
+    
+    /**
+     * Returns list of a stored files for a given subscriber uploaded by a given user.
+     * 
+     * @param owner
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public List<StoredFiles> getStoredFilesFromUser(Subscriber owner, String sender){
+        String queryStats = "SELECT sf FROM StoredFiles sf WHERE sf.owner=:s AND sf.sender=:u";
+        TypedQuery<StoredFiles> query = em.createQuery(queryStats, StoredFiles.class);
+        query.setParameter("s", owner)
+                .setParameter("u", sender);
+        return query.getResultList();
+    }
+    
+    /**
+     * Returns particular stored file for a given subscriber.
+     * 
+     * @param owner
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public StoredFiles getStoredFile(Subscriber owner, String nonce2){
+        String queryStats = "SELECT sf FROM StoredFiles sf "
+                + " WHERE "
+                + "     sf.owner=:s "
+                + "     AND sf.nonce2=:c ";
+        TypedQuery<StoredFiles> query = em.createQuery(queryStats, StoredFiles.class);
+        query.setParameter("s", owner)
+                .setParameter("nonc", nonce2)
+                .setMaxResults(1);
+        return query.getSingleResult();
+    }
+    
+    /**
+     * Deletes all links to a given file from database and file system.
+     * 
+     * @param nonce2 
+     * @return  
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public int deleteFiles(String nonce2){
+        int ret=0;
+        
+        // Delete files from file system
+        try {
+            File permMeta = this.getPermFile(nonce2, FTYPE_META);
+            File permPack = this.getPermFile(nonce2, FTYPE_PACK);
+            
+            ret |= permMeta.delete() ? 0x1 : 0;
+            ret |= permPack.delete() ? 0x2 : 0;
+        } catch(Exception e){
+            log.warn("Exception in deleting files from FS", e);
+        }
+        
+        // Delete stored files record in database
+        String query = "SELECT sf FROM StoredFiles sf WHERE sf.nonce2=:n";
+        try {
+            StoredFiles sf = em.createQuery(query, StoredFiles.class)
+                    .setParameter("n", nonce2)
+                    .getSingleResult();            
+            em.remove(sf);
+            em.flush();
+            ret |= 0x4;
+        } catch(Exception ex){
+            log.info("Problem during removing stored file from database with nonce2["+nonce2+"]", ex);
+        }
+        
+        return ret;
+    }
+    
+    /**
+     * Performs basic FS cleanup.
+     * Removes files from temporary directory older than 1 day, removes 
+     * permanent files older than 3 months.
+     */
+    public void cleanupFS(){
+        log.info("Going to cleanup file system storage for files.");
+        cleanupDirectory(this.tempFile, 60*60*24);
+        cleanupDirectory(this.fileFile, 60*60*24*31*3);
+        log.info("Cleanup finished.");
+    }
+    
+    /**
+     * Directory cleanup for files older than <timeout> seconds than now.
+     * @param dir
+     * @param timeout 
+     */
+    protected void cleanupDirectory(File dir, int timeout){
+        if (dir==null){
+            throw new NullPointerException("Null directory");
+        }
+        
+        if (dir.exists()==false || dir.isDirectory()==false){
+            throw new IllegalArgumentException("Provided file is not a directory or does not exist.");
+        }
+        
+        //Calendar cal = Calendar.getInstance();
+        //cal.add(Calendar.SECOND, (-1)*timeout);
+        long limit = System.currentTimeMillis() - (timeout*1000); 
+        
+        File[] listOfFiles = dir.listFiles();
+        for (File f : listOfFiles) {
+            if (f.isFile()==false) continue;
+            if (f.lastModified() >= limit) continue;
+            
+            f.delete();
+            log.info("Deleted file ["+f.getName()+"]");
+        }
     }
     
     /**
