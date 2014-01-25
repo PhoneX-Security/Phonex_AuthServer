@@ -15,7 +15,7 @@ import com.phoenix.rest.json.UploadReturnV1;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.FileManager;
 import com.phoenix.service.PhoenixDataService;
-import com.phoenix.service.PresenceManager;
+import com.phoenix.service.pres.PresenceManager;
 import com.phoenix.service.TrustVerifier;
 import java.io.Closeable;
 import java.io.File;

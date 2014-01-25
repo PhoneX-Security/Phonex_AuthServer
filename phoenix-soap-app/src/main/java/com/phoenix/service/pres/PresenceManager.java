@@ -4,13 +4,16 @@
  * and open the template in the editor.
  */
 
-package com.phoenix.service;
+package com.phoenix.service.pres;
 
 import com.phoenix.db.opensips.Xcap;
+import com.phoenix.service.EndpointAuth;
+import com.phoenix.service.PhoenixDataService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
+import java.util.Random;
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -35,6 +38,21 @@ public class PresenceManager {
     private static final Logger log = LoggerFactory.getLogger(PresenceManager.class);
     public static final String PRESENCE_RULES_TEMPLATE = "pres-rules-template.xml";
     public static final String PRESENCE_PUBLISH_TEMPLATE = "pres-publish-template.xml";
+    
+    private static final String STATE_BASIC_OPEN = "open";
+    private static final String STATE_BASIC_CLOSED = "closed";
+    
+    private static final String RULES_PLACEHOLDER = "[[[RULES]]]";
+    private static final String PUBLISH_PLACEHOLDER_BASIC = "[[[BASIC]]]";
+    private static final String PUBLISH_PLACEHOLDER_ENTITY = "[[[ENTITY]]]";
+    private static final String PUBLISH_PLACEHOLDER_TUPLE_ID = "[[[TUPLEID]]]";
+    private static final String PUBLISH_PLACEHOLDER_PERSON_ID = "[[[PERSONID]]]";
+    private static final String PUBLISH_PLACEHOLDER_STATUS_TEXT = "[[[STATUSTEXT]]]";
+    
+    public enum PresenceStatus {
+        OPEN, 
+        CLOSED
+    };
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -99,7 +117,7 @@ public class PresenceManager {
      * @param sips
      * @return 
      */
-    public String completePresenceRulesPolicyTemplate(String template, List<String> sips){
+    public String getXCAPFile(String template, List<String> sips){
         if (sips==null){
             throw new NullPointerException("Sips list is null");
         }
@@ -114,7 +132,7 @@ public class PresenceManager {
             sb.append("                   <cp:one id=\"sip:").append(s).append("\" />\n");
         }
         
-        return template.replace("[[[RULES]]]", sb.toString());
+        return template.replace(RULES_PLACEHOLDER, sb.toString());
     }
     
     /**
@@ -122,8 +140,44 @@ public class PresenceManager {
      * @param sips
      * @return 
      */
-    public String completePresenceRulesPolicyTemplate(List<String> sips){
-        return completePresenceRulesPolicyTemplate(presenceRulesTemplate, sips);
+    public String getXCAPFilee(List<String> sips){
+        return getXCAPFile(presenceRulesTemplate, sips);
+    }
+    
+    /**
+     * Builds presence PIDF message for publishing.
+     * @param entity
+     * @param ps
+     * @param statusText
+     * @return 
+     */
+    public String getPresencePublishPidf(String entity, PresenceStatus ps, String statusText){
+        // Generate random IDs for the request.
+        Random rand  = new Random();
+        int tupleId  = rand.nextInt();
+        int personId = rand.nextInt();
+        if (tupleId<0) tupleId *= -1;
+        if (personId<0) personId *= -1;
+        final String presStatus = presenceStatus2String(ps);
+        
+        // Substitute real values to the template
+        String xml = presencePublishTemplate;
+        xml = xml.replace(PUBLISH_PLACEHOLDER_ENTITY, entity);
+        xml = xml.replace(PUBLISH_PLACEHOLDER_PERSON_ID, String.format("pdd%d", personId));
+        xml = xml.replace(PUBLISH_PLACEHOLDER_TUPLE_ID, String.format("0x%x", tupleId));
+        xml = xml.replace(PUBLISH_PLACEHOLDER_BASIC, presStatus);
+        xml = xml.replace(PUBLISH_PLACEHOLDER_STATUS_TEXT, statusText);
+        
+        return xml;
+    }
+    
+    /**
+     * Converts PresenceStatus enum to string
+     * @param ps
+     * @return 
+     */
+    public String presenceStatus2String(PresenceStatus ps){
+        return ps==PresenceStatus.OPEN ? STATE_BASIC_OPEN : STATE_BASIC_CLOSED;
     }
     
     /**
@@ -138,7 +192,7 @@ public class PresenceManager {
      */
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public Xcap updateXCAPPolicyFile(String username, String domain, List<String> sips) throws UnsupportedEncodingException{
-        String xmlfile = completePresenceRulesPolicyTemplate(presenceRulesTemplate, sips);
+        String xmlfile = getXCAPFile(presenceRulesTemplate, sips);
         log.info("Going to update presence rules for user["+username+"]: " + xmlfile);
 
         //

@@ -4,8 +4,9 @@
  * and open the template in the editor.
  */
 
-package com.phoenix.service;
+package com.phoenix.service.pres;
 
+import com.phoenix.service.ServerMICommand;
 import java.util.List;
 
 /**
