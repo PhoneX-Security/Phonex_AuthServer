@@ -9,6 +9,7 @@ import com.phoenix.db.Contactlist;
 import com.phoenix.db.ContactlistDstObj;
 import com.phoenix.db.DHKeys;
 import com.phoenix.db.RemoteUser;
+import com.phoenix.db.StoredFiles;
 import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
 import com.phoenix.db.WhitelistSrcObj;
@@ -2119,6 +2120,185 @@ public class PhoenixEndpoint {
         return response;
     }
     
+    /**
+     * Request from the user to delete his uploaded files.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "ftDeleteFilesRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public FtDeleteFilesResponse ftDeleteFiles(@RequestPayload FtDeleteFilesRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        log.info("User connected: " + owner);
+        
+        // construct response, then add results iteratively
+        FtDeleteFilesResponse response = new FtDeleteFilesResponse();
+        response.setErrCode(-1);
+        
+        try {
+            // If the reuest is to delete all files, do it.
+            if (request.isDeleteAll()){
+                List<StoredFiles> sfList = fmanager.getStoredFiles(owner);
+                if (sfList == null || sfList.isEmpty()){
+                    response.setErrCode(0);
+                    return response;
+                }
+                
+                fmanager.deleteFilesList(sfList);
+                response.setErrCode(0);
+                return response;
+            }
+            
+            // Request to delete files is more specific. Maybe deleting all files
+            // from particular sender.
+            SipList sipList = request.getUsers();
+            if (sipList!=null && sipList.getUser()!=null && sipList.getUser().isEmpty()==false){
+                final List<String> usrList = sipList.getUser();
+                for(String usr : usrList){
+                    List<StoredFiles> sfList = fmanager.getStoredFilesFromUser(owner, usr);
+                    if (sfList == null || sfList.isEmpty()){
+                        continue;
+                    }
+                    
+                    fmanager.deleteFilesList(sfList);
+                }
+            }
+            
+            // Maybe request to delete all files with given nonce?
+            FtNonceList nonceList = request.getNonceList();
+            if (nonceList!=null && nonceList.getNonce()!=null && nonceList.getNonce().isEmpty()==false){
+                final List<String> nonce = nonceList.getNonce();
+                for(String curNonce : nonce){
+                    // Obtain file reference to a given nonce, delete only if
+                    // user has privileges for this file.
+                    StoredFiles sf = fmanager.getStoredFile(owner, curNonce);
+                    if (sf!=null){
+                        fmanager.deleteFiles(sf);
+                    }
+                }
+            }
+            
+            // Maybe request to delete all files older than some date?
+            XMLGregorianCalendar deleteOlderThan = request.getDeleteOlderThan();
+            if (deleteOlderThan != null && deleteOlderThan.isValid()){
+                Date dt = getDate(deleteOlderThan);
+                
+                final String olderThanQueryString = "SELECT sf FROM StoredFiles sf"
+                        + " WHERE sf.owner=:o AND (sf.created < :dc OR sf.expires < :de)";
+                TypedQuery<StoredFiles> sfQuery = em.createQuery(olderThanQueryString, StoredFiles.class);
+                sfQuery.setParameter("o", owner)
+                        .setParameter("dc", dt)
+                        .setParameter("de", dt);
+                List<StoredFiles> sfList = sfQuery.getResultList();
+                if (sfList!=null && sfList.isEmpty()==false){
+                    fmanager.deleteFilesList(sfList);
+                }
+            }
+            
+            response.setErrCode(0);
+            return response;
+            
+        } catch(Exception e){
+            log.error("Exception deleting files", e);
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Request from the user to delete his uploaded files.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "ftGetStoredFilesRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public FtGetStoredFilesResponse ftGetStoredFiles(@RequestPayload FtGetStoredFilesRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        log.info("User connected: " + owner);
+        
+        // Construct response
+        FtGetStoredFilesResponse response = new FtGetStoredFilesResponse();
+        response.setErrCode(-1);
+        
+        try {
+            final Map<String, StoredFiles> sfToSend = new HashMap<String, StoredFiles>();
+            
+            // If the request is to obtain all stored files, do it
+            if (request.isGetAll()){
+                List<StoredFiles> sfList = fmanager.getStoredFiles(owner);
+                if (sfList!=null && sfList.isEmpty()==false){
+                    for(StoredFiles sf : sfList){
+                        sfToSend.put(sf.getNonce2(), sf);
+                    }
+                }
+            } else {
+                // Maybe only files for particular user are interesting.
+                // 
+                SipList sipList = request.getUsers();
+                if (sipList!=null && sipList.getUser()!=null && sipList.getUser().isEmpty()==false){
+                    final List<String> usrList = sipList.getUser();
+                    for(String usr : usrList){
+                        List<StoredFiles> sfList = fmanager.getStoredFilesFromUser(owner, usr);
+                        if (sfList == null || sfList.isEmpty()){
+                            continue;
+                        }
+
+                        for(StoredFiles sf : sfList){
+                            sfToSend.put(sf.getNonce2(), sf);
+                        }
+                    }
+                }
+                
+                // Maybe request to delete all files with given nonce?
+                //
+                FtNonceList nonceList = request.getNonceList();
+                if (nonceList!=null && nonceList.getNonce()!=null && nonceList.getNonce().isEmpty()==false){
+                    final List<String> nonce = nonceList.getNonce();
+                    for(String curNonce : nonce){
+                        // Obtain file reference to a given nonce, delete only if
+                        // user has privileges for this file.
+                        StoredFiles sf = fmanager.getStoredFile(owner, curNonce);
+                        if (sf!=null){
+                            sfToSend.put(curNonce, sf);
+                        }
+                    }
+                }
+            }
+            
+            List<FtStoredFile> storedFiles = response.getStoredFile();
+            
+            // Now process StoredFiles to send
+            for(Entry<String, StoredFiles> e : sfToSend.entrySet()){
+                final StoredFiles sf = e.getValue();
+                
+                FtStoredFile sf2send = new FtStoredFile();
+                sf2send.setProtocolVersion(sf.getProtocolVersion());
+                sf2send.setNonce2(sf.getNonce2());
+                sf2send.setSender(sf.getSender());
+                sf2send.setSentDate(getXMLDate(sf.getCreated()));
+                sf2send.setSizeMeta(sf.getSizeMeta());
+                sf2send.setSizePack(sf.getSizePack());
+                sf2send.setHashMeta(sf.getHashMeta());
+                sf2send.setHashPack(sf.getHashPack());
+                sf2send.setKey(sf.getDhpublic());
+                storedFiles.add(sf2send);
+            }
+            
+            return response;
+        } catch(Exception e){
+            log.error("Exception ftGetStoredFiles()", e);
+        }
+        
+        return response;
+    }
     
     
     /**

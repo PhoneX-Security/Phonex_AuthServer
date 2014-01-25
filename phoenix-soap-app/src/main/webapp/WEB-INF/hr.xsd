@@ -1131,7 +1131,6 @@
                 <xs:element name="deleteAll" type="xs:boolean" default="false"/>
                 <xs:element name="nonceList" type="hr:ftNonceList" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="users" type="hr:sipList" minOccurs ="0" maxOccurs="1"/>
-                <xs:element name="deleteDownloaded" type="xs:boolean" default="false" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="deleteOlderThan" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
                 
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
@@ -1166,8 +1165,8 @@
             <xs:element name="nonce2" type="hr:ftNonce"/>
             <xs:element name="hashMeta" type="xs:string"/>
             <xs:element name="hashPack" type="xs:string"/>
-            <xs:element name="sizeMeta" type="xs:int" />
-            <xs:element name="sizePack" type="xs:int" />
+            <xs:element name="sizeMeta" type="xs:long" />
+            <xs:element name="sizePack" type="xs:long" />
             <xs:element name="key" type="hr:binaryPayload"/>
             <xs:element name="protocolVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
         </xs:sequence>
@@ -1183,6 +1182,7 @@
             <xs:sequence>
                 <xs:element name="getAll" type="xs:boolean" default="false"/>
                 <xs:element name="users" type="hr:sipList" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="nonceList" type="hr:ftNonceList" minOccurs ="0" maxOccurs="1"/>
                 
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>

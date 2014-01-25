@@ -254,6 +254,7 @@ public class FileManager {
      * Returns list of a stored files for a given subscriber uploaded by a given user.
      * 
      * @param owner
+     * @param sender
      * @return 
      */
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
@@ -297,14 +298,12 @@ public class FileManager {
         sfQuery.setParameter("now", new Date());
 
         List<StoredFiles> sfList = sfQuery.getResultList();
-        if (sfList == null){
+        if (sfList == null || sfList.isEmpty()){
             return ret;
         }
         
-        for(StoredFiles sf : sfList){
-            deleteFiles(sf.getNonce2());
-            ret += 1;
-        }
+        deleteFilesList(sfList);
+        ret += sfList.size();
         
         return ret;
     }
@@ -369,6 +368,46 @@ public class FileManager {
         }
         
         return ret;
+    }
+    
+    /**
+     * Deletes the list of files.
+     * @param nonces
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public int deleteFiles(List<String> nonces){
+        if (nonces==null) throw new NullPointerException("NonceList cannot be empty");
+        for(String nonce : nonces){
+            deleteFiles(nonce);
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Deletes the list of files.
+     * @param sfList
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public int deleteFilesList(List<StoredFiles> sfList){
+        if (sfList==null) throw new NullPointerException("NonceList cannot be empty");
+        for(StoredFiles sf : sfList){
+            deleteFiles(sf);
+        }
+        
+        return sfList.size();
+    }
+    
+    /**
+     * Deletes all traces about file given reference to stored file.
+     * @param sf
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public int deleteFiles(StoredFiles sf){
+        return deleteFiles(sf.getNonce2());
     }
     
     /**
