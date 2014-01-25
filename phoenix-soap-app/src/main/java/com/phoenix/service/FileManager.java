@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Date;
 import java.util.List;
 import javax.annotation.PostConstruct;
 import javax.net.ssl.X509TrustManager;
@@ -268,6 +269,7 @@ public class FileManager {
      * Returns particular stored file for a given subscriber.
      * 
      * @param owner
+     * @param nonce2
      * @return 
      */
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
@@ -281,6 +283,92 @@ public class FileManager {
                 .setParameter("nonc", nonce2)
                 .setMaxResults(1);
         return query.getSingleResult();
+    }
+    
+    /**
+     * Deletes all records with expiration time before now().
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public int expireRecords(){
+        int ret = 0;
+        
+        TypedQuery<StoredFiles> sfQuery = em.createQuery("SELECT sf FROM StoredFiles sf WHERE sf.expires<:now", StoredFiles.class);
+        sfQuery.setParameter("now", new Date());
+
+        List<StoredFiles> sfList = sfQuery.getResultList();
+        if (sfList == null){
+            return ret;
+        }
+        
+        for(StoredFiles sf : sfList){
+            deleteFiles(sf.getNonce2());
+            ret += 1;
+        }
+        
+        return ret;
+    }
+    
+    /**
+     * Deletes all database records without file counterparts.
+     * 
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public int deleteOrphans(){
+        int ret = 0;
+        
+        // At first get number of all stored files.
+        // Files loading from database will be done in steps in order to be robust
+        // when database grows.
+        TypedQuery<Long> countQuery = em.createQuery("SELECT COUNT(sf) FROM StoredFiles sf", Long.class);
+        Long sfCount = countQuery.getSingleResult();
+        if (sfCount==null || sfCount==0){
+            return ret;
+        }
+        
+        // Load files with step 250, using SQL LIMIT clause.
+        log.info("DeleteOrphans() called, sfCount=" + sfCount);
+        final int step = 250;
+        int curOffset = 0;
+        
+        for(; curOffset < sfCount; curOffset += step){
+            TypedQuery<StoredFiles> sfQuery = em.createQuery("SELECT sf FROM StoredFiles sf", StoredFiles.class);
+            
+            sfQuery.setFirstResult(curOffset);
+            sfQuery.setMaxResults(step);
+            
+            List<StoredFiles> sfList = sfQuery.getResultList();
+            if (sfList == null){
+                break;
+            }
+            
+            // Check existence of the physical files 
+            int deleted=0;
+            for(StoredFiles sf : sfList){
+                final File permMeta = getPermFile(sf.getNonce2(), FTYPE_META);
+                final File permPack = getPermFile(sf.getNonce2(), FTYPE_PACK);
+                if (permMeta.exists() && permPack.exists()) continue;
+                
+                log.debug("DeleteOrphans(); nonce2["+sf.getNonce2()+"] has missing physical file.");
+                
+                deleted+=1;
+                if (permMeta.exists())
+                    permMeta.delete();
+                if (permPack.exists())
+                    permPack.delete();
+                em.remove(sf);
+            }
+            
+            if (deleted>0){
+                em.flush();
+            }
+            
+            sfCount -= deleted;
+            curOffset -= deleted;
+        }
+        
+        return ret;
     }
     
     /**
@@ -298,8 +386,13 @@ public class FileManager {
             File permMeta = this.getPermFile(nonce2, FTYPE_META);
             File permPack = this.getPermFile(nonce2, FTYPE_PACK);
             
-            ret |= permMeta.delete() ? 0x1 : 0;
-            ret |= permPack.delete() ? 0x2 : 0;
+            if (permMeta.exists()){
+                ret |= permMeta.delete() ? 0x1 : 0;
+            }
+            
+            if (permPack.exists()){
+                ret |= permPack.delete() ? 0x2 : 0;
+            }
         } catch(Exception e){
             log.warn("Exception in deleting files from FS", e);
         }
@@ -309,10 +402,12 @@ public class FileManager {
         try {
             StoredFiles sf = em.createQuery(query, StoredFiles.class)
                     .setParameter("n", nonce2)
-                    .getSingleResult();            
-            em.remove(sf);
-            em.flush();
-            ret |= 0x4;
+                    .getSingleResult();
+            if (sf!=null){
+                em.remove(sf);
+                em.flush();
+                ret |= 0x4;
+            }
         } catch(Exception ex){
             log.info("Problem during removing stored file from database with nonce2["+nonce2+"]", ex);
         }

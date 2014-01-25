@@ -335,7 +335,7 @@ public class RESTController {
                     tempMeta.delete();
                     tempPack.delete();
 
-                    ret.setErrorCode(-2);
+                    ret.setErrorCode(-3);
                     ret.setMessage("Hashes of uploaded files do not match");
                     return ret;
                 }
@@ -620,7 +620,7 @@ public class RESTController {
             input = new RandomAccessFile(file, "r");
             output = response.getOutputStream();
 
-            if (ranges.isEmpty() || ranges.get(0) == full) {
+            if (ranges.isEmpty() || full.equals(ranges.get(0))) {
 
                 // Return full file.
                 Range r = full;
@@ -692,7 +692,6 @@ public class RESTController {
     
     
     // Helpers (can be refactored to public utility class) ----------------------------------------
-
     /**
      * Returns true if the given accept header accepts the given value.
      * @param acceptHeader The accept header.
@@ -805,6 +804,39 @@ public class RESTController {
             this.total = total;
         }
 
+        @Override
+        public int hashCode() {
+            int hash = 7;
+            hash = 97 * hash + (int) (this.start ^ (this.start >>> 32));
+            hash = 97 * hash + (int) (this.end ^ (this.end >>> 32));
+            hash = 97 * hash + (int) (this.length ^ (this.length >>> 32));
+            hash = 97 * hash + (int) (this.total ^ (this.total >>> 32));
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            final Range other = (Range) obj;
+            if (this.start != other.start) {
+                return false;
+            }
+            if (this.end != other.end) {
+                return false;
+            }
+            if (this.length != other.length) {
+                return false;
+            }
+            if (this.total != other.total) {
+                return false;
+            }
+            return true;
+        }
     }
     
     /**
