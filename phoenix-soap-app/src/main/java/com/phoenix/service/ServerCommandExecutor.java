@@ -91,10 +91,10 @@ public class ServerCommandExecutor extends BackgroundThreadService {
                 if (resultList!=null && resultList.size() > 0){
                    for(Xcap e : resultList){
                         ServerMICommand cmd;
-                        cmd = new ServerMICommand("refreshWatchers");
+                        cmd = new ServerMIRefreshWatchers(e.getUsername() + "@" + e.getDomain(), 0);
                         cmd.setOnRequest(false);
                         cmd.setPreDelay(1500);
-                        cmd.addParameter("sip:" + e.getUsername() + "@" + e.getDomain()).addParameter("presence").addParameter("0");
+                        
                         this.addToQueue(cmd);
                    }
                 }

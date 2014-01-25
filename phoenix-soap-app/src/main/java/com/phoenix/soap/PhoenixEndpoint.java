@@ -24,8 +24,10 @@ import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.FileManager;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
+import com.phoenix.service.PresenceManager;
 import com.phoenix.service.ServerCommandExecutor;
 import com.phoenix.service.ServerMICommand;
+import com.phoenix.service.ServerMIRefreshWatchers;
 import com.phoenix.service.TrustVerifier;
 import com.phoenix.soap.beans.AuthCheckRequest;
 import com.phoenix.soap.beans.AuthCheckRequestV2;
@@ -150,6 +152,9 @@ public class PhoenixEndpoint {
     
     @Autowired(required = true)
     private FileManager fmanager;
+    
+    @Autowired(required = true)
+    private PresenceManager pmanager;
     
     // owner SIP obtained from certificate
     private String owner_sip;
@@ -592,7 +597,6 @@ public class PhoenixEndpoint {
             Map<String, Subscriber> changedUsers = new HashMap<String, Subscriber>();
             
             // load presence rules policy XML template from resources in the beginning.
-            String presenceRulesTemplate = dataService.loadPresenceRulesPolicyTemplate();
             ServerCommandExecutor executor = getExecutor(context);
             
             // Iterate over all change requets element in request. Every can contain 
@@ -780,43 +784,23 @@ public class PhoenixEndpoint {
                         sips.add(clsip);
                     }
                     
-                    String xmlfile = dataService.completePresenceRulesPolicyTemplate(presenceRulesTemplate, sips);
-                    log.info("Going to update presence rules for user["+entry.getKey()+"]: " + xmlfile);
-                    
-                    //
-                    // XCAP table update;
-                    //
-                    Query delQuery = this.em.createQuery("DELETE FROM Xcap x "
-                            + " WHERE x.username=:uname AND x.domain=:domain AND doc_type=2");
-                    delQuery.setParameter("uname", tuser.getUsername());
-                    delQuery.setParameter("domain", tuser.getDomain());
-                    delQuery.executeUpdate();
-                    
-                    Xcap xcapEntity = new Xcap(
-                            tuser.getUsername(), 
-                            tuser.getDomain(), 
-                            xmlfile.getBytes("UTF-8"), 
-                            2, 
-                            "", 0, "index.xml", 0);
-                    this.em.persist(xcapEntity);
+                    Xcap xcapEntity = pmanager.updateXCAPPolicyFile(tuser.getUsername(), tuser.getDomain(), sips);
                     log.info("XcapEntity persisted: " + xcapEntity.toString());
+                    this.em.flush();
                     
                     //
                     // Server update trigger
                     // refreshWatchers sip:test3@voip.net-wings.eu presence 1
                     ServerMICommand cmd;
-                    cmd = new ServerMICommand("refreshWatchers");
-                    cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("1");
+                    cmd = new ServerMIRefreshWatchers(entry.getKey(), 1);
                     cmd.setPreDelay(1500);
                     executor.addToQueue(cmd);
                     
-                    cmd= new ServerMICommand("refreshWatchers");
-                    cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("0");
+                    cmd = new ServerMIRefreshWatchers(entry.getKey(), 0);
                     cmd.setPreDelay(1500);
                     executor.addToQueue(cmd);
                     
-                    cmd= new ServerMICommand("refreshWatchers");
-                    cmd.addParameter("sip:" + entry.getKey()).addParameter("presence").addParameter("0");
+                    cmd = new ServerMIRefreshWatchers(entry.getKey(), 0);
                     cmd.setPreDelay(1500);
                     executor.addToQueue(cmd);
                 } catch(Exception ex){
@@ -2348,5 +2332,13 @@ public class PhoenixEndpoint {
 
     public void setFmanager(FileManager fmanager) {
         this.fmanager = fmanager;
+    }
+
+    public PresenceManager getPmanager() {
+        return pmanager;
+    }
+
+    public void setPmanager(PresenceManager pmanager) {
+        this.pmanager = pmanager;
     }
 }

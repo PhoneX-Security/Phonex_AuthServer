@@ -33,6 +33,7 @@ public class ServerMICommand implements Comparable<Object> {
     
     /**
      * Adds string parameter to the command, provides fluent interface.
+     * @param param
      * @return 
      */
     public ServerMICommand addParameter(String param){

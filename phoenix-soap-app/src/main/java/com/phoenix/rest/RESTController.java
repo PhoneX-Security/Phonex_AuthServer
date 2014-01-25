@@ -15,10 +15,10 @@ import com.phoenix.rest.json.UploadReturnV1;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.FileManager;
 import com.phoenix.service.PhoenixDataService;
+import com.phoenix.service.PresenceManager;
 import com.phoenix.service.TrustVerifier;
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -81,6 +81,9 @@ public class RESTController {
     
     @Autowired(required = true)
     private FileManager fmanager;
+    
+    @Autowired(required = true)
+    private PresenceManager pmanager;
     
     // owner SIP obtained from certificate
     private String owner_sip;
@@ -921,5 +924,13 @@ public class RESTController {
 
     public void setFmanager(FileManager fmanager) {
         this.fmanager = fmanager;
+    }
+
+    public PresenceManager getPmanager() {
+        return pmanager;
+    }
+
+    public void setPmanager(PresenceManager pmanager) {
+        this.pmanager = pmanager;
     }
 }

@@ -17,7 +17,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.List;
 import javax.annotation.PostConstruct;
-import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
@@ -57,10 +56,7 @@ public class FileManager {
     
     @PersistenceContext
     protected EntityManager em;
-    
-    @Autowired(required = true)
-    private X509TrustManager trustManager;
-    
+        
     @Value("#[ft.tempDir]")
     private String tempDir;
     
@@ -540,14 +536,6 @@ public class FileManager {
 
     public void setEm(EntityManager em) {
         this.em = em;
-    }
-
-    public X509TrustManager getTrustManager() {
-        return trustManager;
-    }
-
-    public void setTrustManager(X509TrustManager trustManager) {
-        this.trustManager = trustManager;
     }
 
     public String getTempDir() {

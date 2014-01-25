@@ -52,7 +52,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class PhoenixDataService {
     private static final Logger log = LoggerFactory.getLogger(PhoenixDataService.class);
-    public static final String PRESENCE_RULES_TEMPLATE = "pres-rules-template.tpl";
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -308,39 +307,6 @@ public class PhoenixDataService {
         }
         
         return ret;
-    }
-    
-    /**
-     * Loads presence rules policy template from resources.
-     * @param sips
-     * @return 
-     */
-    public String loadPresenceRulesPolicyTemplate() throws IOException{
-        InputStream resourceAsStream = PhoenixDataService.class.getClassLoader().getResourceAsStream(PRESENCE_RULES_TEMPLATE);
-        return convertStreamToStr(resourceAsStream);
-    }
-    
-    /**
-     * Parses input template and builds new template adding all sips to the whitelist.
-     * @param sips
-     * @return 
-     */
-    public String completePresenceRulesPolicyTemplate(String template, List<String> sips){
-        if (sips==null){
-            throw new NullPointerException("Sips list is null");
-        }
-        
-        StringBuilder sb = new StringBuilder();
-        for(String s : sips){
-            // check string s for valid characters
-            if (s.matches("[a-zA-Z0-9_\\-]+@[a-zA-Z0-9\\._\\-]+")==false){
-                log.warn("Illegal sip passed: " + s);
-                continue;
-            }
-            sb.append("                   <cp:one id=\"sip:").append(s).append("\" />\n");
-        }
-        
-        return template.replace("[[[RULES]]]", sb.toString());
     }
     
     /**
@@ -620,6 +586,9 @@ public class PhoenixDataService {
      * buffer) method. We iterate until the Reader return -1 which means
      * there's no more data to read. We use the StringWriter class to
      * produce the string.
+     * @param is
+     * @return 
+     * @throws java.io.IOException 
      */
     public static String convertStreamToStr(InputStream is) throws IOException {
         if (is != null) {
