@@ -7,17 +7,24 @@
 package com.phoenix.service.pres;
 
 import com.phoenix.db.opensips.Xcap;
+import com.phoenix.service.DaemonStarter;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.PhoenixDataService;
+import com.phoenix.service.ServerCommandExecutor;
+import com.phoenix.service.ServerMICommand;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
+import javax.servlet.ServletContext;
+import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +45,8 @@ public class PresenceManager {
     private static final Logger log = LoggerFactory.getLogger(PresenceManager.class);
     public static final String PRESENCE_RULES_TEMPLATE = "pres-rules-template.xml";
     public static final String PRESENCE_PUBLISH_TEMPLATE = "pres-publish-template.xml";
+    
+    public static String NOTIFIER_SUFFIX = "*i_notify";
     
     private static final String STATE_BASIC_OPEN = "open";
     private static final String STATE_BASIC_CLOSED = "closed";
@@ -66,6 +75,9 @@ public class PresenceManager {
     @Autowired(required = true)
     private PhoenixDataService dataService;
     
+    @Autowired
+    ServletContext context;
+    
     /**
      * Presence rules template for XCAP server (permissions to observe presence changes).
      */
@@ -78,6 +90,11 @@ public class PresenceManager {
     private String presencePublishTemplate;
 
     /**
+     * Cached presence events for each SIP user (key to the map).
+     */
+    private final Map<String, PresenceEvents> cachedEvents = new ConcurrentHashMap<String, PresenceEvents>();
+    
+    /**
      * No-arg constructor for Spring container.
      */
     public PresenceManager() {
@@ -89,7 +106,7 @@ public class PresenceManager {
      */
     @PostConstruct
     public void init(){
-        log.info("PostContruct called on presence manager; this="+this);
+        log.info("PostContruct called on presence manager; ctxt="+context+"; cached="+cachedEvents+"; this="+this);
         
         try {
             this.presenceRulesTemplate = loadTemplate(PRESENCE_RULES_TEMPLATE);
@@ -215,6 +232,121 @@ public class PresenceManager {
         return xcapEntity;
     }
     
+    /**
+     * Returns notifier SIP address for given SIP user.
+     * 
+     * @param sip
+     * @return 
+     */
+    public String getSipNotifier(String sip){
+        // Parse SIP contact to user name and domain.
+        if (sip==null)
+            throw new NullPointerException("SIP cannot be null");
+        if (sip.contains("@")==false || sip.indexOf("@") != sip.lastIndexOf("@"))
+            throw new IllegalArgumentException("SIP is not well formed");
+        
+        String[] sipArr = sip.split("@");
+        final String username = sipArr[0];
+        final String domain = sipArr[1];
+        
+        return username + NOTIFIER_SUFFIX + "@" + domain;
+    }
+    
+    /**
+     * Notification of the user for new uploaded files.
+     * This is not extensible design.
+     * Proposal for better extensibility:
+     *  - Assumption: another events will be signaled to the user besides new files
+     *  - Thus already published information has to be cached in some long running thread.
+     *      Thus if a new file is published all previously published cached information
+     *      has to be sent along with this new information.
+     *  - PresenceNotifier will be long running thread like ServerExecutor, caching
+     *      all new information per user. On publishing new info, all cached data are packed
+     *      and sent again.
+     *  - In new implementation this request would be passed to PresenceNotifier.
+     *      
+     * @param sip
+     * @param nonces
+     * @throws java.io.IOException
+     */
+    public synchronized void notifyNewFiles(String sip, List<String> nonces) throws IOException{
+        // Get existing PE
+        PresenceEvents pe;
+        if (cachedEvents.containsKey(sip)){
+            pe = cachedEvents.get(sip);
+        } else {
+            pe = new PresenceEvents();
+            pe.setVersion(1);
+        }
+        
+        // Store new cached events.
+        pe.setFiles(nonces);
+        this.cachedEvents.put(sip, pe);
+        
+        // Generate JSON & notify.
+        sendNotification(sip, pe);
+    }
+    
+    /**
+     * Sends prepared presence notification to the user via PIDF.
+     * 
+     * @param sip
+     * @param ev 
+     * @throws java.io.IOException 
+     */
+    public synchronized void sendNotification(String sip, PresenceEvents ev) throws IOException{
+        final String notifSip = getSipNotifier(sip);
+        
+        // Generate notify body
+        final String json = ev.toJSON();
+        final String b64  = new String(Base64.encode(json.getBytes("UTF-8")), "UTF8");
+        final String pidf = getPresencePublishPidf(notifSip, PresenceManager.PresenceStatus.OPEN, b64);
+        
+        // Send presence command
+        ServerMIPuaPublish cmd = new ServerMIPuaPublish(notifSip, 3600, pidf);
+        
+        // send notification
+        sendCommand(cmd);
+    }
+    
+    /**
+     * Sends server command to executor.
+     * 
+     * @param cmd
+     * @return 
+     */
+    public int sendCommand(ServerMICommand cmd){
+        ServerCommandExecutor executor = getExecutor();
+        if (executor==null)
+            return -1;
+        
+        executor.addToQueue(cmd);
+        return 0;
+    }
+    
+    /**
+     * Obtains daemon executor running in the background.
+     * @return 
+     */
+    public ServerCommandExecutor getExecutor(){
+        ServerCommandExecutor executor = null;
+        
+        try {
+            DaemonStarter dstarter = DaemonStarter.getFromContext(context);
+            if (dstarter==null){
+                log.warn("Daemon starter is null, wtf?");
+                return null;
+            }
+            
+            executor = dstarter.getCexecutor();
+            log.info("Executor loaded: " + executor.toString());
+        }catch(Exception ex){
+            log.error("Exception during getExecutor()", ex);
+        }
+        
+        return executor;
+    }
+    
     public SessionFactory getSessionFactory() {
         return sessionFactory;
     }
@@ -245,5 +377,13 @@ public class PresenceManager {
 
     public void setDataService(PhoenixDataService dataService) {
         this.dataService = dataService;
+    }
+
+    public ServletContext getContext() {
+        return context;
+    }
+
+    public void setContext(ServletContext context) {
+        this.context = context;
     }
 }

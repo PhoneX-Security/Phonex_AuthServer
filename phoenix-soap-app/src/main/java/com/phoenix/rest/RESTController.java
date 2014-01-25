@@ -371,6 +371,11 @@ public class RESTController {
                 sf.setSizeMeta(permMeta.length());
                 sf.setSizePack(permPack.length());
                 dataService.persist(sf, true);
+                
+                // Get all new nonces - notify user about new files
+                String ownerSip = PhoenixDataService.getSIP(owner);
+                List<String> nc = fmanager.getStoredFilesNonces(owner);
+                pmanager.notifyNewFiles(ownerSip, nc);
 
                 ret.setErrorCode(0);
                 ret.setMessage("File stored successfully");

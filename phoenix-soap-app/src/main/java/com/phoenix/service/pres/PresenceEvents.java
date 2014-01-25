@@ -6,6 +6,8 @@
 
 package com.phoenix.service.pres;
 
+import com.phoenix.utils.JSONHelper;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,5 +36,40 @@ public class PresenceEvents {
 
     public void setFiles(List<String> files) {
         this.files = files;
+    }
+    
+    /**
+     * Converts this POJO to JSON representation.
+     * @return 
+     * @throws java.io.IOException 
+     */
+    public String toJSON() throws IOException{
+        return JSONHelper.obj2JSON(this);
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 31 * hash + this.version;
+        hash = 31 * hash + (this.files != null ? this.files.hashCode() : 0);
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final PresenceEvents other = (PresenceEvents) obj;
+        if (this.version != other.version) {
+            return false;
+        }
+        if (this.files != other.files && (this.files == null || !this.files.equals(other.files))) {
+            return false;
+        }
+        return true;
     }
 }

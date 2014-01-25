@@ -247,6 +247,20 @@ public class FileManager {
     }
     
     /**
+     * Returns list of a stored files for a given subscriber.
+     * 
+     * @param owner
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public List<String> getStoredFilesNonces(Subscriber owner){
+        String queryStats = "SELECT sf.nonce2 FROM StoredFiles sf WHERE sf.owner=:s ";
+        TypedQuery<String> query = em.createQuery(queryStats, String.class);
+        query.setParameter("s", owner);
+        return query.getResultList();
+    }
+    
+    /**
      * Returns list of a stored files for a given subscriber uploaded by a given user.
      * 
      * @param owner

@@ -172,7 +172,7 @@ public class PhoenixEndpoint {
         ServerCommandExecutor executor = null;
         
         try {
-            DaemonStarter dstarter = (DaemonStarter) this.request.getServletContext().getAttribute(DaemonStarter.EXECUTOR_NAME);
+            DaemonStarter dstarter = DaemonStarter.getFromContext(request);
             if (dstarter==null){
                 log.warn("Daemon starter is null, wtf?");
                 return null;
@@ -2133,6 +2133,12 @@ public class PhoenixEndpoint {
                 }
                 
                 fmanager.deleteFilesList(sfList);
+                
+                // Get all new nonces - notify user about new files
+                String ownerSip = PhoenixDataService.getSIP(owner);
+                List<String> nc = fmanager.getStoredFilesNonces(owner);
+                pmanager.notifyNewFiles(ownerSip, nc);
+                
                 response.setErrCode(0);
                 return response;
             }
@@ -2182,6 +2188,11 @@ public class PhoenixEndpoint {
                     fmanager.deleteFilesList(sfList);
                 }
             }
+            
+            // Get all new nonces - notify user about new files
+            String ownerSip = PhoenixDataService.getSIP(owner);
+            List<String> nc = fmanager.getStoredFilesNonces(owner);
+            pmanager.notifyNewFiles(ownerSip, nc);
             
             response.setErrCode(0);
             return response;
