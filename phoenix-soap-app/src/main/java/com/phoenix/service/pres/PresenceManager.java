@@ -6,6 +6,7 @@
 
 package com.phoenix.service.pres;
 
+import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.db.opensips.Xcap;
 import com.phoenix.service.DaemonStarter;
 import com.phoenix.service.EndpointAuth;
@@ -15,6 +16,7 @@ import com.phoenix.service.ServerMICommand;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -31,8 +33,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -45,6 +45,8 @@ public class PresenceManager {
     private static final Logger log = LoggerFactory.getLogger(PresenceManager.class);
     public static final String PRESENCE_RULES_TEMPLATE = "pres-rules-template.xml";
     public static final String PRESENCE_PUBLISH_TEMPLATE = "pres-publish-template.xml";
+    
+    public static long REFRESH_XCAP_NOTIFY = 1000*60*10;
     
     public static String NOTIFIER_SUFFIX = "*i_notify";
     
@@ -95,6 +97,15 @@ public class PresenceManager {
     private final Map<String, PresenceEvents> cachedEvents = new ConcurrentHashMap<String, PresenceEvents>();
     
     /**
+     * Presence monitor thread.
+     * In order transaction and EntityManager to work it has to be created by
+     * Spring container.
+     * 
+     */
+    @Autowired
+    private XcapNotifierMonitor xcapMonitor;
+    
+    /**
      * No-arg constructor for Spring container.
      */
     public PresenceManager() {
@@ -105,12 +116,17 @@ public class PresenceManager {
      * All dependencies should be autowired prior this call.
      */
     @PostConstruct
+    @Transactional
     public void init(){
         log.info("PostContruct called on presence manager; ctxt="+context+"; cached="+cachedEvents+"; this="+this);
         
         try {
             this.presenceRulesTemplate = loadTemplate(PRESENCE_RULES_TEMPLATE);
             this.presencePublishTemplate = loadTemplate(PRESENCE_PUBLISH_TEMPLATE);
+            
+            // Start XCAP threaded monitor.
+            //xcapMonitor.setPm(this);
+            //xcapMonitor.start();
         } catch(Exception e){
             log.error("Cannot load presence policy template file from resources.", e);
             throw new RuntimeException("Cannot load presence policy template file from resources.", e);
@@ -157,7 +173,7 @@ public class PresenceManager {
      * @param sips
      * @return 
      */
-    public String getXCAPFilee(List<String> sips){
+    public String getXCAPFile(List<String> sips){
         return getXCAPFile(presenceRulesTemplate, sips);
     }
     
@@ -197,6 +213,12 @@ public class PresenceManager {
         return ps==PresenceStatus.OPEN ? STATE_BASIC_OPEN : STATE_BASIC_CLOSED;
     }
     
+    @Transactional
+    public void clearXCAP(){
+        Query nq = em.createNativeQuery("TRUNCATE TABLE xcap");
+        nq.executeUpdate();
+    }
+    
     /**
      * Updates XCAP database for particular user. Sets read permissions to 
      * a sip addresses given in as a parameter.
@@ -207,15 +229,15 @@ public class PresenceManager {
      * @return new persisted XCAP entity
      * @throws java.io.UnsupportedEncodingException
      */
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    @Transactional
     public Xcap updateXCAPPolicyFile(String username, String domain, List<String> sips) throws UnsupportedEncodingException{
         String xmlfile = getXCAPFile(presenceRulesTemplate, sips);
         log.info("Going to update presence rules for user["+username+"]: " + xmlfile);
-
+        
         //
         // XCAP table update;
         //
-        Query delQuery = this.em.createQuery("DELETE FROM Xcap x "
+        Query delQuery = em.createQuery("DELETE FROM Xcap x "
                 + " WHERE x.username=:uname AND x.domain=:domain AND doc_type=2");
         delQuery.setParameter("uname", username);
         delQuery.setParameter("domain", domain);
@@ -250,6 +272,16 @@ public class PresenceManager {
         final String domain = sipArr[1];
         
         return username + NOTIFIER_SUFFIX + "@" + domain;
+    }
+    
+    /**
+     * Returns notifier SIP username.
+     * 
+     * @param username
+     * @return 
+     */
+    public String getSipNotifierUsername(String username){        
+        return username + NOTIFIER_SUFFIX;
     }
     
     /**

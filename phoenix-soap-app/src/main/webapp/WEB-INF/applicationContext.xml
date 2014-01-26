@@ -34,7 +34,7 @@
     
     <context:annotation-config />
     <context:component-scan base-package="com.phoenix"/>
-    <tx:annotation-driven/>
+    <tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true"/>
     
     <!--
         Configuration

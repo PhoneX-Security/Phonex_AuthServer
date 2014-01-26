@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -561,8 +562,18 @@ public class PhoenixDataService {
     }
     
     @Transactional
+    public void execute(String sql){
+        em.createNativeQuery(sql).executeUpdate();
+    }
+    
+    @Transactional
     public void persist(Object o){
         this.persist(o, false);
+    }
+    
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void update(Query q){
+        q.executeUpdate();
     }
     
     @Transactional
