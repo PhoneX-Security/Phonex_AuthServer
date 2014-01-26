@@ -22,8 +22,6 @@ public class DaemonStarter implements ServletContextListener {
     private static final Logger log = LoggerFactory.getLogger(DaemonStarter.class);
     public static final String EXECUTOR_NAME = "DAEMON_STARTER_EXECUTOR";
     
-    private final ServerCommandExecutor cexecutor = new ServerCommandExecutor();
-    
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         log.info("Context initialized, starting server communication thread");
@@ -41,15 +39,6 @@ public class DaemonStarter implements ServletContextListener {
         // Profile is determined programatically by environment inspection and Database
         // conenction is choosen based on the active profile.
         System.setProperty("spring.profiles.active", springInitializer.getCurrentProfile());
-        
-        if (cexecutor.isAlive()){
-            log.warn("Cexecutor is already alive, nothing to start");
-        } else {
-            log.info("Starting command executor thread");
-            cexecutor.onContextInitialized(sce);
-            cexecutor.setDaemon(true);
-            cexecutor.start();
-        }
     }
 
     @Override
@@ -58,10 +47,6 @@ public class DaemonStarter implements ServletContextListener {
         // you need it to clean up after itself
         
         log.info("Context destroy now... Disable all background threads");
-        if (cexecutor!=null){
-            log.info("Command executor was asked to stop running.");
-            cexecutor.stopRunning();
-        }
     }
     
     /**
@@ -80,10 +65,6 @@ public class DaemonStarter implements ServletContextListener {
      */
     public static DaemonStarter getFromContext(ServletContext ctxt){
         return (DaemonStarter) ctxt.getAttribute(DaemonStarter.EXECUTOR_NAME);
-    }
-
-    public ServerCommandExecutor getCexecutor() {
-        return cexecutor;
     }
 }
 

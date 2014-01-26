@@ -4,26 +4,24 @@
  */
 package com.phoenix.service;
 
-import com.phoenix.service.pres.ServerMIRefreshWatchers;
-import com.phoenix.db.opensips.Xcap;
+import com.phoenix.service.pres.PresenceManager;
 import java.io.InputStream;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.PriorityBlockingQueue;
-import javax.persistence.TypedQuery;
-import javax.servlet.ServletContextEvent;
-import javax.servlet.http.HttpServletRequest;
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Repository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Executes server commands in separate thread
  * @author ph4r05
  */
 @Service
-@Repository
 public class ServerCommandExecutor extends BackgroundThreadService {
     private static final Logger log = LoggerFactory.getLogger(ServerCommandExecutor.class);
     private static final String THREAD_NAME="ServerCommandExecutor";
@@ -40,44 +38,33 @@ public class ServerCommandExecutor extends BackgroundThreadService {
     // last refresh of presence auth
     private long lastRefresh=0;
     
+    @Autowired
+    private PresenceManager pManager;
+    
     public ServerCommandExecutor() {
         
     }
     
     /**
-     * Initializes internal running thread.
-     */
-    public synchronized void init(){
-        initThread(this, THREAD_NAME);
-    }
-    
-    @Override
-    public void onContextInitialized(ServletContextEvent sce) {
-        super.onContextInitialized(sce); 
-        
-        init();
-    }
-    
-    /**
-     * Obtains serverCommandExecutor instance from servlet context.
-     * @param request
-     * @return 
-     */
-    public static ServerCommandExecutor getExecutor(HttpServletRequest request){
-        ServerCommandExecutor executor = null;
-        DaemonStarter dstarter = DaemonStarter.getFromContext(request);
-        if (dstarter==null){
-            log.warn("Daemon starter is null, wtf?");
-            return null;
-        }
-            
-        executor = dstarter.getCexecutor();
-        return executor;
-    }
+    * Initializes internal running thread.
+    */
+   @PostConstruct
+   public synchronized void init() {
+       log.info("Initializing ServerCommandExecutor");
+       initThread(this, THREAD_NAME);
+       this.start();
+   }
+   
+   @PreDestroy
+   public synchronized void deinit(){
+       log.info("Shutting down ServerCommandExecutor");
+       stopRunning();
+   }
     
     /**
      * Reload presence meta data
      */
+    @Transactional
     public void reloadPresence(){
         long cmilli = System.currentTimeMillis();
         if ((cmilli - lastRefresh) > 1000*60*60){
@@ -86,19 +73,7 @@ public class ServerCommandExecutor extends BackgroundThreadService {
             // fetch all presence policies to refresh from database
             try {
                 log.info("Batch presence auth data sync");
-                String querySql = "SELECT x FROM Xcap x";
-                TypedQuery<Xcap> query = em.createQuery(querySql, Xcap.class);
-                List<Xcap> resultList = query.getResultList();
-                if (resultList!=null && resultList.size() > 0){
-                   for(Xcap e : resultList){
-                        ServerMICommand cmd;
-                        cmd = new ServerMIRefreshWatchers(e.getUsername() + "@" + e.getDomain(), 0);
-                        cmd.setOnRequest(false);
-                        cmd.setPreDelay(1500);
-                        
-                        this.addToQueue(cmd);
-                   }
-                }
+                pManager.reloadPresence();
             } catch(Exception ex){
                 log.info("Problem occurred during loading Xcap from database", ex);
             }
@@ -140,7 +115,7 @@ public class ServerCommandExecutor extends BackgroundThreadService {
                 long waitStart = System.currentTimeMillis();
                 long counter = preDelay/10;
                 try {
-                    while((counter--) > 0){
+                    while((counter--) > 0 && running){
                         this.handleHighPriority();
                         
                         Thread.sleep(10);

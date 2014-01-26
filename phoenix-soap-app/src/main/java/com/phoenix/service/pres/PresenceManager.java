@@ -25,6 +25,7 @@ import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
+import javax.persistence.TypedQuery;
 import javax.servlet.ServletContext;
 import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.SessionFactory;
@@ -77,6 +78,9 @@ public class PresenceManager {
     @Autowired(required = true)
     private PhoenixDataService dataService;
     
+    @Autowired(required = true)
+    private ServerCommandExecutor executor;
+    
     @Autowired
     ServletContext context;
     
@@ -123,10 +127,6 @@ public class PresenceManager {
         try {
             this.presenceRulesTemplate = loadTemplate(PRESENCE_RULES_TEMPLATE);
             this.presencePublishTemplate = loadTemplate(PRESENCE_PUBLISH_TEMPLATE);
-            
-            // Start XCAP threaded monitor.
-            //xcapMonitor.setPm(this);
-            //xcapMonitor.start();
         } catch(Exception e){
             log.error("Cannot load presence policy template file from resources.", e);
             throw new RuntimeException("Cannot load presence policy template file from resources.", e);
@@ -255,6 +255,26 @@ public class PresenceManager {
     }
     
     /**
+     * Sends server command to reload all presence data.
+     */
+    @Transactional
+    public void reloadPresence(){
+        String querySql = "SELECT x FROM Xcap x";
+        TypedQuery<Xcap> query = em.createQuery(querySql, Xcap.class);
+        List<Xcap> resultList = query.getResultList();
+        if (resultList!=null && resultList.size() > 0){
+           for(Xcap e : resultList){
+                ServerMICommand cmd;
+                cmd = new ServerMIRefreshWatchers(e.getUsername() + "@" + e.getDomain(), 0);
+                cmd.setOnRequest(false);
+                cmd.setPreDelay(1500);
+
+                executor.addToQueue(cmd);
+           }
+        }
+    }
+    
+    /**
      * Returns notifier SIP address for given SIP user.
      * 
      * @param sip
@@ -356,29 +376,6 @@ public class PresenceManager {
         return 0;
     }
     
-    /**
-     * Obtains daemon executor running in the background.
-     * @return 
-     */
-    public ServerCommandExecutor getExecutor(){
-        ServerCommandExecutor executor = null;
-        
-        try {
-            DaemonStarter dstarter = DaemonStarter.getFromContext(context);
-            if (dstarter==null){
-                log.warn("Daemon starter is null, wtf?");
-                return null;
-            }
-            
-            executor = dstarter.getCexecutor();
-            log.info("Executor loaded: " + executor.toString());
-        }catch(Exception ex){
-            log.error("Exception during getExecutor()", ex);
-        }
-        
-        return executor;
-    }
-    
     public SessionFactory getSessionFactory() {
         return sessionFactory;
     }
@@ -417,5 +414,13 @@ public class PresenceManager {
 
     public void setContext(ServletContext context) {
         this.context = context;
+    }
+
+    public ServerCommandExecutor getExecutor() {
+        return executor;
+    }
+
+    public void setExecutor(ServerCommandExecutor executor) {
+        this.executor = executor;
     }
 }

@@ -19,7 +19,6 @@ import com.phoenix.db.extra.WhitelistObjType;
 import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.db.opensips.Xcap;
-import com.phoenix.service.DaemonStarter;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.FileManager;
 import com.phoenix.service.PhoenixDataService;
@@ -156,35 +155,14 @@ public class PhoenixEndpoint {
     @Autowired(required = true)
     private PresenceManager pmanager;
     
+    @Autowired(required = true)
+    private ServerCommandExecutor executor;
+    
     // owner SIP obtained from certificate
     private String owner_sip;
     public static final String DISPLAY_NAME_REGEX="^[a-zA-Z0-9_\\-\\s\\./]+$";
 
     public PhoenixEndpoint() {
-    }
-
-    /**
-     * Obtains daemon executor running in the background.
-     * @param context
-     * @return 
-     */
-    public ServerCommandExecutor getExecutor(MessageContext context){
-        ServerCommandExecutor executor = null;
-        
-        try {
-            DaemonStarter dstarter = DaemonStarter.getFromContext(request);
-            if (dstarter==null){
-                log.warn("Daemon starter is null, wtf?");
-                return null;
-            }
-            
-            executor = dstarter.getCexecutor();
-            log.info("Executor loaded: " + executor.toString());
-        }catch(Exception ex){
-            log.error("Exception during getExecutor()", ex);
-        }
-        
-        return executor;
     }
     
     /**
@@ -595,9 +573,6 @@ public class PhoenixEndpoint {
             // Store users whose contact list was modified. For them will be later 
             // regenerated XML policy file for presence.
             Map<String, Subscriber> changedUsers = new HashMap<String, Subscriber>();
-            
-            // load presence rules policy XML template from resources in the beginning.
-            ServerCommandExecutor executor = getExecutor(context);
             
             // Iterate over all change requets element in request. Every can contain 
             // request for different subscriber.
@@ -1234,7 +1209,6 @@ public class PhoenixEndpoint {
             // unregister if auth is OK?
             if (request.getUnregisterIfOK() == TrueFalse.TRUE && passwdChange!=true){
                 log.info("Unregistering user, auth was OK so far");
-                ServerCommandExecutor executor = getExecutor(context);
                 
                 /*ServerMICommand cmd = new ServerMICommand("ul_rm");
                 cmd.addParameter("location").addParameter(sip);
@@ -1477,7 +1451,6 @@ public class PhoenixEndpoint {
             // Unregister if auth is OK?
             if (request.getUnregisterIfOK() == TrueFalse.TRUE && passwdChange!=true){
                 log.info("Unregistering user, auth was OK so far");
-                ServerCommandExecutor executor = getExecutor(context);
                 
                 /*ServerMICommand cmd = new ServerMICommand("ul_rm");
                 cmd.addParameter("location").addParameter(sip);
@@ -2351,5 +2324,13 @@ public class PhoenixEndpoint {
 
     public void setPmanager(PresenceManager pmanager) {
         this.pmanager = pmanager;
+    }
+
+    public ServerCommandExecutor getExecutor() {
+        return executor;
+    }
+
+    public void setExecutor(ServerCommandExecutor executor) {
+        this.executor = executor;
     }
 }

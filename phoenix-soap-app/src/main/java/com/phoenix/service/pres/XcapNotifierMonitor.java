@@ -22,12 +22,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- *
- * @author ph4r05
- */
-/**
 * Helper subclass for monitoring all active subscribers to detect 
 * missing / extra XCAP rules for SIPNotification presence account.
+* 
+* @author ph4r05
 */
 @Service
 public class XcapNotifierMonitor extends BackgroundThreadService {
