@@ -21,6 +21,7 @@ import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
+import org.apache.commons.io.FileUtils;
 import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
@@ -526,6 +527,32 @@ public class FileManager {
             throw new IllegalArgumentException("Cannot compute SHA256 digest of the file ["+file+"]", e);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalArgumentException("Cannot compute SHA256 digest of the file ["+file+"]", e);
+        }
+    }
+    
+    /**
+     * Moves the file from one path to another. This method can rename a file or
+     * move it to a different directory, like the Unix {@code mv} command.
+     *
+     * @param from the source file
+     * @param to the destination file
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalArgumentException if {@code from.equals(to)}
+     */
+    public static void move(File from, File to) throws IOException {
+        if (from==null || to==null) 
+            throw new NullPointerException("Files cannot be null");
+        if (from.equals(to))
+            throw new IllegalArgumentException(String.format("Source %s and destination %s must be different", from, to));
+
+        if (!from.renameTo(to)) {
+            FileUtils.copyFile(from, to);
+            if (!from.delete()) {
+                if (!to.delete()) {
+                    throw new IOException("Unable to delete " + to);
+                }
+                throw new IOException("Unable to delete " + from);
+            }
         }
     }
     

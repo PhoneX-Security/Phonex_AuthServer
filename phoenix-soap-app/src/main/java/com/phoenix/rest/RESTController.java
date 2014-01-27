@@ -6,7 +6,6 @@
 
 package com.phoenix.rest;
 
-import com.google.common.io.Files;
 import com.phoenix.db.DHKeys;
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
@@ -347,8 +346,8 @@ public class RESTController {
                 // 1. Move files from temporary to permanent location
                 permMeta = fmanager.getPermFile(nonce2, FileManager.FTYPE_META);
                 permPack = fmanager.getPermFile(nonce2, FileManager.FTYPE_PACK);
-                Files.move(tempMeta, permMeta);
-                Files.move(tempPack, permPack);
+                FileManager.move(tempMeta, permMeta);
+                FileManager.move(tempPack, permPack);
                 
                 // 2. Store DHpub key info
                 key.setUploaded(true);
