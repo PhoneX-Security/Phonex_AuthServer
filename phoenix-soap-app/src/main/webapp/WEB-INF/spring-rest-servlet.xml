@@ -25,20 +25,4 @@
         <property name="maxUploadSize" value="209715200"/><!-- Max 200MB in bytes -->
     </bean>
     
-    <!--
-    <bean
-        class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter">
-        <property name="messageConverters">
-            <list>
-                <ref bean="marshallingHttpMessageConverter" />
-            </list>
-        </property>
-    </bean>
-
-    <bean id="marshallingHttpMessageConverter"
-              class="org.springframework.http.converter.xml.MarshallingHttpMessageConverter">
-        <property name="marshaller" ref="jaxb2Marshaller" />
-        <property name="unmarshaller" ref="jaxb2Marshaller" />
-    </bean>
-    -->
 </beans>
