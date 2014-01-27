@@ -1143,7 +1143,6 @@ public class PhoenixEndpoint {
     @PayloadRoot(localPart = "authCheckRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    @Deprecated
     public AuthCheckResponse authCheck(@RequestPayload AuthCheckRequest request, MessageContext context) throws CertificateException {
         // protect user identity and avoid MITM, require SSL
         this.checkOneSideSSL(context, this.request);

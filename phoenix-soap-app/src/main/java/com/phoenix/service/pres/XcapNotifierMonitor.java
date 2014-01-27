@@ -124,24 +124,23 @@ public class XcapNotifierMonitor extends BackgroundThreadService {
         }
    }
    
-   @Override
-   public void run(){
-       while(this.running){
+    @Override
+    public void run() {
+        while (this.running) {
             long cmilli = System.currentTimeMillis();
-            if ((cmilli - lastRefresh) > PresenceManager.REFRESH_XCAP_NOTIFY){
+            if ((cmilli - lastRefresh) > PresenceManager.REFRESH_XCAP_NOTIFY) {
                 lastRefresh = cmilli;
-
                 doTheJob();
-                
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ex) {
-                    log.error("Interrupted", ex);
-                    break;
-                }
             }
-       }
-   }
+
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ex) {
+                log.error("Interrupted", ex);
+                break;
+            }
+        }
+    }
 
     public PresenceManager getPm() {
         return pm;

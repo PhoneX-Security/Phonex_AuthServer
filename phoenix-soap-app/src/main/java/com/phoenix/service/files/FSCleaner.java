@@ -14,6 +14,7 @@ import javax.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @author ph4r05
  */
 @Service
+@Scope(value = "singleton")
 public class FSCleaner  extends BackgroundThreadService {
    private static final Logger log = LoggerFactory.getLogger(FSCleaner.class);
    
@@ -81,30 +83,32 @@ public class FSCleaner  extends BackgroundThreadService {
         }
    }
    
-   @Override
-   public void run(){
-       while(this.running){
-           Calendar cal = Calendar.getInstance();
-           long cmilli = System.currentTimeMillis();
-           int hour = cal.get(Calendar.HOUR_OF_DAY);
-            
-           // This task is executed if 
-           //  a) it was not executed in previous MAX_TIMEOUT milliseconds OR
-           //  b) current hour of day is START_HOUR or 1 hour later.
-           if ((cmilli - lastRefresh) > MAX_TIMEOUT || (hour-START_HOUR) <= 1){
-                lastRefresh = cmilli;
+    @Override
+    public void run() {
+        while (this.running) {
+            Calendar cal = Calendar.getInstance();
+            long cmilli = System.currentTimeMillis();
+            int hour = cal.get(Calendar.HOUR_OF_DAY);
 
-                doTheJob();
+           // This task is executed if 
+            //  a) it was not executed in previous MAX_TIMEOUT milliseconds OR
+            //  b) current hour of day is START_HOUR or 1 hour later.
+            if ((cmilli - lastRefresh) > MAX_TIMEOUT 
+                    || ((hour - START_HOUR) <= 1 && (cmilli - lastRefresh) > 1000*60*60*3))  {
                 
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException ex) {
-                    log.error("Interrupted", ex);
-                    break;
-                }
+                lastRefresh = cmilli;
+                doTheJob();
             }
-       }
-   }
+
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ex) {
+                log.error("Interrupted", ex);
+                break;
+            }
+        }
+        log.info("FScleaner thread ended.");
+    }
 
     public FileManager getFm() {
         return fm;
