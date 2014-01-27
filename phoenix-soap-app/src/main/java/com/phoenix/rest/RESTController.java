@@ -406,6 +406,7 @@ public class RESTController {
      * @param request
      * @param response
      * @throws java.security.cert.CertificateException 
+     * @throws java.io.IOException 
      */
     @RequestMapping(value = "/rest/download/{nonce2}/{filetype}", method=RequestMethod.GET)
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)

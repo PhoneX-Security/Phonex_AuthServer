@@ -146,7 +146,7 @@ public class ServerCommandExecutor extends BackgroundThreadService {
     
     public void executeCommand(ServerMICommand cmd){
         if (cmd==null) throw new NullPointerException("Command to execute cannot be null");
-        log.info("Going to execute server command: " + cmd.toString());
+        log.trace("Going to execute server command: " + cmd.toString());
         
         // execute here server call - executing external command
         List<String> params  = new LinkedList<String>();
@@ -167,8 +167,18 @@ public class ServerCommandExecutor extends BackgroundThreadService {
             int shellExitStatus = p.waitFor();
             String response = PhoenixDataService.convertStreamToStr(shellIn);
             shellIn.close();
-
-            log.info("Execution finished, exit code: [" + shellExitStatus + "]. Result=[" + response + "]");
+            
+            // Report server commands with non-zero return code (something went wrong)
+            if (shellExitStatus!=0){
+                log.warn("Execution finished. "
+                        + "Exit code: [" + shellExitStatus + "]. "
+                        + "Result=[" + response + "]. "
+                        + "Command=[" + cmd.toString() + "].");
+            } else {
+                log.trace("Execution finished. "
+                        + "Exit code: [" + shellExitStatus + "]. "
+                        + "Result=[" + response + "]. ");
+            }
         } catch(Exception ex){
             log.error("Exception during executing process", b, ex);
         }
