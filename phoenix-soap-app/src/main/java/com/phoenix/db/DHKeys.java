@@ -17,6 +17,7 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.Lob;
 import javax.persistence.ManyToOne;
+import javax.persistence.Table;
 import javax.persistence.Temporal;
 import org.hibernate.annotations.Index;
 
@@ -24,7 +25,8 @@ import org.hibernate.annotations.Index;
  * User's Diffie-Hellman offline keys for file transfer server cache.
  * @author ph4r05
  */
-@Entity(name = "dhkeys")
+@Entity
+@Table(name = "dhkeys")
 public class DHKeys {
     /*public static final String FIELD_ID = "id";
     public static final String FIELD_OWNER = "subscriber_id";

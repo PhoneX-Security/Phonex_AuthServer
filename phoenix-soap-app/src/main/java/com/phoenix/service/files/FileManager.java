@@ -4,10 +4,11 @@
  * and open the template in the editor.
  */
 
-package com.phoenix.service;
+package com.phoenix.service.files;
 
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.service.EndpointAuth;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;

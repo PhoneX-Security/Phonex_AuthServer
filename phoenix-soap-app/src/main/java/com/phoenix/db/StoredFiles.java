@@ -15,14 +15,17 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.Table;
 import javax.persistence.Temporal;
+import javax.persistence.UniqueConstraint;
 import org.hibernate.annotations.Index;
 
 /**
  * User's stored files, sent by different users.
  * @author ph4r05
  */
-@Entity(name = "stored_files")
+@Entity
+@Table(name = "stored_files")
 public class StoredFiles {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

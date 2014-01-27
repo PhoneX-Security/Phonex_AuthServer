@@ -20,7 +20,7 @@ import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.db.opensips.Xcap;
 import com.phoenix.service.EndpointAuth;
-import com.phoenix.service.FileManager;
+import com.phoenix.service.files.FileManager;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
 import com.phoenix.service.pres.PresenceManager;

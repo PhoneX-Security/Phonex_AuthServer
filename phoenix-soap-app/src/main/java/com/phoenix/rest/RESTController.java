@@ -13,7 +13,7 @@ import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.rest.json.TestReturn;
 import com.phoenix.rest.json.UploadReturnV1;
 import com.phoenix.service.EndpointAuth;
-import com.phoenix.service.FileManager;
+import com.phoenix.service.files.FileManager;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.pres.PresenceManager;
 import com.phoenix.service.TrustVerifier;
