@@ -10,6 +10,7 @@ import com.phoenix.db.ContactlistDstObj;
 import com.phoenix.db.DHKeys;
 import com.phoenix.db.RemoteUser;
 import com.phoenix.db.StoredFiles;
+import com.phoenix.db.UsageLogs;
 import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
 import com.phoenix.db.WhitelistSrcObj;
@@ -987,6 +988,7 @@ public class PhoenixEndpoint {
             response.getReturn().add(wr);
         }
         
+        logAction(owner, "getCert", null);
         return response;
     }
     
@@ -1258,6 +1260,8 @@ public class PhoenixEndpoint {
                     resp.setCertValid(TrueFalseNA.TRUE);
                     resp.setCertStatus(CertificateStatus.OK);
                 }
+                
+                logAction(certSip, "authCheck1", null);
             } catch (Exception e){
                 // no certificate, just return response, exception is 
                 // actually really expected :)
@@ -1270,7 +1274,7 @@ public class PhoenixEndpoint {
              log.warn("Exception in password change procedure", e);
              throw new RuntimeException(e);
          }
-         
+        
         return resp;
     }
     
@@ -1439,6 +1443,8 @@ public class PhoenixEndpoint {
                     resp.setCertValid(TrueFalseNA.TRUE);
                     resp.setCertStatus(CertificateStatus.OK);
                 }
+                
+                logAction(certSip, "authCheck2", null);
             } catch (Exception e){
                 // no certificate, just return response, exception is 
                 // actually really expected :)
@@ -1672,6 +1678,7 @@ public class PhoenixEndpoint {
             response.getCertificate().setCertificate(sign.getEncoded());
             response.getCertificate().setUser(reqUser);
             
+            logAction(reqUser, "signCert", null);
         } catch (InvalidKeyException ex) {
             log.warn("Problem with signing - invalid key", ex);
             
@@ -2268,6 +2275,25 @@ public class PhoenixEndpoint {
         return response;
     }
     
+    /**
+     * Stores information about some action to the usage logs.
+     * @param user
+     * @param action
+     * @param ip 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public void logAction(String user, String action, String ip){
+        UsageLogs l = new UsageLogs();
+        l.setLaction(action);
+        l.setLuser(user);
+        l.setLip(ip);
+        l.setLwhen(new Date());
+        try {
+            em.persist(l);
+        } catch(Exception e){
+            log.error("Cannot write log entry to the databse", e);
+        }
+    }
     
     /**
      * Unwraps hibernate session from JPA 2
