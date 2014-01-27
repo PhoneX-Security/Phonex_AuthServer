@@ -11,6 +11,7 @@
     <class>com.phoenix.db.PhoenixGroup</class>
     <class>com.phoenix.db.DHKeys</class>
     <class>com.phoenix.db.StoredFiles</class>
+    <class>com.phoenix.db.UsageLogs</class>
     <class>com.phoenix.db.opensips.Acc</class>
     <class>com.phoenix.db.opensips.ActiveWatchers</class>
     <class>com.phoenix.db.opensips.Address</class>
