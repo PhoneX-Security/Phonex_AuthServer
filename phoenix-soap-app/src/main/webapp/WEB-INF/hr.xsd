@@ -659,6 +659,17 @@
         </xs:complexType>
     </xs:element>
     
+    <xs:complexType name="authCheckRequestBodyV2">
+        <xs:sequence>
+            <xs:element name="targetUser" type="hr:userSIP"/>
+            <xs:element name="authHash" type="xs:string"/>
+            <xs:element name="unregisterIfOK" type="hr:trueFalse"/>
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>   
+    </xs:complexType>
+
     <xs:element name="authCheckRequestV2">
         <xs:annotation>
             <xs:documentation>
@@ -666,7 +677,7 @@
                 Version 2
             </xs:documentation>
         </xs:annotation>
-        <xs:complexType>
+        <xs:complexType> 
             <xs:sequence>
                 <xs:element name="targetUser" type="hr:userSIP"/>
                 <xs:element name="authHash" type="xs:string"/>
@@ -675,7 +686,26 @@
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             </xs:sequence>   
-        </xs:complexType>
+        </xs:complexType> 
+    </xs:element>
+    
+    <xs:element name="authCheckV2Request">
+        <xs:annotation>
+            <xs:documentation>
+                Check user authentication with password and additionally with certificate
+                Version 2
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType> 
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="unregisterIfOK" type="hr:trueFalse"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>   
+        </xs:complexType> 
     </xs:element>
     
     <xs:element name="authCheckResponse">
@@ -717,23 +747,8 @@
             </xs:extension>
         </xs:complexContent>
     </xs:complexType>
-
-    <xs:element name="authCheckResponseV1a">
-        <xs:annotation>
-            <xs:documentation>
-                Simple response for auth check procedure
-                Version 1a
-            </xs:documentation>
-        </xs:annotation>
-        
-        <xs:complexType > 
-        <xs:complexContent> 
-            <xs:extension base="hr:AuthCheckResponseBodyV1"/> 
-        </xs:complexContent> 
-        </xs:complexType > 
-    </xs:element>
     
-    <xs:element name="authCheckResponseV2a">
+    <xs:element name="authCheckV2aResponse" >
         <xs:annotation>
             <xs:documentation>
                 Simple response for auth check procedure
@@ -742,13 +757,37 @@
         </xs:annotation>
         
         <xs:complexType > 
-        <xs:complexContent> 
+        <xs:complexContent > 
             <xs:extension base="hr:AuthCheckResponseBodyV2"/> 
         </xs:complexContent> 
         </xs:complexType > 
     </xs:element>
     
     <xs:element name="authCheckResponseV2">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 2
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="authHashValid" type="hr:trueFalse"/>
+                <xs:element name="certValid" type="hr:trueFalseNA"/>
+                <xs:element name="certStatus" type="hr:certificateStatus"/>
+                <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
+                
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="authCheckV2Response">
         <xs:annotation>
             <xs:documentation>
                 Simple response for auth check procedure

@@ -1472,6 +1472,46 @@ public class PhoenixEndpoint {
     }
     
     /**
+     * Testing authentication.
+     * 
+     * User can provide its auth hash and test its authentication with password.
+     * This service is available on both ports with user certificate required or not.
+     * Thus user can provide certificate and in this case it will be tested as well.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "authCheckV2Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AuthCheckV2Response authCheckV2(@RequestPayload AuthCheckV2Request request, MessageContext context) throws CertificateException {
+        AuthCheckRequestV2 req2 = new AuthCheckRequestV2();
+        req2.setAuthHash(request.getAuthHash());
+        req2.setAuxJSON(request.getAuxJSON());
+        req2.setAuxVersion(request.getVersion());
+        req2.setTargetUser(request.getTargetUser());
+        req2.setUnregisterIfOK(request.getUnregisterIfOK());
+        req2.setVersion(request.getVersion());
+        
+        AuthCheckResponseV2 r2 = authCheckV2(req2, context);
+        AuthCheckV2Response r1 = new AuthCheckV2Response();
+        r1.setAccountDisabled(r2.isAccountDisabled());
+        r1.setAccountExpires(r2.getAccountExpires());
+        r1.setAuthHashValid(r2.getAuthHashValid());
+        r1.setAuxJSON(r2.getAuxJSON());
+        r1.setAuxVersion(r2.getAuxVersion());
+        r1.setCertStatus(r2.getCertStatus());
+        r1.setCertValid(r2.getCertValid());
+        r1.setErrCode(r2.getErrCode());
+        r1.setForcePasswordChange(r2.getForcePasswordChange());
+        r1.setServerTime(r2.getServerTime());
+        
+        return r1;   
+    }
+    
+    /**
      * Signing certificates in Certificate Signing Request that come from remote 
      * party - mobile devices.
      * 
