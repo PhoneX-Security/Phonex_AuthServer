@@ -1926,6 +1926,27 @@ public class PhoenixEndpoint {
                 result = 1;
             }
             
+            // If there is list of pairs (sip, remove older than) than process it.
+            // It allows to remove older keys than corresponding certificates are.
+            SipDatePairList userDateList = request.getUserDateList();
+            if (userDateList!=null && userDateList.getSipdate()!=null && userDateList.getSipdate().isEmpty()==false){
+                List<SipDatePair> sipdate = userDateList.getSipdate();
+                for(SipDatePair p : sipdate){
+                    Date dt = getDate(p.getDt());
+                    
+                    // TODO: optimize this by bulk remove.
+                    final String olderThanQueryString = "DELETE FROM DHKeys d"
+                        + " WHERE d.owner=:o AND (forUser=:foruser AND d.created <= :dt)";
+                    Query delQuery = em.createQuery(olderThanQueryString);
+                    delQuery.setParameter("o", owner)
+                            .setParameter("foruser", p.getSip())
+                            .setParameter("dt", dt);
+                    delQuery.executeUpdate();
+                }
+                
+                result = 1;
+            }
+            
             response.setErrCode(result);
             return response;
             
@@ -1964,7 +1985,9 @@ public class PhoenixEndpoint {
                 List<FtDHKeyUserInfo> dhkeys = infoArr.getDhkeys();
                 
                 // Query to fetch only neccessary information from DB.
-                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.nonce2, dh.expires, dh.used, dh.uploaded FROM DHKeys dh "
+                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.nonce2, "
+                        + " dh.created, dh.expires, dh.used, dh.uploaded "
+                        + " FROM DHKeys dh "
                         + " WHERE dh.owner=:s ORDER BY dh.forUser";
                 TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
                 query.setParameter("s", owner);
@@ -1975,6 +1998,11 @@ public class PhoenixEndpoint {
                     i.setUser(keyInfo.getForUser());
                     i.setNonce2(keyInfo.getNonce2());
                     i.setExpires(getXMLDate(keyInfo.getExpires()));
+                    i.setCreated(getXMLDate(keyInfo.getCreated()));
+                    
+                    // TODO: implement
+                    i.setCreatorCertInfo("");
+                    i.setUserCertInfo("");
                     if (keyInfo.isUploaded()){
                         i.setStatus(FtDHkeyState.UPLOADED);
                     } else if (keyInfo.isUsed()){

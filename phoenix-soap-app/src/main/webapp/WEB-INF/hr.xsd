@@ -918,6 +918,30 @@
         </xs:sequence>
     </xs:complexType>
     
+    <xs:complexType name="sipDatePair">
+        <xs:annotation>
+            <xs:documentation>
+                SIP, Date pair.
+            </xs:documentation>
+        </xs:annotation>
+        
+        <xs:sequence>
+            <xs:element name="sip" type="hr:userSIP"/>
+            <xs:element name="dt" type="xs:dateTime"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:complexType name="sipDatePairList">
+        <xs:annotation>
+            <xs:documentation>
+                List of pairs (SIP, Date)
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="sipdate" type="hr:sipDatePair" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+    
     <xs:element name="ftAddDHKeysRequest">
         <xs:annotation>
             <xs:documentation>
@@ -966,6 +990,7 @@
                 <xs:element name="deleteAll" type="xs:boolean" default="false"/>
                 <xs:element name="nonceList" type="hr:ftNonceList" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="users" type="hr:sipList" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="userDateList" type="hr:sipDatePairList" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="deleteOlderThan" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
                 
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
@@ -1015,6 +1040,9 @@
             <xs:element name="nonce2" type="hr:ftNonce"/>
             <xs:element name="status" type="hr:ftDHkeyState"/>
             <xs:element name="expires" type="xs:dateTime"/>
+            <xs:element name="created" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="creatorCertInfo" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="userCertInfo"    type="xs:string" minOccurs ="0" maxOccurs="1"/>
         </xs:sequence>
     </xs:complexType>
     
