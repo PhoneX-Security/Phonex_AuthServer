@@ -60,8 +60,6 @@ public class XcapNotifierMonitor extends BackgroundThreadService {
    @Transactional
    public void doTheJob(){
        try {
-            log.info("Batch XCAP notifier sync");
-
             // Step 1 - find subscribers not having XCAP presence rules for
             // virtual presence notification account.
             // Optimal SQL query would be:
@@ -99,8 +97,11 @@ public class XcapNotifierMonitor extends BackgroundThreadService {
             Query nativeQuery = pm.getEm().createNativeQuery(queryStringNative, Subscriber.class);
             nativeQuery.setParameter("suffix", NOTIFIER_SUFFIX);
             List resultList = nativeQuery.getResultList();
-
-            log.info("Native query finished, size=" + (resultList!=null?resultList.size():0));
+            final int resSize = resultList!=null?resultList.size():0;
+            if (resSize > 0){
+                log.info("Native query finished, size=" + resSize);
+            }
+            
             //TypedQuery<Subscriber> jpaQuery = em.createQuery(queryStringJPA21, Subscriber.class);
             //List resultList = jpaQuery.getResultList();
             for(Object obj : resultList){

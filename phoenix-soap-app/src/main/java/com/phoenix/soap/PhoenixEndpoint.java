@@ -1863,15 +1863,75 @@ public class PhoenixEndpoint {
         FtRemoveDHKeysResponse response = new FtRemoveDHKeysResponse();
         
         try {
-            Query delQuery = this.em.createQuery("DELETE FROM DHKeys d "
+            // If the reuest is to delete all DHkeys, do it.
+            if (request.isDeleteAll()){
+                // Delete all DH keys. 
+                Query delQuery = this.em.createQuery("DELETE FROM DHKeys d "
                     + " WHERE d.owner=:owner");
-            delQuery.setParameter("owner", owner);
-            delQuery.executeUpdate();
-            result = 1;
-        } catch(Exception e){
-            log.error("Exception in deleting all DH keys", e);
-        } finally {
+                delQuery.setParameter("owner", owner);
+                delQuery.executeUpdate();
+                result = 1;
+                
+                response.setErrCode(result);
+                return response;
+            }
+            
+            // Request to delete keys is more specific. Maybe deleting all keys
+            // from particular sender.
+            SipList sipList = request.getUsers();
+            if (sipList!=null && sipList.getUser()!=null && sipList.getUser().isEmpty()==false){
+                final List<String> usrList = sipList.getUser();
+                for(String usr : usrList){
+                    // One query to delete per user. 
+                    // At the moment it is directly here, if it gets more complicated
+                    // or functionality will be repeated, move it to the separate manager.
+                    Query delQuery = this.em.createQuery("DELETE FROM DHKeys d "
+                        + " WHERE d.owner=:owner AND forUser=:foruser");
+                    delQuery.setParameter("owner", owner);
+                    delQuery.setParameter("foruser", usr);
+                    delQuery.executeUpdate();
+                }
+                result = 1;
+            }
+            
+            // Maybe request to delete all files with given nonce?
+            FtNonceList nonceList = request.getNonceList();
+            if (nonceList!=null && nonceList.getNonce()!=null && nonceList.getNonce().isEmpty()==false){
+                final List<String> nonce = nonceList.getNonce();
+                for(String curNonce : nonce){
+                    // One query to delete per nonce.
+                    // Same as foruser field, at the moment code is here.
+                    // If more complicated or replicated -> move to separate manager.
+                    Query delQuery = this.em.createQuery("DELETE FROM DHKeys d "
+                        + " WHERE d.owner=:owner AND nonce2=:nonce2");
+                    delQuery.setParameter("owner", owner);
+                    delQuery.setParameter("nonce2", curNonce);
+                    delQuery.executeUpdate();
+                }
+                result = 1;
+            }
+            
+            // Maybe request to delete all files older than some date?
+            XMLGregorianCalendar deleteOlderThan = request.getDeleteOlderThan();
+            if (deleteOlderThan != null && deleteOlderThan.isValid()){
+                Date dt = getDate(deleteOlderThan);
+                
+                final String olderThanQueryString = "DELETE FROM DHKeys d"
+                        + " WHERE d.owner=:o AND (d.created < :dc OR d.expires < :de)";
+                Query delQuery = em.createQuery(olderThanQueryString);
+                delQuery.setParameter("o", owner)
+                        .setParameter("dc", dt)
+                        .setParameter("de", dt);
+                delQuery.executeUpdate();
+                result = 1;
+            }
+            
             response.setErrCode(result);
+            return response;
+            
+        } catch(Exception e){
+            response.setErrCode(result);
+            log.error("Exception in deleting all DH keys", e);
         }
         
         return response;
