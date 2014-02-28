@@ -28,10 +28,6 @@ import org.hibernate.annotations.Index;
 @Entity
 @Table(name = "dhkeys")
 public class DHKeys {
-    /*public static final String FIELD_ID = "id";
-    public static final String FIELD_OWNER = "subscriber_id";
-    public static final String FIELD_FOR_USER = "for_user";*/
-    
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", unique = true, nullable = false)
@@ -47,11 +43,11 @@ public class DHKeys {
     private String forUser;
     
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = true)
     private byte[] aEncBlock;
     
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = true)
     private byte[] sEncBlock;
     
     @Index(name="nonce1Index")
@@ -63,11 +59,11 @@ public class DHKeys {
     private String nonce2;
     
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = true)
     private byte[] sig1;
     
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = true)
     private byte[] sig2;
     
     @Column(nullable = false)
@@ -84,17 +80,17 @@ public class DHKeys {
     
     @Index(name="usedIndex")
     @Column(nullable = false, columnDefinition = "TINYINT(1) default 0")
-    private Boolean used;
+    private Boolean used=false;
     
     @Index(name="uploadedIndex")
     @Column(nullable = false, columnDefinition = "TINYINT(1) default 0")
-    private Boolean uploaded;
+    private Boolean uploaded=false;
     
     @Column(nullable = false, columnDefinition = "TINYINT(1) default 0")
-    private Boolean expired;
+    private Boolean expired=false;
     
     @Column(nullable = false)
-    private int protocolVersion;
+    private int protocolVersion=1;
 
     public DHKeys() {
     }
@@ -150,6 +146,17 @@ public class DHKeys {
         this.used = used;
     }
 
+    public DHKeys(Long id, Subscriber owner, String forUser, String nonce2, Date created, Date expires, Boolean used, Boolean uploaded) {
+        this.id = id;
+        this.owner = owner;
+        this.forUser = forUser;
+        this.nonce2 = nonce2;
+        this.created = created;
+        this.expires = expires;
+        this.used = used;
+        this.uploaded = uploaded;
+    }
+    
     public DHKeys(Long id, Subscriber owner, String forUser, Date expires, Boolean used, Boolean uploaded) {
         this.id = id;
         this.owner = owner;

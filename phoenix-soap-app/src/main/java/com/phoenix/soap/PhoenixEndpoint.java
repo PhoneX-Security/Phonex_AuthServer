@@ -1796,6 +1796,8 @@ public class PhoenixEndpoint {
         
         // construct response, then add results iteratively
         FtAddDHKeysResponse response = new FtAddDHKeysResponse();
+        response.setResult(new FtAddDHKeysReturnList());
+        
         // analyze request
         List<FtDHKey> dhkeys = request.getDhkeys();
         if (dhkeys==null || dhkeys.isEmpty()){
@@ -1806,6 +1808,8 @@ public class PhoenixEndpoint {
         
         // Iterating over the request.
         log.info("dhkeys is not null; size: " + dhkeys.size());
+        int errCode=-1;
+        
         try {
             for(FtDHKey key : dhkeys){
                 Integer result=-1;
@@ -1827,18 +1831,23 @@ public class PhoenixEndpoint {
                     entity.setaAncBlock(key.getAEncBlock());
                     entity.setsAncBlock(key.getSEncBlock());
                     
-                    this.dataService.persist(entity, true);
+                    this.dataService.persist(entity);
                     result=1;
                 } catch(Exception e){
                     log.warn("Exception when adding DH key to the database", e);
                 } finally {
-                    response.getResult().add(result);
+                    response.getResult().getCode().add(result);
                 }
             }
+            
+            errCode=1;
+            
         } catch(Exception e){
             log.error("Exception in AddDHKeys", e);
+            errCode=-2;
         }
         
+        response.setErrCode(errCode);
         return response;
     }
     
@@ -1982,11 +1991,11 @@ public class PhoenixEndpoint {
             if (request.isDetailed()){
                 // Want detailed DH keys information, for all key separately.
                 FtDHKeyUserInfoArr infoArr = new FtDHKeyUserInfoArr();
-                List<FtDHKeyUserInfo> dhkeys = infoArr.getDhkeys();
+                List<FtDHKeyUserInfo> dhkeys = infoArr.getKeyinfo();
                 
                 // Query to fetch only neccessary information from DB.
-                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.nonce2, "
-                        + " dh.created, dh.expires, dh.used, dh.uploaded "
+                String queryStats = "SELECT NEW com.phoenix.db.DHKeys(dh.id, dh.owner, dh.forUser, dh.nonce2, "
+                        + " dh.created, dh.expires, dh.used, dh.uploaded) "
                         + " FROM DHKeys dh "
                         + " WHERE dh.owner=:s ORDER BY dh.forUser";
                 TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
@@ -2017,6 +2026,7 @@ public class PhoenixEndpoint {
                 }
                 
                 response.setInfo(infoArr);
+                result = 1;
                 
             } else {
                 // Want only statistical information about keys for each user.
@@ -2028,11 +2038,11 @@ public class PhoenixEndpoint {
                 }
                 
                 FtDHKeyUserStatsArr statsArr = new FtDHKeyUserStatsArr();
-                List<FtDHKeyUserStats> dhkeys = statsArr.getDhkeys();
+                List<FtDHKeyUserStats> dhkeys = statsArr.getKeystats();
                 Map<String, tmpStats> stats = new HashMap<String, tmpStats>(); // Mapping user -> key statistics
                 
                 // Query to fetch only neccessary information from DB.
-                String queryStats = "SELECT dh.id, dh.owner, dh.forUser, dh.expires, dh.used, dh.uploaded FROM DHKeys dh "
+                String queryStats = "SELECT NEW com.phoenix.db.DHKeys(dh.id, dh.owner, dh.forUser, dh.expires, dh.used, dh.uploaded) FROM DHKeys dh "
                         + " WHERE dh.owner=:s";
                 TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
                 query.setParameter("s", owner);
@@ -2375,7 +2385,8 @@ public class PhoenixEndpoint {
                 }
             }
             
-            List<FtStoredFile> storedFiles = response.getStoredFile();
+            response.setStoredFile(new FtStoredFileList());
+            List<FtStoredFile> storedFiles = response.getStoredFile().getFile();
             
             // Now process StoredFiles to send
             for(Entry<String, StoredFiles> e : sfToSend.entrySet()){

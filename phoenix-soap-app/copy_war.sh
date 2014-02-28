@@ -15,7 +15,10 @@ if [ ! -f $WAR ]; then
 	exit 2
 fi
 
+ssh pmail 'sudo /bin/rm /tmp/phoenix.war'
 scp $WAR pmail:/tmp/phoenix.war
+ssh pmail 'sudo chown tomcat:tomcat /tmp/phoenix.war'
+
 echo "Now perform on the server:"
 echo "cp /tmp/phoenix.war /usr/share/apache-tomcat-7.0.34/webapps/"
 echo "/etc/init.d/tomcat stop"
