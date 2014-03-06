@@ -2106,7 +2106,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public FtGetDHKeyResponse ftGetDHKey(@RequestPayload FtGetDHKeyRequest request, MessageContext context) throws CertificateException {
         String caller = this.authRemoteUserFromCert(context, this.request);
-        log.info("Remote user connected: " + caller);
+        log.info("Remote user connected (ftGetDHKeyRequest): " + caller);
         
         // construct response, then add results iteratively
         FtGetDHKeyResponse response = new FtGetDHKeyResponse();
@@ -2117,6 +2117,7 @@ public class PhoenixEndpoint {
             // verification the user exists and so on.
             Subscriber owner = this.dataService.getLocalUser(request.getUser());
             if (owner==null){
+                log.debug("Unable to find target user '" + request.getUser() + "'");
                 return response;
             }
             
@@ -2169,7 +2170,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public FtGetDHKeyPart2Response ftGetDHKeyPart2(@RequestPayload FtGetDHKeyPart2Request request, MessageContext context) throws CertificateException {
         String caller = this.authRemoteUserFromCert(context, this.request);
-        log.info("Remote user connected: " + caller);
+        log.info("Remote user connected (ftGetDHKeyPart2): " + caller);
         
         // construct response, then add results iteratively
         FtGetDHKeyPart2Response response = new FtGetDHKeyPart2Response();
@@ -2180,12 +2181,13 @@ public class PhoenixEndpoint {
             // verification the user exists and so on.
             Subscriber owner = this.dataService.getLocalUser(request.getUser());
             if (owner==null){
+                log.debug("Unable to find target user '" + request.getUser() + "'");
                 return response;
             }
             
             // Query to fetch DH key from database
             String queryStats = "SELECT dh FROM DHKeys dh "
-                    + " WHERE dh.owner=:s AND dh.forUser=:c AND dh.nonce1=:h dh.used=:u AND dh.expired=:e AND dh.expires>:n"
+                    + " WHERE dh.owner=:s AND dh.forUser=:c AND dh.nonce1=:h AND dh.used=:u AND dh.expired=:e AND dh.expires>:n"
                     + " ORDER BY dh.expires ASC";
             TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
             query.setParameter("s", owner)
