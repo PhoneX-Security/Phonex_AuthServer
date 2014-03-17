@@ -6,11 +6,11 @@
 
 package com.phoenix.rest;
 
+import com.google.protobuf.Message;
 import com.phoenix.db.DHKeys;
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.rest.json.TestReturn;
-import com.phoenix.rest.json.UploadReturnV1;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.files.FileManager;
 import com.phoenix.service.PhoenixDataService;
@@ -37,6 +37,7 @@ import javax.persistence.TypedQuery;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import net.phonex.soap.protobuff.ServerProtoBuff;
 import org.apache.commons.io.IOUtils;
 import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.SessionFactory;
@@ -194,6 +195,28 @@ public class RESTController {
     }
     
     /**
+     * Serialized protocol buffer message using Base64.
+     * @param msg
+     * @return 
+     */
+    public String returnProtoBuff(com.google.protobuf.Message msg){
+        final byte[] resp = msg.toByteArray();
+        return new String(Base64.encode(resp));
+    }
+    
+    /**
+     * Builds protocol buffer message using given builder and serializes
+     * it in Base64.
+     * 
+     * @param builder
+     * @return 
+     */
+    public String returnProtoBuff(com.google.protobuf.GeneratedMessage.ExtendableBuilder builder){
+        Message msg = builder.build();
+        return returnProtoBuff(msg);
+    }
+    
+    /**
      * Main file upload processing method, using POST HTTP method.
      * File sending is implemented in this way.
      * 
@@ -211,9 +234,10 @@ public class RESTController {
      * @throws IOException 
      * @throws java.security.cert.CertificateException 
      */
-    @RequestMapping(value = "/rest/upload", method=RequestMethod.POST, produces=MediaType.APPLICATION_JSON_VALUE)
+    @RequestMapping(value = "/rest/upload", method=RequestMethod.POST, produces=MediaType.TEXT_PLAIN_VALUE)// produces=MediaType.APPLICATION_JSON_VALUE)
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    public  @ResponseBody UploadReturnV1 processUpload(
+    //public  @ResponseBody UploadReturnV1 processUpload(
+    public  @ResponseBody String processUpload(
             @RequestParam("version") int version,
             @RequestParam("nonce2") String nonce2,
             @RequestParam("user") String user,
@@ -225,6 +249,7 @@ public class RESTController {
             HttpServletRequest request,
             HttpServletResponse response) throws IOException, CertificateException {
         
+        checkInputStringPathValidity(user, 44);
         checkInputStringPathValidity(nonce2, 44);
         checkInputStringPathValidity(hashmeta, 300);
         checkInputStringPathValidity(hashpack, 300);
@@ -234,8 +259,10 @@ public class RESTController {
         log.info("Remote user connected: " + caller);
         
         // Prepare JSON response body
-        final UploadReturnV1 ret = new UploadReturnV1();  
+        //final UploadReturnV1 ret = new UploadReturnV1();  
+        ServerProtoBuff.RESTUploadPost.Builder ret = ServerProtoBuff.RESTUploadPost.newBuilder();
         ret.setErrorCode(-1);
+        ret.setNonce2(nonce2);
         
         // Read DHpub value from Base64
         final byte[] dhpubByte = Base64.decode(dhpub.getBytes());
@@ -246,7 +273,8 @@ public class RESTController {
             // verification the user exists and so on.
             Subscriber owner = this.dataService.getLocalUser(user);
             if (owner==null){
-                return ret;
+                log.debug("processUpload: No such user: [" + user + "]");
+                return returnProtoBuff(ret);
             }
             
             // Query to fetch DH key from database.
@@ -274,7 +302,8 @@ public class RESTController {
             DHKeys key = query.getSingleResult();
             if (key==null){
                 ret.setErrorCode(-2);
-                return ret;
+                ret.setMessage("No such key");
+                return returnProtoBuff(ret);
             }
             
             // Get number of stored files, may be limited...
@@ -284,7 +313,7 @@ public class RESTController {
                 
                 ret.setErrorCode(-8);
                 ret.setMessage("Quota exceeded");
-                return ret;
+                return returnProtoBuff(ret);
             }
             
             // File size limit, if the file is too big, file has to be rejected.
@@ -292,7 +321,7 @@ public class RESTController {
                     || packfile.getSize() > fmanager.getMaxFileSize(FileManager.FTYPE_PACK, owner)){
                 ret.setErrorCode(-10);
                 ret.setMessage("Files are too big");
-                return ret;
+                return returnProtoBuff(ret);
             }
             
             // Metadata input stream
@@ -324,7 +353,7 @@ public class RESTController {
                     
                     ret.setErrorCode(-10);
                     ret.setMessage("Files are too big");
-                    return ret;
+                    return returnProtoBuff(ret);
                 }
                 
                 // If file saving to temporary file was successfull, mark DHkeys as 
@@ -339,7 +368,7 @@ public class RESTController {
 
                     ret.setErrorCode(-3);
                     ret.setMessage("Hashes of uploaded files do not match");
-                    return ret;
+                    return returnProtoBuff(ret);
                 }
 
                 // Files are uploaded, DHPub key is correctly used in database.
@@ -378,14 +407,15 @@ public class RESTController {
 
                 ret.setErrorCode(0);
                 ret.setMessage("File stored successfully");
-                return ret;
+                return returnProtoBuff(ret);
             
             } catch(Exception e){
                 log.error("Problem with moving files to permanent storage and finalization.", e);
                 if (permMeta!=null) permMeta.delete();
                 if (permPack!=null) permPack.delete();
                 
-                return ret;
+                ret.setMessage("Store problem");
+                return returnProtoBuff(ret);
             } finally {
                 if (tempMeta!=null) tempMeta.delete();
                 if (tempPack!=null) tempPack.delete();
@@ -394,7 +424,8 @@ public class RESTController {
             log.error("Exception in uploading files to storage.", e);
             
             ret.setErrorCode(-1);
-            return ret;
+            ret.setMessage("Exception");
+            return returnProtoBuff(ret);
         }
     }
     
