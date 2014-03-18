@@ -350,6 +350,8 @@ public class PresenceManager {
         
         // Notification body - use Protocol Buffers
         ServerNotificationPush.Builder b = ServerNotificationPush.newBuilder();
+        b.setVersion(1);
+        
         for(String nonce2 : ev.getFiles()){
             FileDetail.Builder fd = FileDetail.newBuilder();
             fd.setNonce2(nonce2);

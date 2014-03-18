@@ -368,7 +368,7 @@ public class RESTController {
                     tempPack.delete();
 
                     ret.setErrorCode(-3);
-                    ret.setMessage("Hashes of uploaded files do not match");
+                    ret.setMessage("Hashes of uploaded files do not match; curMeta=" + rHashMeta + "; curPack=" + rHashPack + ";" );
                     return returnProtoBuff(ret);
                 }
 

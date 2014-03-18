@@ -14,10 +14,10 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.Lob;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
-import javax.persistence.UniqueConstraint;
 import org.hibernate.annotations.Index;
 
 /**
@@ -45,6 +45,7 @@ public class StoredFiles {
     @Column(nullable = false, columnDefinition = "VARCHAR(24)", unique = true)
     private String nonce2;
     
+    @Lob
     @Column(nullable = false)
     private byte[] dhpublic;
     
