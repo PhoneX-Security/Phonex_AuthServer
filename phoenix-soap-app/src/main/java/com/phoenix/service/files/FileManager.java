@@ -45,7 +45,7 @@ public class FileManager {
     private static final Logger log = LoggerFactory.getLogger(FileManager.class);
     public static final String FTYPE_META="meta";
     public static final String FTYPE_PACK="pack";
-    public static final String PATH_VALID_REGEX="[a-zA-Z0-9_\\-+=@]*";
+    public static final String PATH_VALID_REGEX="[a-zA-Z0-9_\\-+=@\\.]*";
     public static final long PACK_FILE_SIZE_LIMIT = 1024*1024*100; // 100MB
     public static final long META_FILE_SIZE_LIMIT = 1024*1024*5; // 5MB
     public static final int  MAX_NUMBER_FILES = 5; // Maximum number of stored files for one subscriber per one user.
@@ -513,7 +513,7 @@ public class FileManager {
      */
     public static String sha256(File file){
         try {
-            MessageDigest sha = MessageDigest.getInstance("SHA256");
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
             FileInputStream fis = new FileInputStream(file);
             DigestInputStream dis = new DigestInputStream(fis, sha);
             

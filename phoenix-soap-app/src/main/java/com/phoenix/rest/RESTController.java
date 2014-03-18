@@ -249,18 +249,19 @@ public class RESTController {
             HttpServletRequest request,
             HttpServletResponse response) throws IOException, CertificateException {
         
-        checkInputStringPathValidity(user, 44);
-        checkInputStringPathValidity(nonce2, 44);
-        checkInputStringPathValidity(hashmeta, 300);
-        checkInputStringPathValidity(hashpack, 300);
+        checkInputStringPathValidity(user, 44);        
+        checkInputStringBase64Validity(nonce2, 44);
+        checkInputStringBase64Validity(hashmeta, 300);
+        checkInputStringBase64Validity(hashpack, 300);        
         
         // Some SSL check at first
         String caller = this.authRemoteUserFromCert(request);
-        log.info("Remote user connected: " + caller);
+        log.info("Remote user connected (processUpload): " + caller);
         
         // Prepare JSON response body
         //final UploadReturnV1 ret = new UploadReturnV1();  
         ServerProtoBuff.RESTUploadPost.Builder ret = ServerProtoBuff.RESTUploadPost.newBuilder();
+        ret.setVersion(1);
         ret.setErrorCode(-1);
         ret.setNonce2(nonce2);
         
@@ -285,7 +286,7 @@ public class RESTController {
                     + "     dh.owner=:s "
                     + "     AND dh.forUser=:c "
                     + "     AND dh.used=:u "
-                    + "     AND dh.uploaded:up "
+                    + "     AND dh.uploaded=:up "
                     + "     AND dh.expired=:e "
                     + "     AND dh.expires>:n "
                     + "     AND dh.nonce2=:nonc ";
@@ -447,7 +448,7 @@ public class RESTController {
             HttpServletRequest request,
             HttpServletResponse response) throws CertificateException, IOException {
         
-        checkInputStringPathValidity(nonce2, 44);
+        checkInputStringBase64Validity(nonce2, 44);
         checkInputStringPathValidity(filetype, 10);
         
         // Local verified user is needed
@@ -888,8 +889,7 @@ public class RESTController {
     protected void checkInputStringValidity(String toCheck, String regex, int maxSize){
         if (toCheck==null || toCheck.isEmpty()) return;
         // MaxSize or Regex violation
-        if (toCheck.length() > maxSize
-           || toCheck.matches(regex)) {
+        if (toCheck.length() > maxSize || toCheck.matches(regex)==false) {
             
             log.warn("Illegal string passed to the check ["+toCheck.substring(0, toCheck.length() > 140 ? 140 : toCheck.length())+"]");
             throw new SecurityException("Illegal input parameter");
@@ -904,6 +904,16 @@ public class RESTController {
      */
     protected void checkInputStringPathValidity(String toCheck, int maxSize){
         checkInputStringValidity(toCheck, FileManager.PATH_VALID_REGEX, maxSize);
+    }
+    
+    /**
+     * Checks input string for validity with regex.
+     * If string contains illegal characters exception is thrown.
+     * @param toCheck
+     * @param maxSize
+     */
+    protected void checkInputStringBase64Validity(String toCheck, int maxSize){
+        checkInputStringValidity(toCheck, "[a-zA-Z0-9_\\-+=@\\.\\/]*", maxSize);
     }
     
     public SessionFactory getSessionFactory() {

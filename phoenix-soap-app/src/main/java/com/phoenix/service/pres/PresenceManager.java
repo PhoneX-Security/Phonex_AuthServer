@@ -6,9 +6,7 @@
 
 package com.phoenix.service.pres;
 
-import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.db.opensips.Xcap;
-import com.phoenix.service.DaemonStarter;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.ServerCommandExecutor;
@@ -16,7 +14,6 @@ import com.phoenix.service.ServerMICommand;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -27,6 +24,8 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import javax.servlet.ServletContext;
+import net.phonex.soap.protobuff.PushNotifications.FileDetail;
+import net.phonex.soap.protobuff.PushNotifications.ServerNotificationPush;
 import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
@@ -349,9 +348,24 @@ public class PresenceManager {
     public synchronized void sendNotification(String sip, PresenceEvents ev) throws IOException{
         final String notifSip = getSipNotifier(sip);
         
-        // Generate notify body
-        final String json = ev.toJSON();
-        final String b64  = new String(Base64.encode(json.getBytes("UTF-8")), "UTF8");
+        // Notification body - use Protocol Buffers
+        ServerNotificationPush.Builder b = ServerNotificationPush.newBuilder();
+        for(String nonce2 : ev.getFiles()){
+            FileDetail.Builder fd = FileDetail.newBuilder();
+            fd.setNonce2(nonce2);
+            
+            b.addFiles(fd.build());
+        }
+        
+        // Generate protocol buff binary message, encode as Base64.
+        ServerNotificationPush push = b.build();
+        final String b64  = new String(Base64.encode(push.toByteArray()), "UTF8");
+        
+//      // Generate notify body - old JSON way.
+//      final String json = ev.toJSON();
+//      final String b64  = new String(Base64.encode(json.getBytes("UTF-8")), "UTF8");
+        
+        // Generate publish packet
         final String pidf = getPresencePublishPidf(notifSip, PresenceManager.PresenceStatus.OPEN, b64);
         
         // Send presence command
@@ -368,11 +382,11 @@ public class PresenceManager {
      * @return 
      */
     public int sendCommand(ServerMICommand cmd){
-        ServerCommandExecutor executor = getExecutor();
-        if (executor==null)
+        ServerCommandExecutor xexecutor = getExecutor();
+        if (xexecutor==null)
             return -1;
         
-        executor.addToQueue(cmd);
+        xexecutor.addToQueue(cmd);
         return 0;
     }
     
