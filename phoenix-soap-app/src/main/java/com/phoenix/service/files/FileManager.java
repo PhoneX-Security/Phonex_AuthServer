@@ -48,7 +48,7 @@ public class FileManager {
     public static final String PATH_VALID_REGEX="[a-zA-Z0-9_\\-+=@\\.]*";
     public static final long PACK_FILE_SIZE_LIMIT = 1024*1024*100; // 100MB
     public static final long META_FILE_SIZE_LIMIT = 1024*1024*5; // 5MB
-    public static final int  MAX_NUMBER_FILES = 5; // Maximum number of stored files for one subscriber per one user.
+    public static final int  MAX_NUMBER_FILES = 50; // Maximum number of stored files for one subscriber per one user.
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -293,11 +293,19 @@ public class FileManager {
                 + " WHERE "
                 + "     sf.owner=:s "
                 + "     AND sf.nonce2=:c ";
-        TypedQuery<StoredFiles> query = em.createQuery(queryStats, StoredFiles.class);
-        query.setParameter("s", owner)
-                .setParameter("nonc", nonce2)
-                .setMaxResults(1);
-        return query.getSingleResult();
+        
+        try {
+            TypedQuery<StoredFiles> query = em.createQuery(queryStats, StoredFiles.class);
+            query.setParameter("s", owner)
+                    .setParameter("c", nonce2)
+                    .setMaxResults(1);
+            List<StoredFiles> lst = query.getResultList();
+            return (lst==null || lst.isEmpty()) ? null : lst.get(0);
+        } catch(Exception ex){
+            log.info("Exception in obtaining stored file, nonce="+nonce2, ex);
+        }
+        
+        return null;
     }
     
     /**
