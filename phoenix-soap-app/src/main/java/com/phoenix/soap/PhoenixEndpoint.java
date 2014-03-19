@@ -2240,7 +2240,7 @@ public class PhoenixEndpoint {
         
         // construct response, then add results iteratively
         FtDeleteFilesResponse response = new FtDeleteFilesResponse();
-        response.setErrCode(-1);
+        response.setErrCode(0);
         
         try {
             // If the reuest is to delete all files, do it.
@@ -2317,6 +2317,7 @@ public class PhoenixEndpoint {
             return response;
             
         } catch(Exception e){
+            response.setErrCode(-1);
             log.error("Exception deleting files", e);
         }
         
@@ -2340,7 +2341,7 @@ public class PhoenixEndpoint {
         
         // Construct response
         FtGetStoredFilesResponse response = new FtGetStoredFilesResponse();
-        response.setErrCode(-1);
+        response.setErrCode(0);
         
         try {
             final Map<String, StoredFiles> sfToSend = new HashMap<String, StoredFiles>();
@@ -2409,6 +2410,7 @@ public class PhoenixEndpoint {
             
             return response;
         } catch(Exception e){
+            response.setErrCode(-1);
             log.error("Exception ftGetStoredFiles()", e);
         }
         
