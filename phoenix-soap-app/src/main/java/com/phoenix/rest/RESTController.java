@@ -201,7 +201,10 @@ public class RESTController {
      */
     public String returnProtoBuff(com.google.protobuf.Message msg){
         final byte[] resp = msg.toByteArray();
-        return new String(Base64.encode(resp));
+        final String enc = (new String(Base64.encode(resp)));
+        //log.info("ToReturn: ["+enc+"]; toString()=" + msg);
+        
+        return enc;
     }
     
     /**
@@ -320,6 +323,8 @@ public class RESTController {
             // File size limit, if the file is too big, file has to be rejected.
             if (metafile.getSize() > fmanager.getMaxFileSize(FileManager.FTYPE_META, owner)
                     || packfile.getSize() > fmanager.getMaxFileSize(FileManager.FTYPE_PACK, owner)){
+
+                log.info("Cannot upload new files for user ["+owner.getUsername()+"] from sender ["+caller+"], files too big.");
                 ret.setErrorCode(-10);
                 ret.setMessage("Files are too big");
                 return returnProtoBuff(ret);
@@ -341,6 +346,8 @@ public class RESTController {
                 final FileOutputStream fosMeta = new FileOutputStream(tempMeta);
                 final FileOutputStream fosPack = new FileOutputStream(tempPack);
                 // Use buffering provided by Apache Commons IO
+		log.info(String.format("TempMetaFile[%s] TempPackFile[%s]", tempMeta.getAbsolutePath(), tempPack.getAbsolutePath()));
+
                 IOUtils.copy(metaInputStream, fosMeta);
                 IOUtils.copy(packInputStream, fosPack);
                 fosMeta.close();
@@ -349,6 +356,8 @@ public class RESTController {
                 // Check real file size after upload.
                 if (tempMeta.length() > fmanager.getMaxFileSize(FileManager.FTYPE_META, owner)
                         || tempMeta.length() > fmanager.getMaxFileSize(FileManager.FTYPE_PACK, owner)){
+                    log.info("Cannot upload new files for user ["+owner.getUsername()+"] from sender ["+caller+"], files too big.");
+
                     tempMeta.delete();
                     tempPack.delete();
                     
@@ -363,6 +372,8 @@ public class RESTController {
                 final String rHashMeta = FileManager.sha256(tempMeta);
                 final String rHashPack = FileManager.sha256(tempPack);
                 if (rHashMeta.equals(hashmeta)==false || rHashPack.equals(hashpack)==false){
+                    log.info("Cannot upload new files for user ["+owner.getUsername()+"] from sender ["+caller+"], hash mismatch.");
+
                     // Invalid hash, remove uploaded files and signalize error.
                     tempMeta.delete();
                     tempPack.delete();
@@ -376,8 +387,10 @@ public class RESTController {
                 // 1. Move files from temporary to permanent location
                 permMeta = fmanager.getPermFile(nonce2, FileManager.FTYPE_META);
                 permPack = fmanager.getPermFile(nonce2, FileManager.FTYPE_PACK);
-                FileManager.move(tempMeta, permMeta);
-                FileManager.move(tempPack, permPack);
+                FileManager.moveBycopy(tempMeta, permMeta);
+                FileManager.moveBycopy(tempPack, permPack);
+                tempMeta=null;
+                tempPack=null;
                 
                 // 2. Store DHpub key info
                 key.setUploaded(true);
@@ -448,12 +461,14 @@ public class RESTController {
             HttpServletRequest request,
             HttpServletResponse response) throws CertificateException, IOException {
         
+        nonce2 = FileManager.getBase64FromPathCompatible(nonce2);
+        
         checkInputStringBase64Validity(nonce2, 44);
         checkInputStringPathValidity(filetype, 10);
         
         // Local verified user is needed
         Subscriber owner = this.authUserFromCert(request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = PhoenixDataService.getSIP(owner);        
         log.info("User connected: " + owner);
         
         try {

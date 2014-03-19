@@ -171,6 +171,8 @@ public class FileManager {
      * @return 
      */
     public String generateFileName(String nonce2, String type){
+        nonce2 = getFilenameFromBase64(nonce2);
+        
         if (nonce2==null 
                 || nonce2.length()==0 
                 || nonce2.length()>512
@@ -544,7 +546,7 @@ public class FileManager {
             throw new NullPointerException("Files cannot be null");
         if (from.equals(to))
             throw new IllegalArgumentException(String.format("Source %s and destination %s must be different", from, to));
-
+        
         if (!from.renameTo(to)) {
             FileUtils.copyFile(from, to);
             if (!from.delete()) {
@@ -554,6 +556,55 @@ public class FileManager {
                 throw new IOException("Unable to delete " + from);
             }
         }
+    }
+    
+    /**
+     * Moves the file from one path to another. It is performed by copy & remove.
+     *
+     * @param from the source file
+     * @param to the destination file
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalArgumentException if {@code from.equals(to)}
+     */
+    public static void moveBycopy(File from, File to) throws IOException {
+        if (from==null || to==null) 
+            throw new NullPointerException("Files cannot be null");
+        if (from.equals(to))
+            throw new IllegalArgumentException(String.format("Source %s and destination %s must be different", from, to));
+        
+        FileUtils.copyFile(from, to);
+        if (!from.delete()) {
+            if (!to.delete()) {
+                throw new IOException("Unable to delete " + to);
+            }
+            throw new IOException("Unable to delete " + from);
+        }
+    }
+    
+    /**
+     * Converts base64 string to a file name (removes /).
+     * Substitution: 
+     * / --> _ +
+     * --> -
+     *
+     * @param based
+     * @return
+     */
+    public static String getFilenameFromBase64(String based) {
+        return based.replace("/", "_").replace("+", "-");
+    }
+    
+    /**
+     * Converts base64 path-compatible string to base64.
+     * Substitution: 
+     * / --> _ +
+     * --> -
+     *
+     * @param based
+     * @return
+     */
+    public static String getBase64FromPathCompatible(String based) {
+        return based.replace("_", "/").replace("-", "+");
     }
     
     public SessionFactory getSessionFactory() {
