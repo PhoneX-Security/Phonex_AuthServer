@@ -324,6 +324,7 @@ public class FileManager {
             return ret;
         }
         
+        log.info("Expired DB records=" + sfList.size());
         deleteFilesList(sfList);
         ret += sfList.size();
         
@@ -416,6 +417,9 @@ public class FileManager {
     public int deleteFilesList(List<StoredFiles> sfList){
         if (sfList==null) throw new NullPointerException("NonceList cannot be empty");
         for(StoredFiles sf : sfList){
+            if (sf==null) continue;
+            
+            log.debug("Deleting file: " + sf.getNonce2());
             deleteFiles(sf);
         }
         
@@ -483,8 +487,8 @@ public class FileManager {
      */
     public void cleanupFS(){
         log.info("Going to cleanup file system storage for files.");
-        cleanupDirectory(this.tempFile, 60*60*24);
-        cleanupDirectory(this.fileFile, 60*60*24*31*3);
+        cleanupDirectory(this.tempFile, 60L*60L*24L);
+        cleanupDirectory(this.fileFile, 60L*60L*24L*31L*3L);
         log.info("Cleanup finished.");
     }
     
@@ -493,7 +497,7 @@ public class FileManager {
      * @param dir
      * @param timeout 
      */
-    protected void cleanupDirectory(File dir, int timeout){
+    protected void cleanupDirectory(File dir, long timeout){
         if (dir==null){
             throw new NullPointerException("Null directory");
         }
@@ -504,15 +508,24 @@ public class FileManager {
         
         //Calendar cal = Calendar.getInstance();
         //cal.add(Calendar.SECOND, (-1)*timeout);
-        long limit = System.currentTimeMillis() - (timeout*1000); 
+        long now = System.currentTimeMillis();
+        long limit = now - (timeout*1000L); 
         
         File[] listOfFiles = dir.listFiles();
         for (File f : listOfFiles) {
             if (f.isFile()==false) continue;
-            if (f.lastModified() >= limit) continue;
             
-            f.delete();
-            log.info("Deleted file ["+f.getName()+"]");
+            try {
+                long lastModif = f.lastModified();
+                if (lastModif >= limit) continue;
+
+                log.info(String.format("Going to delete file [%s], lastModif=%d vs. limit=%d vs. now=%d", 
+                        f.getName(), lastModif, limit, now));
+                
+                f.delete();
+            } catch(Exception e){
+                log.info("Exception during deleting file.", e);
+            }
         }
     }
     
