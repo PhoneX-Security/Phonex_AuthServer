@@ -24,15 +24,15 @@ abstract public class BackgroundThreadService extends BackgroundService implemen
      * Tests if this thread is alive.
      * @return 
      */
-    public final boolean isAlive(){
+    public  boolean isAlive(){
         return runThread!=null && runThread.isAlive();
     }
 
-    public final void setDaemon(boolean bln) {
+    public  void setDaemon(boolean bln) {
         runThread.setDaemon(bln);
     }
 
-    public final boolean isDaemon() {
+    public  boolean isDaemon() {
         return runThread.isDaemon();
     }
 
@@ -40,7 +40,7 @@ abstract public class BackgroundThreadService extends BackgroundService implemen
         runThread.start();
     }
     
-    public final boolean threadNull(){
+    public  boolean threadNull(){
         return runThread==null;
     }
     

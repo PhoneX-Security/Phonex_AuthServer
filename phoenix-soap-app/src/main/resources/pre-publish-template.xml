@@ -7,7 +7,8 @@
     </tuple>
     <dm:person id='[[[PERSONID]]]'>
         <rpid:activities>
-            <rpid:away/>away</rpid:activities>
+            <rpid:unknown />
+        </rpid:activities>
         <dm:note>[[[STATUSTEXT]]]</dm:note>
     </dm:person>
 </presence>

@@ -12,18 +12,27 @@ import com.phoenix.db.Whitelist;
 import com.phoenix.db.WhitelistDstObj;
 import com.phoenix.db.extra.ContactlistObjType;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.service.pres.TransferRosterItem;
+import com.phoenix.utils.JiveGlobals;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -34,6 +43,7 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import org.bouncycastle.util.encoders.Base64;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.ejb.HibernateEntityManager;
@@ -53,6 +63,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class PhoenixDataService {
     private static final Logger log = LoggerFactory.getLogger(PhoenixDataService.class);
+    private static final String PROP_DEBUG_ROSTER="phonex.svc.rostersync.debug";
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -65,6 +76,9 @@ public class PhoenixDataService {
     
     @Autowired(required = true)
     private X509TrustManager trustManager;
+    
+    @Autowired
+    private JiveGlobals jiveGlobals;
 
     /**
      * Returns SIP address from subscriber record
@@ -311,6 +325,191 @@ public class PhoenixDataService {
     }
     
     /**
+     * <p>No subscription is established.</p>
+     */
+    public static final int SUB_NONE = 0;
+    
+    /**
+     * <p>The roster owner has a subscription to the roster item's presence.</p>
+     */
+    public static final int SUB_TO = 1;
+    /**
+     * <p>The roster item has a subscription to the roster owner's presence.</p>
+     */
+    public static final int SUB_FROM = 2;
+    /**
+     * <p>The roster item and owner have a mutual subscription.</p>
+     */
+    public static final int SUB_BOTH = 3;
+    
+    /**
+     * Builds roster data from contactlist.
+     * @param clist
+     * @return 
+     */
+    public List<TransferRosterItem> buildRoster(List<Contactlist> clist){
+        List<TransferRosterItem> tRosterItems = new LinkedList<TransferRosterItem>();
+        
+        // Delete non-existent roster items from the roster.
+        for(Contactlist ce : clist){
+            TransferRosterItem tri = new TransferRosterItem();
+            
+            ContactlistObjType ctype = ce.getObjType();
+            if (ctype!=ContactlistObjType.INTERNAL_USER){
+                continue;
+            }
+            
+            Subscriber s = ce.getObj().getIntern_user();
+            if (s==null){
+                continue;
+            }
+            
+            String sip = PhoenixDataService.getSIP(s);
+            
+            tri.jid = sip;
+            tri.name = ce.getDisplayName();
+            tri.askStatus = null;
+            tri.recvStatus = null;
+            
+            // It username starts with ~ then subscription is from, both otherwise.
+            tri.subscription = (tri.name != null && tri.name.startsWith("~")) ? SUB_FROM : SUB_BOTH;
+            tri.groups = "";
+            
+            tRosterItems.add(tri);
+        }
+        
+        return tRosterItems;
+    }
+    
+    /**
+     * Synchronizes contactlist with the roster for given user on the 
+     * Openfire server - custom userservice plugin is needed for this.
+     * 
+     * TODO: use HTTPS connection for this. Take inspiration from HTTPS post 
+     * transfer used for file transfer.
+     * 
+     * @param owner
+     * @param clist
+     * @return 
+     * @throws java.net.MalformedURLException 
+     */
+    public int syncRoster(Subscriber owner, List<Contactlist> clist) throws MalformedURLException, IOException{
+        final String destination = "http://phone-x.net:9090/plugins/userService/userservice";
+        boolean debugRoster = jiveGlobals.getBooleanProperty(PROP_DEBUG_ROSTER, false);
+        
+        final String ownerSip = PhoenixDataService.getSIP(owner);
+        final String username = owner.getUsername();
+        
+        URL obj = new URL(destination);
+	HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
+        
+        // Allow Inputs & Outputs
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("User-Agent", "PhoneX-home-server");
+        connection.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
+        
+        // Build query parameters.
+        StringBuilder urlParameters = new StringBuilder(
+                String.format("type=sync_roster&secret=eequaixee1Bi5ied&username=%s&roster=", 
+                        URLEncoder.encode(username, "UTF-8")));
+        
+        // Build roster data from contactlist.
+        List<TransferRosterItem> rosterList = buildRoster(clist);
+        ObjectMapper mapper = new ObjectMapper();
+        String rosterJSON = mapper.writeValueAsString(rosterList);
+        byte[] b64Bytes = Base64.encode(rosterJSON.getBytes("UTF-8"));
+        String rosterBase64 = new String(b64Bytes, "UTF-8");
+        urlParameters.append(rosterBase64);
+        
+        if (debugRoster){
+            log.info("roster sync for " + ownerSip + "; URL: " + urlParameters + ";;; JSON: " + rosterJSON);
+        }
+        
+        // Send post request
+        connection.setDoOutput(true);
+        connection.setDoInput(true);
+        DataOutputStream wr = new DataOutputStream(connection.getOutputStream());
+        wr.writeBytes(urlParameters.toString());
+        wr.flush();
+        wr.close();
+
+        int responseCode = connection.getResponseCode();
+        if ((responseCode / 100) != 2){
+            throw new RuntimeException("Error response code: " + responseCode);
+        }
+        
+        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+        String inputLine;
+        StringBuilder response = new StringBuilder();
+        while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+        }
+        in.close();
+        String respBody = response.toString();
+        
+        // If response is OK, return 1, else return -1
+        if (respBody.contains("<result>")){
+            return 1;
+        } else {
+            log.debug("RosterSync error: " + respBody);
+            return -1;
+        }
+    }
+    
+    /**
+     * Roster synchronization with retry counter. 
+     * @param owner
+     * @param clist
+     * @param retryCount
+     * @return
+     * @throws MalformedURLException
+     * @throws IOException 
+     */
+    public int syncRosterWithRetry(Subscriber owner, List<Contactlist> clist, int retryCount) throws MalformedURLException, IOException{
+        // Synchronize roster list.
+        int syncRoster = -1;
+        for(int retryCtr = 0; retryCtr < retryCount; retryCtr++){
+            try {
+                syncRoster = syncRoster(owner, clist);
+                if (syncRoster > 0){
+                    // success here!
+                    log.info("Roster synchronization OK, usr=" + owner.getUsername());
+                    break;
+                } else {
+                    // not successfull, but request was delivered.
+                    log.info("Roster synchronization was not successfull, retrycount=" + retryCtr + "; err=" + syncRoster);
+                    break;
+                }
+            } catch(Exception e){
+                log.warn("Exception during roster synchronization", e);
+            }
+        }
+        
+        return syncRoster;
+    }
+    
+     /**
+     * Reads whole input stream to a byte array.
+     *
+     * @param is
+     * @return
+     * @throws IOException
+     */
+    public static byte[] readInputStream(InputStream is) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+        int nRead;
+        byte[] data = new byte[16384];
+
+        while ((nRead = is.read(data, 0, data.length)) != -1) {
+            buffer.write(data, 0, nRead);
+        }
+
+        buffer.flush();
+        return buffer.toByteArray();
+    }
+
+    /**
      * Returns true if user has stored certificate with this hash and it is valid
      * @param s
      * @param hash
@@ -470,7 +669,7 @@ public class PhoenixDataService {
      * Checks validity of one time token and deletes it immediatelly
      * @param user
      * @param userToken
-     * @param validityMillisec
+     * @param serverToken
      * @param fprint
      * @return 
      */
@@ -660,5 +859,13 @@ public class PhoenixDataService {
 
     public void setTrustManager(X509TrustManager trustManager) {
         this.trustManager = trustManager;
+    }
+
+    public JiveGlobals getJiveGlobals() {
+        return jiveGlobals;
+    }
+
+    public void setJiveGlobals(JiveGlobals jiveGlobals) {
+        this.jiveGlobals = jiveGlobals;
     }
 }

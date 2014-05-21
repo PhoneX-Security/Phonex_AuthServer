@@ -743,8 +743,10 @@ public class PhoenixEndpoint {
                     response.getReturn().add(ret);
                 }
             }
+            
             //
             // Now is time to re-generate presence view policies and trigger server update
+            // and roster synchronization.
             //
             for(Entry<String, Subscriber> entry : changedUsers.entrySet()){
                 // regenerating policy for given contact
@@ -779,6 +781,9 @@ public class PhoenixEndpoint {
                     cmd = new ServerMIRefreshWatchers(entry.getKey(), 0);
                     cmd.setPreDelay(1500);
                     executor.addToQueue(cmd);
+                    
+                    // Synchronize roster list.
+                    dataService.syncRosterWithRetry(tuser, contactlistForSubscriber, 3);
                 } catch(Exception ex){
                     log.error("Exception during presence rules generation for: " + entry.getValue(), ex);
                 }
@@ -854,7 +859,7 @@ public class PhoenixEndpoint {
         GetCertificateResponse response = new GetCertificateResponse();
         
         // maximum length?
-        if (request.getElement()==null || request.getElement().isEmpty() || request.getElement().size()>30){
+        if (request.getElement()==null || request.getElement().isEmpty() || request.getElement().size()>256){
             throw new IllegalArgumentException("Invalid size of request");
         }
         
