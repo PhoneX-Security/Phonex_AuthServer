@@ -415,10 +415,14 @@ public class PhoenixDataService {
         
         // Build roster data from contactlist.
         List<TransferRosterItem> rosterList = buildRoster(clist);
+        // Convert it to JSON format.
         ObjectMapper mapper = new ObjectMapper();
         String rosterJSON = mapper.writeValueAsString(rosterList);
+        // Convert JSON to base64
         byte[] b64Bytes = Base64.encode(rosterJSON.getBytes("UTF-8"));
-        String rosterBase64 = new String(b64Bytes, "UTF-8");
+        // Base64 has to be urlencoded since +=/ are not URL friendly.
+        String rosterBase64 = URLEncoder.encode(new String(b64Bytes, "UTF-8"), "UTF-8");
+        
         urlParameters.append(rosterBase64);
         
         if (debugRoster){
