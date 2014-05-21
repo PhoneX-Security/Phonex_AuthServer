@@ -33,4 +33,55 @@ public class TransferRosterItem {
     
     @JsonProperty
     public String groups;
+
+    public TransferRosterItem() {
+    }
+    
+    public String getJid() {
+        return jid;
+    }
+
+    public void setJid(String jid) {
+        this.jid = jid;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getSubscription() {
+        return subscription;
+    }
+
+    public void setSubscription(Integer subscription) {
+        this.subscription = subscription;
+    }
+
+    public Integer getRecvStatus() {
+        return recvStatus;
+    }
+
+    public void setRecvStatus(Integer recvStatus) {
+        this.recvStatus = recvStatus;
+    }
+
+    public Integer getAskStatus() {
+        return askStatus;
+    }
+
+    public void setAskStatus(Integer askStatus) {
+        this.askStatus = askStatus;
+    }
+
+    public String getGroups() {
+        return groups;
+    }
+
+    public void setGroups(String groups) {
+        this.groups = groups;
+    }
 }

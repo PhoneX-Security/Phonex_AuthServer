@@ -143,8 +143,10 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
         } else {
             currentTimeout = jiveGlobals.getLongProperty(PROP_TIMEOUT, DEFAULT_TIMEOUT);
         }
+        
+        currentDomain = jiveGlobals.getProperty(PROP_DOMAIN);
 
-        log.info("Starting roster sync with timeout=" + currentTimeout + " ms; raw=" + rawTimeout);
+        log.info("Starting roster sync with timeout=" + currentTimeout + " ms; raw=" + rawTimeout + "; domain="+currentDomain);
 
         while (this.running) {
             long cmilli = System.currentTimeMillis();

@@ -360,7 +360,7 @@ public class PhoenixDataService {
             }
             
             Subscriber s = ce.getObj().getIntern_user();
-            if (s==null){
+            if (s==null || s.isDeleted()){
                 continue;
             }
             
