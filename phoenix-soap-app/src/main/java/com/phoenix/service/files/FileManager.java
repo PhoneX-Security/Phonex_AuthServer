@@ -9,6 +9,7 @@ package com.phoenix.service.files;
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.EndpointAuth;
+import static com.phoenix.soap.PhoenixEndpoint.getDate;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -20,6 +21,7 @@ import java.util.List;
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import org.apache.commons.io.FileUtils;
 import org.bouncycastle.util.encoders.Base64;
@@ -306,6 +308,28 @@ public class FileManager {
         }
         
         return null;
+    }
+    
+    /**
+     * Removes DHkeys that are 3 days older than they expiration date.
+     * @return number of affected records. 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public int expireOldDHKeys(){
+        int result = 0;
+        try {
+            Date expirationDate = new Date(System.currentTimeMillis() + 1000*60*60*24*3);    
+            final String olderThanQueryString = "DELETE FROM DHKeys d WHERE d.expires < :de";
+            Query delQuery = em.createQuery(olderThanQueryString);
+            delQuery.setParameter("de", expirationDate);
+            result = delQuery.executeUpdate();
+            
+            log.info("Expired DH keys=" + result);
+        } catch(Exception ex){
+            log.error("Exception during expiriation old DH keys procedure", ex);
+        }
+        
+        return result;
     }
     
     /**

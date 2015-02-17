@@ -73,7 +73,8 @@ public class FSCleaner  extends BackgroundThreadService {
    public void doTheJob(){
        try {
             log.info("FSCleaner started");
-            
+             
+            fm.expireOldDHKeys();
             fm.expireRecords();
             fm.cleanupFS();
             
@@ -109,7 +110,7 @@ public class FSCleaner  extends BackgroundThreadService {
         }
         log.info("FScleaner thread ended.");
     }
-
+    
     public FileManager getFm() {
         return fm;
     }
