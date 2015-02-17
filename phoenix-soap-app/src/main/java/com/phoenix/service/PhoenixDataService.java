@@ -461,7 +461,9 @@ public class PhoenixDataService {
     }
     
     /**
-     * Roster synchronization with retry counter. 
+     * Roster synchronization with retry counter.
+     * Roster sync with OpenFire server, blocking call.
+     * 
      * @param owner
      * @param clist
      * @param retryCount

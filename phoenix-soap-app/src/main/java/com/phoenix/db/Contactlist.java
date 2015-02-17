@@ -18,9 +18,9 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.Lob;
 import javax.persistence.ManyToOne;
 import javax.persistence.Temporal;
-import org.hibernate.annotations.Type;
 
 /**
  * User's contact list
@@ -68,7 +68,7 @@ public class Contactlist implements Serializable {
     
     @Column(nullable = true, columnDefinition = "VARCHAR(64)")
     private String displayName;
-    
+       
     public Long getId() {
         return id;
     }
@@ -156,7 +156,7 @@ public class Contactlist implements Serializable {
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
-    
+  
     @Override
     public int hashCode() {
         int hash = 3;
