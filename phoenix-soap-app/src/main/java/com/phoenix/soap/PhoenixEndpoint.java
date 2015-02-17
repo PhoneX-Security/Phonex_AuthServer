@@ -26,12 +26,8 @@ import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
 import com.phoenix.service.pres.PresenceManager;
 import com.phoenix.service.ServerCommandExecutor;
-import com.phoenix.service.ServerMICommand;
-import com.phoenix.service.pres.ServerMIRefreshWatchers;
 import com.phoenix.service.TrustVerifier;
-import com.phoenix.soap.beans.AuthCheckRequest;
 import com.phoenix.soap.beans.AuthCheckRequestV2;
-import com.phoenix.soap.beans.AuthCheckResponse;
 import com.phoenix.soap.beans.AuthCheckResponseV2;
 import com.phoenix.soap.beans.TrueFalse;
 import com.phoenix.soap.beans.TrueFalseNA;
@@ -766,22 +762,6 @@ public class PhoenixEndpoint {
                     log.info("XcapEntity persisted: " + xcapEntity.toString());
                     this.em.flush();
                     
-                    //
-                    // Server update trigger
-                    // refreshWatchers sip:test3@voip.net-wings.eu presence 1
-                    ServerMICommand cmd;
-                    cmd = new ServerMIRefreshWatchers(entry.getKey(), 1);
-                    cmd.setPreDelay(1500);
-                    executor.addToQueue(cmd);
-                    
-                    cmd = new ServerMIRefreshWatchers(entry.getKey(), 0);
-                    cmd.setPreDelay(1500);
-                    executor.addToQueue(cmd);
-                    
-                    cmd = new ServerMIRefreshWatchers(entry.getKey(), 0);
-                    cmd.setPreDelay(1500);
-                    executor.addToQueue(cmd);
-                    
                     // Synchronize roster list.
                     dataService.syncRosterWithRetry(tuser, contactlistForSubscriber, 3);
                 } catch(Exception ex){
@@ -1134,155 +1114,6 @@ public class PhoenixEndpoint {
     }
     
     /**
-     * Testing authentication.
-     * 
-     * User can provide its auth hash and test its authentication with password.
-     * This service is available on both ports with user certificate required or not.
-     * Thus user can provide certificate and in this case it will be tested as well.
-     * 
-     * @param request
-     * @param context
-     * @return
-     * @throws CertificateException 
-     */
-    @PayloadRoot(localPart = "authCheckRequest", namespace = NAMESPACE_URI)
-    @ResponsePayload
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    public AuthCheckResponse authCheck(@RequestPayload AuthCheckRequest request, MessageContext context) throws CertificateException {
-        // protect user identity and avoid MITM, require SSL
-        this.checkOneSideSSL(context, this.request);
-        
-        AuthCheckResponse resp = new AuthCheckResponse();
-        resp.setAuthHashValid(TrueFalse.FALSE);
-        resp.setCertValid(TrueFalseNA.NA);
-        resp.setCertStatus(CertificateStatus.MISSING);
-        resp.setForcePasswordChange(TrueFalse.FALSE);
-        try {
-            /*
-             * ONE time tokens are disabled at this moment for simplicity...
-             * 
-            // check token here!
-            boolean ott_valid = this.dataService.isOneTimeTokenValid(sip, request.getUsrToken(), request.getServerToken(), "");
-            if (ott_valid==false){
-                log.warn("Invalid one time token");
-                throw new RuntimeException("Not authorized");
-            }*/
-            
-            // user is provided in request thus try to load it from database
-            String sip = request.getTargetUser();
-            log.info("User [" + sip + "] is asking to verify credentials");
-            
-            // user matches, load subscriber data for him
-            Subscriber localUser = this.dataService.getLocalUser(sip);
-            if (localUser == null){
-                log.warn("Local user was not found in database for: " + sip);
-                return resp;
-            }
-            
-            // If user was deleted, login was not successful.
-            if (localUser.isDeleted()){
-                resp.setAuthHashValid(TrueFalse.FALSE);
-                return resp;
-            }
-            
-            // check user AUTH hash
-            // generate 3 tokens, for 3 time slots
-            boolean authHash_valid=false;
-            for (int i=-1, c=0; i <=1 ; i++, c++){
-                String userHash = this.dataService.generateUserAuthToken(
-                    sip, localUser.getHa1(), 
-                    "", "", 
-                    1000 * 60, i);
-                
-                log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+userHash+"]");
-                if (userHash.equals(request.getAuthHash())){
-                    resp.setAuthHashValid(TrueFalse.TRUE);
-                    authHash_valid=true;
-                    break;
-                }
-            }
-            
-            if (authHash_valid==false){
-                return resp;
-            }
-            
-            // password change?
-            Boolean passwdChange = localUser.getForcePasswordChange();
-            if (passwdChange!=null && passwdChange==true){
-                resp.setForcePasswordChange(TrueFalse.TRUE);
-            }
-            
-            // unregister if auth is OK?
-            if (request.getUnregisterIfOK() == TrueFalse.TRUE && passwdChange!=true){
-                log.info("Unregistering user, auth was OK so far");
-                
-                /*ServerMICommand cmd = new ServerMICommand("ul_rm");
-                cmd.addParameter("location").addParameter(sip);
-                cmd.setPriority(1);
-                executor.addToHiPriorityQueue(cmd);*/
-            }
-            
-            // if we have some certificate, we can continue with checks
-            X509Certificate[] chain = auth.getCertificateChainFromConnection(context, this.request);
-            if (chain==null){
-                return resp;
-            }
-            
-            // now try to test certificate if any provided
-            try {
-                Subscriber owner = this.authUserFromCert(context, this.request);
-                String certSip = auth.getSIPFromCertificate(context, this.request);
-                log.info("User provided also certificate: " + owner);
-                if (owner == null || certSip == null){
-                    return resp;
-                }
-                
-                // check user validity
-                if (certSip.equals(sip)==false){
-                    resp.setCertValid(TrueFalseNA.FALSE);
-                    return resp;
-                }
-                
-                // Get certificate chain from cert parameter. Obtain user certificate
-                // that was used in connection
-                X509Certificate certChain[] = auth.getCertChain(context, this.request);
-                // client certificate SHOULD be stored first here, so assume it
-                X509Certificate cert509 = certChain[0];
-                // time-date validity
-                cert509.checkValidity();
-                // is signed by server CA?
-                //cert509.verify(this.trustManager.getServerCA().getPublicKey());
-                trustManager.checkTrusted(cert509);
-                
-                // is revoked?
-                Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
-                if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
-                    log.info("Certificate for user is revoked: " + cert509.getSerialNumber().longValue());
-                    resp.setCertValid(TrueFalseNA.FALSE);
-                    resp.setCertStatus(CertificateStatus.REVOKED);
-                } else {
-                    resp.setCertValid(TrueFalseNA.TRUE);
-                    resp.setCertStatus(CertificateStatus.OK);
-                }
-                
-                logAction(certSip, "authCheck1", null);
-            } catch (Exception e){
-                // no certificate, just return response, exception is 
-                // actually really expected :)
-                log.debug("Certificate was not valid: ", e);
-                resp.setCertValid(TrueFalseNA.FALSE);
-                resp.setCertStatus(CertificateStatus.INVALID);
-                return resp;
-            }
-         } catch(Exception e){
-             log.warn("Exception in password change procedure", e);
-             throw new RuntimeException(e);
-         }
-        
-        return resp;
-    }
-    
-    /**
      * Converts Date to XMLGregorianCalendar used in SOAP responses. 
      * 
      * @param d
@@ -1323,10 +1154,102 @@ public class PhoenixEndpoint {
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AuthCheckResponseV2 authCheckV2(@RequestPayload AuthCheckRequestV2 request, MessageContext context) throws CertificateException {
+        // 1. Construct v3 request and port data to it.
+        AuthCheckV3Request req3 = new AuthCheckV3Request();
+        req3.setAuthHash(request.getAuthHash());
+        req3.setAuxJSON(request.getAuxJSON());
+        req3.setAuxVersion(request.getAuxVersion());
+        req3.setTargetUser(request.getTargetUser());
+        req3.setUnregisterIfOK(request.getUnregisterIfOK());
+        Integer reqVer = request.getVersion();
+        if (reqVer == null){
+            reqVer = 2;
+        }
+        req3.setVersion(reqVer);
+        
+        // 2. Do the auth check itself
+        AuthCheckV3Response resp3 = this.authCheckV3(req3, context);
+
+        // 3. Port response 3 to response 2.
+        AuthCheckResponseV2 r2 = new AuthCheckResponseV2();
+        r2.setAccountDisabled(resp3.isAccountDisabled());
+        r2.setAccountExpires(resp3.getAccountExpires());
+        r2.setAuthHashValid(resp3.getAuthHashValid());
+        r2.setAuxJSON(resp3.getAuxJSON());
+        r2.setAuxVersion(resp3.getAuxVersion());
+        r2.setCertStatus(resp3.getCertStatus());
+        r2.setCertValid(resp3.getCertValid());
+        r2.setErrCode(resp3.getErrCode());
+        r2.setForcePasswordChange(resp3.getForcePasswordChange());
+        r2.setServerTime(resp3.getServerTime());
+        return r2;
+    }
+    
+    /**
+     * Testing authentication.
+     * 
+     * User can provide its auth hash and test its authentication with password.
+     * This service is available on both ports with user certificate required or not.
+     * Thus user can provide certificate and in this case it will be tested as well.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "authCheckV2Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AuthCheckV2Response authCheckV2(@RequestPayload AuthCheckV2Request request, MessageContext context) throws CertificateException {
+        // 1. Construct v3 request and port data to it.
+        AuthCheckV3Request req3 = new AuthCheckV3Request();
+        req3.setAuthHash(request.getAuthHash());
+        req3.setAuxJSON(request.getAuxJSON());
+        req3.setAuxVersion(request.getAuxVersion());
+        req3.setTargetUser(request.getTargetUser());
+        req3.setUnregisterIfOK(request.getUnregisterIfOK());
+        Integer reqVer = request.getVersion();
+        if (reqVer == null){
+            reqVer = 2;
+        }
+        req3.setVersion(reqVer);
+        
+        // 2. Do the auth check itself
+        AuthCheckV3Response resp3 = this.authCheckV3(req3, context);
+        AuthCheckV2Response r2 = new AuthCheckV2Response();
+        r2.setAccountDisabled(resp3.isAccountDisabled());
+        r2.setAccountExpires(resp3.getAccountExpires());
+        r2.setAuthHashValid(resp3.getAuthHashValid());
+        r2.setAuxJSON(resp3.getAuxJSON());
+        r2.setAuxVersion(resp3.getAuxVersion());
+        r2.setCertStatus(resp3.getCertStatus());
+        r2.setCertValid(resp3.getCertValid());
+        r2.setErrCode(resp3.getErrCode());
+        r2.setForcePasswordChange(resp3.getForcePasswordChange());
+        r2.setServerTime(resp3.getServerTime());
+        return r2;   
+    }
+    
+    /**
+     * Testing authentication.
+     * 
+     * User can provide its auth hash and test its authentication with password.
+     * This service is available on both ports with user certificate required or not.
+     * Thus user can provide certificate and in this case it will be tested as well.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "AuthCheckV3Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AuthCheckV3Response authCheckV3(@RequestPayload AuthCheckV3Request request, MessageContext context) throws CertificateException {
         // protect user identity and avoid MITM, require SSL
         this.checkOneSideSSL(context, this.request);
         
-        AuthCheckResponseV2 resp = new AuthCheckResponseV2();
+        AuthCheckV3Response resp = new AuthCheckV3Response();
         resp.setAuthHashValid(TrueFalse.FALSE);
         resp.setCertValid(TrueFalseNA.NA);
         resp.setCertStatus(CertificateStatus.MISSING);
@@ -1336,23 +1259,30 @@ public class PhoenixEndpoint {
         resp.setAuxJSON("");
         resp.setErrCode(404);
         try {
+            // Integer version by default set to 3. 
+            // Changes window of the login validity.
+            int reqVersion = 3;
+            Integer reqVersionInt = request.getVersion();
+            if (reqVersionInt != null){
+                reqVersion = reqVersionInt.intValue();
+            }
+            
+            // Adjust millisecond window size for auth hash validity.
+            // This was increased in v3 so users are not bullied for not 
+            // minute-precise time setup.
+            long milliSecondWindowSize = 1000 * 60;
+            if (reqVersion == 3){
+                milliSecondWindowSize = 1000 * 60 * 10;
+            }
+            
             // Date conversion can throw exception
             resp.setAccountExpires(getXMLDate(new Date()));
             resp.setServerTime(getXMLDate(new Date()));
-        
-            /*
-             * ONE time tokens are disabled at this moment for simplicity...
-             * 
-            // check token here!
-            boolean ott_valid = this.dataService.isOneTimeTokenValid(sip, request.getUsrToken(), request.getServerToken(), "");
-            if (ott_valid==false){
-                log.warn("Invalid one time token");
-                throw new RuntimeException("Not authorized");
-            }*/
+            resp.setAccountIssued(getXMLDate(new Date()));
             
             // user is provided in request thus try to load it from database
             String sip = request.getTargetUser();
-            log.info("User [" + sip + "] is asking to verify credentials");
+            log.info(String.format("User [%s] is asking to verify credentials, reqVer: %d", sip, reqVersion));
             
             // user matches, load subscriber data for him
             Subscriber localUser = this.dataService.getLocalUser(sip);
@@ -1368,7 +1298,7 @@ public class PhoenixEndpoint {
                 String userHash = this.dataService.generateUserAuthToken(
                     sip, localUser.getHa1(), 
                     "", "", 
-                    1000 * 60, i);
+                    milliSecondWindowSize, i);
                 
                 log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+userHash+"]");
                 if (userHash.equals(request.getAuthHash())){
@@ -1385,13 +1315,13 @@ public class PhoenixEndpoint {
             // User valid ?
             resp.setAccountDisabled(localUser.isDeleted());
             
-            // Time can be null
+            // Time can be null, account expire time.
             Calendar cal = localUser.getExpires();
-            if (cal==null){ 
-                resp.setAccountExpires(null);
-            } else {
-                resp.setAccountExpires(getXMLDate(cal.getTime()));
-            }
+            resp.setAccountExpires(cal == null ? null : getXMLDate(cal.getTime()));
+            
+            // Account issued time.
+            Calendar calIssued = localUser.getIssued();
+            resp.setAccountIssued(calIssued == null ? null : getXMLDate(calIssued.getTime()));
        
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
@@ -1399,7 +1329,7 @@ public class PhoenixEndpoint {
                 return resp;
             }
             
-            // password change?
+            // Force password change?
             Boolean passwdChange = localUser.getForcePasswordChange();
             if (passwdChange!=null && passwdChange==true){
                 resp.setForcePasswordChange(TrueFalse.TRUE);
@@ -1448,7 +1378,7 @@ public class PhoenixEndpoint {
                     resp.setCertStatus(CertificateStatus.OK);
                 }
                 
-                logAction(certSip, "authCheck2", null);
+                logAction(certSip, "authCheck3", null);
             } catch (Exception e){
                 // no certificate, just return response, exception is 
                 // actually really expected :)
@@ -1474,46 +1404,6 @@ public class PhoenixEndpoint {
          
         resp.setErrCode(0);
         return resp;
-    }
-    
-    /**
-     * Testing authentication.
-     * 
-     * User can provide its auth hash and test its authentication with password.
-     * This service is available on both ports with user certificate required or not.
-     * Thus user can provide certificate and in this case it will be tested as well.
-     * 
-     * @param request
-     * @param context
-     * @return
-     * @throws CertificateException 
-     */
-    @PayloadRoot(localPart = "authCheckV2Request", namespace = NAMESPACE_URI)
-    @ResponsePayload
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    public AuthCheckV2Response authCheckV2(@RequestPayload AuthCheckV2Request request, MessageContext context) throws CertificateException {
-        AuthCheckRequestV2 req2 = new AuthCheckRequestV2();
-        req2.setAuthHash(request.getAuthHash());
-        req2.setAuxJSON(request.getAuxJSON());
-        req2.setAuxVersion(request.getVersion());
-        req2.setTargetUser(request.getTargetUser());
-        req2.setUnregisterIfOK(request.getUnregisterIfOK());
-        req2.setVersion(request.getVersion());
-        
-        AuthCheckResponseV2 r2 = authCheckV2(req2, context);
-        AuthCheckV2Response r1 = new AuthCheckV2Response();
-        r1.setAccountDisabled(r2.isAccountDisabled());
-        r1.setAccountExpires(r2.getAccountExpires());
-        r1.setAuthHashValid(r2.getAuthHashValid());
-        r1.setAuxJSON(r2.getAuxJSON());
-        r1.setAuxVersion(r2.getAuxVersion());
-        r1.setCertStatus(r2.getCertStatus());
-        r1.setCertValid(r2.getCertValid());
-        r1.setErrCode(r2.getErrCode());
-        r1.setForcePasswordChange(r2.getForcePasswordChange());
-        r1.setServerTime(r2.getServerTime());
-        
-        return r1;   
     }
     
     /**

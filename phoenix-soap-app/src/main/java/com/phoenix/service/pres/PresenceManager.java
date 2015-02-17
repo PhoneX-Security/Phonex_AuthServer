@@ -392,6 +392,31 @@ public class PresenceManager {
         return 0;
     }
     
+    /**
+     * Refresh watchers call. 
+     * Called after contact list is changed. Used only for XCAP presence.
+     * Calls opensips to refresh watchers.
+     * 
+     * refreshWatchers sip:test3@voip.net-wings.eu presence 1
+     * 
+     * @param executor
+     * @param user 
+     */
+    public static void sendRefreshWatchersCommand(ServerCommandExecutor executor, String user){
+        ServerMICommand cmd;
+        cmd = new ServerMIRefreshWatchers(user, 1);
+        cmd.setPreDelay(1500);
+        executor.addToQueue(cmd);
+
+        cmd = new ServerMIRefreshWatchers(user, 0);
+        cmd.setPreDelay(1500);
+        executor.addToQueue(cmd);
+
+        cmd = new ServerMIRefreshWatchers(user, 0);
+        cmd.setPreDelay(1500);
+        executor.addToQueue(cmd);
+    }
+    
     public SessionFactory getSessionFactory() {
         return sessionFactory;
     }
