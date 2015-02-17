@@ -102,8 +102,8 @@ public class ServerCommandExecutor extends BackgroundThreadService {
             // High priority commands at first, all of them, fast
             this.handleHighPriority();
             
-            // reload presence rules automatically
-            this.reloadPresence();
+            // Reload presence rules automatically.
+            // Since we dont use XCAP and SIP now, but XMPP, this is not needed anymore.
             
             if (commandQueue.isEmpty()) continue;
             ServerMICommand cmd = commandQueue.poll();
