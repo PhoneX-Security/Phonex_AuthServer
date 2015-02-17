@@ -63,6 +63,14 @@ public class Subscriber implements java.io.Serializable {
         // Should account be considered as deleted / not valid?
         @Column(name = "deleted", nullable = false, columnDefinition = "TINYINT(1)")
 	private Boolean deleted=false;
+        // Timestamp for the first login.
+        @Column(name = "date_first_login", nullable = true, columnDefinition = "DATETIME")
+        @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+        private java.util.Calendar dateFirstLogin = null;
+        // Timestamp for the first user added.
+        @Column(name = "date_first_user_added", nullable = true, columnDefinition = "DATETIME")
+        @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+        private java.util.Calendar dateFirstUserAdded = null;
 
 	public Subscriber() {
 	}
@@ -214,5 +222,21 @@ public class Subscriber implements java.io.Serializable {
 
         public void setDeleted(Boolean deleted) {
             this.deleted = deleted;
+        }
+
+        public Calendar getDateFirstLogin() {
+            return dateFirstLogin;
+        }
+
+        public void setDateFirstLogin(Calendar dateFirstLogin) {
+            this.dateFirstLogin = dateFirstLogin;
+        }
+
+        public Calendar getDateFirstUserAdded() {
+            return dateFirstUserAdded;
+        }
+
+        public void setDateFirstUserAdded(Calendar dateFirstUserAdded) {
+            this.dateFirstUserAdded = dateFirstUserAdded;
         }
 }
