@@ -24,4 +24,5 @@ echo "cp /tmp/phoenix.war /usr/share/apache-tomcat-7.0.34/webapps/"
 echo "/etc/init.d/tomcat stop"
 echo "/etc/init.d/tomcat start"
 
+echo "/etc/init.d/tomcat stop; sleep 2; /bin/cp /tmp/phoenix.war /usr/share/apache-tomcat-7.0.34/webapps/; /bin/rm -rf /usr/share/apache-tomcat-7.0.34/webapps/phoenix; /etc/init.d/tomcat start"
 
