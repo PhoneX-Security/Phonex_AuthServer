@@ -1280,7 +1280,7 @@ public class PhoenixEndpoint {
      * @return
      * @throws CertificateException 
      */
-    @PayloadRoot(localPart = "AuthCheckV3Request", namespace = NAMESPACE_URI)
+    @PayloadRoot(localPart = "authCheckV3Request", namespace = NAMESPACE_URI)
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AuthCheckV3Response authCheckV3(@RequestPayload AuthCheckV3Request request, MessageContext context) throws CertificateException {
