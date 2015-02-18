@@ -987,15 +987,12 @@ public class PhoenixEndpoint {
         }
         
         // Logic for setting first user added field.
-        if (askingForDifferentThanOurs && sub != null){
-            boolean subChanged = false;
-            
+        if (sub != null){
             // If user does not have first login date filled in, add this one.
             Calendar fUserAdded = sub.getDateFirstUserAdded();
-            if (fUserAdded == null || fUserAdded.before(get1971())){
+            if (askingForDifferentThanOurs && (fUserAdded == null || fUserAdded.before(get1971()))){
                 sub.setDateFirstUserAdded(Calendar.getInstance());
                 log.info(String.format("First user added date set to: %s", sub.getDateFirstUserAdded()));
-                subChanged = true;
             }   
             
             // First login if not set.
@@ -1003,12 +1000,12 @@ public class PhoenixEndpoint {
             if (fLogin == null || fLogin.before(get1971())){
                 sub.setDateFirstLogin(Calendar.getInstance());
                 log.info(String.format("First login set to: %s", sub.getDateFirstLogin()));
-                subChanged = true;
             }
             
-            if (subChanged){
-                em.persist(sub);
-            }
+            // Update last activity date.
+            sub.setDateLastActivity(Calendar.getInstance());
+            em.persist(sub);
+            log.info(String.format("Last activity set to: %s", sub.getDateLastActivity()));
         }
         
         logAction(owner, "getCert", null);

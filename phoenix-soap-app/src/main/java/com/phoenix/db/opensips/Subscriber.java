@@ -71,6 +71,10 @@ public class Subscriber implements java.io.Serializable {
         @Column(name = "date_first_user_added", nullable = true, columnDefinition = "DATETIME")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateFirstUserAdded = null;
+        // Timestamp for the last activity.
+        @Column(name = "date_last_activity", nullable = true, columnDefinition = "DATETIME")
+        @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+        private java.util.Calendar dateLastActivity = null;
         // License type for the user. 
         @Column(name = "license_type", nullable = true, length = 64)
         private String licenseType;
@@ -249,5 +253,13 @@ public class Subscriber implements java.io.Serializable {
 
         public void setLicenseType(String licenseType) {
             this.licenseType = licenseType;
+        }
+
+        public Calendar getDateLastActivity() {
+            return dateLastActivity;
+        }
+
+        public void setDateLastActivity(Calendar dateLastActivity) {
+            this.dateLastActivity = dateLastActivity;
         }
 }
