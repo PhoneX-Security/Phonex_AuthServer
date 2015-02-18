@@ -1308,9 +1308,9 @@ public class PhoenixEndpoint {
             // Adjust millisecond window size for auth hash validity.
             // This was increased in v3 so users are not bullied for not 
             // minute-precise time setup.
-            long milliSecondWindowSize = 1000 * 60;
+            long milliSecondWindowSize = 1000L * 60L;
             if (reqVersion == 3){
-                milliSecondWindowSize = 1000 * 60 * 10;
+                milliSecondWindowSize = 1000L * 60L * 10L;
             }
             
             // Date conversion can throw exception
@@ -1711,7 +1711,7 @@ public class PhoenixEndpoint {
                 // certificates.
                 log.info("User has some valid certificate in DB: " + userCert);
                 
-                Date expireLimit = new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000);
+                Date expireLimit = new Date(System.currentTimeMillis() + 14L * 24L * 60L * 60L * 1000L);
                 if (CLIENT_DEBUG==false && userCert.getNotValidAfter().after(expireLimit)){
                     log.warn("User wants to create a new certificate even though "
                             + "he has on valid certificate, with more than 14 days validity");
@@ -1837,7 +1837,7 @@ public class PhoenixEndpoint {
         this.checkOneSideSSL(context, this.request);
         
         // generate new one time token - 2 minutes validity
-        String ott = this.dataService.generateOneTimeToken(request.getUser(), request.getUserToken(), Long.valueOf(1000 * 60 * 2), "");
+        String ott = this.dataService.generateOneTimeToken(request.getUser(), request.getUserToken(), Long.valueOf(1000L * 60L * 2L), "");
         
         GetOneTimeTokenResponse response = new GetOneTimeTokenResponse();
         response.setUser(request.getUser());

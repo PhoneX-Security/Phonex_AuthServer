@@ -67,7 +67,7 @@ public class ServerCommandExecutor extends BackgroundThreadService {
     @Transactional
     public void reloadPresence(){
         long cmilli = System.currentTimeMillis();
-        if ((cmilli - lastRefresh) > 1000*60*60){
+        if ((cmilli - lastRefresh) > 1000L*60L*60L){
             lastRefresh = cmilli;
             
             // fetch all presence policies to refresh from database

@@ -40,7 +40,7 @@ public class FSCleaner  extends BackgroundThreadService {
     * If task was not executed in last MAX_TIMEOUT milliseconds it will be executed
     * as soon as possible.
     */
-   private static final long MAX_TIMEOUT = 1000*60*60*24;
+   private static final long MAX_TIMEOUT = 1000L*60L*60L*24L;
    
    private long lastRefresh = 0;
    private boolean running=true;
@@ -95,7 +95,7 @@ public class FSCleaner  extends BackgroundThreadService {
             //  a) it was not executed in previous MAX_TIMEOUT milliseconds OR
             //  b) current hour of day is START_HOUR or 1 hour later.
             if ((cmilli - lastRefresh) > MAX_TIMEOUT 
-                    || ((hour - START_HOUR) <= 1 && (cmilli - lastRefresh) > 1000*60*60*3))  {
+                    || ((hour - START_HOUR) <= 1 && (cmilli - lastRefresh) > 1000L*60L*60L*3L))  {
                 
                 lastRefresh = cmilli;
                 doTheJob();

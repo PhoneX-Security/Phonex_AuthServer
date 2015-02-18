@@ -445,7 +445,7 @@ public class PhoenixServerCASigner {
         // X509V2CRLGenerator   crlGen = new X509V2CRLGenerator();
 
         Date now = new Date();
-        Date nextUpdate = new Date(System.currentTimeMillis() * 1000 * 60 * 60 * 24);
+        Date nextUpdate = new Date(System.currentTimeMillis() + 1000L * 60L * 60L * 24L);
 
         X509v2CRLBuilder crlGen = new X509v2CRLBuilder(
                 new X500Name(this.caCert.getSubjectX500Principal().getName()),
@@ -483,7 +483,7 @@ public class PhoenixServerCASigner {
      */
     public X509CRLHolder addCRLEntry(X509CRL crl) throws CRLException, OperatorCreationException, NoSuchAlgorithmException, CertIOException{
         Date now = new Date();
-        Date nextUpdate = new Date(System.currentTimeMillis() * 1000 * 60 * 60 * 24);
+        Date nextUpdate = new Date(System.currentTimeMillis() + 1000L * 60L * 60L * 24L);
 
         X509v2CRLBuilder crlGen = new X509v2CRLBuilder(
                 new X500Name(this.caCert.getSubjectX500Principal().getName()),

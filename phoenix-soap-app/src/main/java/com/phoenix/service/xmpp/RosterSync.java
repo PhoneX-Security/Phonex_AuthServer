@@ -37,12 +37,12 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
    /**
     * Default timeout of the roster synchronization in seconds.
     */
-   private static final long DEFAULT_TIMEOUT = 1000*60*60*24*7;
+   private static final long DEFAULT_TIMEOUT = 1000L*60L*60L*24L*7L;
    
    /**
     * Minimal value of the timeout allowed.
     */
-   private static final long MIN_TIMEOUT = 1000*60;
+   private static final long MIN_TIMEOUT = 1000L*60L;
    
    /**
     * Settings value for update timeout.

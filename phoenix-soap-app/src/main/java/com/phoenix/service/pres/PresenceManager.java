@@ -46,7 +46,7 @@ public class PresenceManager {
     public static final String PRESENCE_RULES_TEMPLATE = "pres-rules-template.xml";
     public static final String PRESENCE_PUBLISH_TEMPLATE = "pres-publish-template.xml";
     
-    public static long REFRESH_XCAP_NOTIFY = 1000*60*10;
+    public static long REFRESH_XCAP_NOTIFY = 1000L*60L*10L;
     
     public static String NOTIFIER_SUFFIX = "*i_notify";
     

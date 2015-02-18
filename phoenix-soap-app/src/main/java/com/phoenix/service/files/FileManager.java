@@ -318,7 +318,7 @@ public class FileManager {
     public int expireOldDHKeys(){
         int result = 0;
         try {
-            Date expirationDate = new Date(System.currentTimeMillis() + 1000*60*60*24*3);    
+            Date expirationDate = new Date(System.currentTimeMillis() + 1000L*60L*60L*24L*3L);    
             final String olderThanQueryString = "DELETE FROM DHKeys d WHERE d.expires < :de";
             Query delQuery = em.createQuery(olderThanQueryString);
             delQuery.setParameter("de", expirationDate);
