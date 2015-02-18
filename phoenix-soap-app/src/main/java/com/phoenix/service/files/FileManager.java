@@ -310,6 +310,31 @@ public class FileManager {
         return null;
     }
     
+     /**
+     * Returns number of stored files for given user.
+     * 
+     * @param owner
+     * @return 
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public long getStoredFilesNum(Subscriber owner){
+        long numOfFiles = 0;
+        
+        try {
+            TypedQuery<Long> countQuery = em.createQuery("SELECT COUNT(sf) FROM StoredFiles sf "
+                    + " WHERE sf.owner=:s AND sf.expires<:now", Long.class);
+            countQuery.setParameter("s", owner);
+            countQuery.setParameter("now", new Date());
+            
+            Long sfCount = countQuery.getSingleResult();
+            numOfFiles = sfCount==null || sfCount==0 ? 0 : sfCount;
+        } catch(Exception ex){
+            log.error("Exception in obtaining stored file", ex);
+        }
+        
+        return numOfFiles;
+    }
+    
     /**
      * Removes DHkeys that are 3 days older than they expiration date.
      * @return number of affected records. 

@@ -892,6 +892,7 @@
                 <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
                 
                 <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="storedFilesNum" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="licenseType" type="xs:string" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="accountIssued" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
@@ -928,6 +929,7 @@
                 <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
                 
                 <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="storedFilesNum" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="licenseType" type="xs:string" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="accountIssued" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>

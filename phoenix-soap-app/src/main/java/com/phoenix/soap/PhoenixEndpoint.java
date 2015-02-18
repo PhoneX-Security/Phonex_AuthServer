@@ -1232,6 +1232,21 @@ public class PhoenixEndpoint {
     }
     
     /**
+     * Serializes list of nonces.
+     * @param lst
+     * @return 
+     */
+    public static String serializeList(List<String> lst){
+        StringBuilder sb = new StringBuilder();
+        for(int i=0, cn=lst.size(); i < cn; i++){
+            sb.append(lst.get(i));
+            sb.append("|");
+        }
+        
+        return sb.toString();
+    }
+    
+    /**
      * Testing authentication.
      * 
      * User can provide its auth hash and test its authentication with password.
@@ -1419,6 +1434,9 @@ public class PhoenixEndpoint {
             // License type.
             String licType = localUser.getLicenseType();
             resp.setLicenseType(licType == null ? "-1" : licType);
+            
+            // Number of stored files for given user.
+            resp.setStoredFilesNum(Integer.valueOf((int)fmanager.getStoredFilesNum(localUser)));
        
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
@@ -1565,6 +1583,9 @@ public class PhoenixEndpoint {
             // License type.
             String licType = localUser.getLicenseType();
             resp.setLicenseType(licType == null ? "-1" : licType);
+            
+            // Number of stored files for given user.
+            resp.setStoredFilesNum(Integer.valueOf((int)fmanager.getStoredFilesNum(localUser)));
        
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
