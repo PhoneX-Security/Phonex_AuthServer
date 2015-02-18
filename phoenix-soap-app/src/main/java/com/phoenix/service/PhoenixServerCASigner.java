@@ -100,11 +100,16 @@ public class PhoenixServerCASigner {
     private RSAPrivateCrtKeyParameters caPrivateKey;
     private X509Certificate caCert;
     private RSAPrivateCrtKey privKey;
+    private volatile boolean caInitialized = false;
     
     /**
      * Initializes Server CA keystores
      */
-    public void initCA(){
+    public synchronized void initCA(){
+        if (caInitialized){
+            return;
+        }
+        
         /**
          * Add bouncy castle provider
          */
@@ -179,6 +184,8 @@ public class PhoenixServerCASigner {
                 log.warn("Cannot close input stream", ex);
             }
         }
+        
+        caInitialized = true;
     }
     
     /**

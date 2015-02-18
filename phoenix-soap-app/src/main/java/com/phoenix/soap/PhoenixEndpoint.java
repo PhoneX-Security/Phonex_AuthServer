@@ -158,8 +158,28 @@ public class PhoenixEndpoint {
     // owner SIP obtained from certificate
     private String owner_sip;
     public static final String DISPLAY_NAME_REGEX="^[a-zA-Z0-9_\\-\\s\\./]+$";
+    
+    // Calendar for year 1971, used to check null-like dates.
+    public static Calendar c1971;
 
     public PhoenixEndpoint() {
+    }
+    
+    /**
+     * Returns calendar object dated to 1971.
+     * Used to compare with database dates, which may be 1970 indicating a not filled
+     * in date.
+     * @return 
+     */
+    public static Calendar get1971(){
+        if (c1971 == null){
+            c1971 = Calendar.getInstance();
+            c1971.set(Calendar.YEAR, 1971);   
+            c1971.set(Calendar.MONTH, 1);
+            c1971.set(Calendar.DAY_OF_MONTH, 1);
+        }
+        
+        return c1971;
     }
     
     /**
@@ -814,6 +834,10 @@ public class PhoenixEndpoint {
         Subscriber sub = null;
         RemoteUser rem = null;
         
+        // Monitor if user is asking for different certificates than his.
+        // If yes, use this infromation to set first user add date if is empty.
+        boolean askingForDifferentThanOurs = false;
+        
         // for whitelist searching (ommiting groups right now)
         // searching as destination in someones whitelist
         WhitelistDstObj dstObj = new WhitelistDstObj();
@@ -843,7 +867,7 @@ public class PhoenixEndpoint {
             throw new IllegalArgumentException("Invalid size of request");
         }
         
-        // now we have prepared data for whitelist search, lets iterate over 
+        // Iterate over certificate requests and process it one-by-one.
         for(CertificateRequestElement el : request.getElement()){
             // At first obtain user object we are talking about.
             // Now assume only local user, we will have procedure for extern and groups also
@@ -855,6 +879,8 @@ public class PhoenixEndpoint {
             } else {
                 throw new RuntimeException("Both user identifiers are null");
             }
+            
+            askingForDifferentThanOurs |= !owner.equalsIgnoreCase(sip);
             
             // current certificate answer
             CertificateWrapper wr = new CertificateWrapper();
@@ -885,19 +911,6 @@ public class PhoenixEndpoint {
             wr.setStatus(CertificateStatus.MISSING);
             wr.setUser(PhoenixDataService.getSIP(s));
             wr.setCertificate(null);
-            
-            // logic change: certificate loading is done before 
-            // adding user to contact list, so I need it...
-            if (false){
-                // check if user "s" has in whitelist "owner" = WhitelistDstObj
-                Whitelist wl = this.dataService.getWhitelistForSubscriber(s, dstObj);
-                if ((wl==null || wl.getAction()!=WhitelistStatus.ENABLED) && s.equals(dstObj.getIntern_user())==false){
-                    log.info("Not allowed: " + wl);
-                    wr.setStatus(CertificateStatus.FORBIDDEN);
-                    response.getReturn().add(wr);
-                    continue;
-                }
-            }
             
             // If user provided certificate hash, first check whether it is valid
             // and real certificate for user. If yes, then just confirm this to save
@@ -971,6 +984,31 @@ public class PhoenixEndpoint {
             wr.setStatus(CertificateStatus.OK);
             wr.setCertificate(cert509.getEncoded());
             response.getReturn().add(wr);
+        }
+        
+        // Logic for setting first user added field.
+        if (askingForDifferentThanOurs && sub != null){
+            boolean subChanged = false;
+            
+            // If user does not have first login date filled in, add this one.
+            Calendar fUserAdded = sub.getDateFirstUserAdded();
+            if (fUserAdded == null || fUserAdded.before(get1971())){
+                sub.setDateFirstUserAdded(Calendar.getInstance());
+                log.info(String.format("First user added date set to: %s", sub.getDateFirstUserAdded()));
+                subChanged = true;
+            }   
+            
+            // First login if not set.
+            Calendar fLogin = sub.getDateFirstLogin();
+            if (fLogin == null || fLogin.before(get1971())){
+                sub.setDateFirstLogin(Calendar.getInstance());
+                log.info(String.format("First login set to: %s", sub.getDateFirstLogin()));
+                subChanged = true;
+            }
+            
+            if (subChanged){
+                em.persist(sub);
+            }
         }
         
         logAction(owner, "getCert", null);
@@ -1322,6 +1360,10 @@ public class PhoenixEndpoint {
             // Account issued time.
             Calendar calIssued = localUser.getIssued();
             resp.setAccountIssued(calIssued == null ? null : getXMLDate(calIssued.getTime()));
+            
+            // License type.
+            Integer licType = localUser.getLicenseType();
+            resp.setLicenseType(licType == null ? -1 : licType);
        
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
@@ -1611,6 +1653,14 @@ public class PhoenixEndpoint {
             response.getCertificate().setStatus(CertificateStatus.OK);
             response.getCertificate().setCertificate(sign.getEncoded());
             response.getCertificate().setUser(reqUser);
+            
+            // If user does not have first login date filled in, add this one.
+            Calendar fLogin = localUser.getDateFirstLogin();
+            if (fLogin == null || fLogin.before(get1971())){
+                localUser.setDateFirstLogin(Calendar.getInstance());
+                log.info(String.format("First login set to: %s", localUser.getDateFirstLogin()));
+                em.persist(localUser);
+            }
             
             logAction(reqUser, "signCert", null);
         } catch (InvalidKeyException ex) {

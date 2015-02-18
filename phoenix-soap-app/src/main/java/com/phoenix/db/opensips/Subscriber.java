@@ -71,6 +71,8 @@ public class Subscriber implements java.io.Serializable {
         @Column(name = "date_first_user_added", nullable = true, columnDefinition = "DATETIME")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateFirstUserAdded = null;
+        @Column(name = "license_type", nullable = true)
+        private Integer licenseType;
 
 	public Subscriber() {
 	}
@@ -238,5 +240,13 @@ public class Subscriber implements java.io.Serializable {
 
         public void setDateFirstUserAdded(Calendar dateFirstUserAdded) {
             this.dateFirstUserAdded = dateFirstUserAdded;
+        }
+
+        public Integer getLicenseType() {
+            return licenseType;
+        }
+
+        public void setLicenseType(Integer licenseType) {
+            this.licenseType = licenseType;
         }
 }
