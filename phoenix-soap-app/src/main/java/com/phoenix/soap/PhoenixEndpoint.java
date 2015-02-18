@@ -1108,7 +1108,7 @@ public class PhoenixEndpoint {
         try {   
             // Integer version by default set to 3. 
             // Changes window of the login validity.
-            int reqVersion = 1;
+            int reqVersion = 2;
             Integer reqVersionInt = request.getVersion();
             if (reqVersionInt != null){
                 reqVersion = reqVersionInt.intValue();
@@ -1383,7 +1383,7 @@ public class PhoenixEndpoint {
             // This was increased in v3 so users are not bullied for not 
             // minute-precise time setup.
             long milliSecondWindowSize = 1000L * 60L;
-            if (reqVersion == 3){
+            if (reqVersion >= 3){
                 milliSecondWindowSize = 1000L * 60L * 10L;
             }
             
@@ -1801,7 +1801,7 @@ public class PhoenixEndpoint {
             
             // Integer version by default set to 3. 
             // Changes window of the login validity.
-            int reqVersion = 1;
+            int reqVersion = 2;
             Integer reqVersionInt = request.getVersion();
             if (reqVersionInt != null){
                 reqVersion = reqVersionInt.intValue();
