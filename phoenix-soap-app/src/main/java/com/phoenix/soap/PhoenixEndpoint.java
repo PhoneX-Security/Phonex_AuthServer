@@ -271,7 +271,7 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public WhitelistResponse whitelistRequest(@RequestPayload WhitelistRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (whitelistRequest): " + owner);
         
         // obtain all requests to modify whitelist from message
         List<WhitelistRequestElement> whitelistrequestElement =
@@ -381,7 +381,7 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public WhitelistGetResponse whitelistGetRequest(@RequestPayload WhitelistGetRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (whitelistGetRequest): " + owner);
         
         // constructing whitelist response
         WhitelistGetResponse response = new WhitelistGetResponse();
@@ -417,7 +417,7 @@ public class PhoenixEndpoint {
     public ContactlistGetResponse contactlistGetRequest(@RequestPayload ContactlistGetRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
         String ownerSip = PhoenixDataService.getSIP(owner);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (contactlistGetRequest): " + owner);
         
         // subscriber list
         List<Subscriber> subs = new LinkedList<Subscriber>();
@@ -565,7 +565,7 @@ public class PhoenixEndpoint {
     public ContactlistChangeResponse contactlistChangeRequest(@RequestPayload ContactlistChangeRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
         String ownerSip = PhoenixDataService.getSIP(owner);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (contactlistChangeRequest) : " + owner);
         
         // construct response, then add results iteratively
         ContactlistChangeResponse response = new ContactlistChangeResponse();
@@ -827,7 +827,7 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public GetCertificateResponse getCertificate(@RequestPayload GetCertificateRequest request, MessageContext context) throws CertificateException {
         String owner = this.authRemoteUserFromCert(context, this.request);
-        log.info("Remote user connected: " + owner);
+        log.info("Remote user connected (getCertificate): " + owner);
        
         // support also remote users :)
         // 1. try to load local user
@@ -1035,7 +1035,7 @@ public class PhoenixEndpoint {
         
         // user is provided in request thus try to load it from database
         String sip = request.getUser();
-        log.info("User [" + sip + "] is asking to verify credentials");
+        log.info("User [" + sip + "] is asking to change password");
 
         // user matches, load subscriber data for him
         Subscriber owner = this.dataService.getLocalUser(sip);
@@ -1047,7 +1047,7 @@ public class PhoenixEndpoint {
             log.warn("Local user is deleted/disabled. SIP: " + sip);
             throw new IllegalArgumentException("Not authorized");
         }
-        log.info("User connected: " + sip);
+        log.info("Remote user connected (passwordChange): " + sip);
         
         // construct response wrapper
         PasswordChangeResponse response = new PasswordChangeResponse();
@@ -1737,7 +1737,7 @@ public class PhoenixEndpoint {
     public FtAddDHKeysResponse ftAddDHKeys(@RequestPayload FtAddDHKeysRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
         String ownerSip = PhoenixDataService.getSIP(owner);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (ftAddDHKeys): " + owner);
         
         // construct response, then add results iteratively
         FtAddDHKeysResponse response = new FtAddDHKeysResponse();
@@ -1810,7 +1810,7 @@ public class PhoenixEndpoint {
     public FtRemoveDHKeysResponse ftRemoveDHKeys(@RequestPayload FtRemoveDHKeysRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
         String ownerSip = PhoenixDataService.getSIP(owner);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (ftRemoveDHKeys): " + owner);
         
         // construct response, then add results iteratively
         Integer result = -1;
@@ -1926,7 +1926,7 @@ public class PhoenixEndpoint {
     public FtGetStoredDHKeysInfoResponse ftGetStoredDHKeysInfo(@RequestPayload FtGetStoredDHKeysInfoRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
         String ownerSip = PhoenixDataService.getSIP(owner);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (ftGetStoredDHKeysInfo): " + owner);
         
         // construct response, then add results iteratively
         FtGetStoredDHKeysInfoResponse response = new FtGetStoredDHKeysInfoResponse();
@@ -2181,7 +2181,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public FtDeleteFilesResponse ftDeleteFiles(@RequestPayload FtDeleteFilesRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (ftDeleteFiles): " + owner);
         
         // construct response, then add results iteratively
         FtDeleteFilesResponse response = new FtDeleteFilesResponse();
@@ -2282,7 +2282,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public FtGetStoredFilesResponse ftGetStoredFiles(@RequestPayload FtGetStoredFilesRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        log.info("User connected: " + owner);
+        log.info("Remote user connected (ftGetStoredFiles): " + owner);
         
         // Construct response
         FtGetStoredFilesResponse response = new FtGetStoredFilesResponse();
