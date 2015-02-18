@@ -71,6 +71,18 @@ public class Subscriber implements java.io.Serializable {
         @Column(name = "date_first_user_added", nullable = true, columnDefinition = "DATETIME")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateFirstUserAdded = null;
+        // Timestamp for the first authCheck.
+        @Column(name = "date_first_authCheck", nullable = true, columnDefinition = "DATETIME")
+        @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+        private java.util.Calendar dateFirstAuthCheck = null;
+        // Timestamp for the last authCheck.
+        @Column(name = "date_last_authCheck", nullable = true, columnDefinition = "DATETIME")
+        @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+        private java.util.Calendar dateLastAuthCheck = null;
+        // Timestamp for the last password change.
+        @Column(name = "date_last_pass_change", nullable = true, columnDefinition = "DATETIME")
+        @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+        private java.util.Calendar dateLastPasswordChange = null;
         // Timestamp for the last activity.
         @Column(name = "date_last_activity", nullable = true, columnDefinition = "DATETIME")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
@@ -262,4 +274,29 @@ public class Subscriber implements java.io.Serializable {
         public void setDateLastActivity(Calendar dateLastActivity) {
             this.dateLastActivity = dateLastActivity;
         }
+
+        public Calendar getDateFirstAuthCheck() {
+            return dateFirstAuthCheck;
+        }
+
+        public void setDateFirstAuthCheck(Calendar dateFirstAuthCheck) {
+            this.dateFirstAuthCheck = dateFirstAuthCheck;
+        }
+
+        public Calendar getDateLastAuthCheck() {
+            return dateLastAuthCheck;
+        }
+
+        public void setDateLastAuthCheck(Calendar dateLastAuthCheck) {
+            this.dateLastAuthCheck = dateLastAuthCheck;
+        }  
+
+        public Calendar getDateLastPasswordChange() {
+            return dateLastPasswordChange;
+        }
+
+        public void setDateLastPasswordChange(Calendar dateLastPasswordChange) {
+            this.dateLastPasswordChange = dateLastPasswordChange;
+        }
+        
 }

@@ -870,6 +870,8 @@
                 <xs:element name="authHash" type="xs:string"/>
                 <xs:element name="unregisterIfOK" type="hr:trueFalse"/>
                 <xs:element name="resourceId" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="appVersion" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="capabilities" type="xs:string" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
@@ -897,6 +899,12 @@
                 <xs:element name="licenseType" type="xs:string" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="accountIssued" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstAuthCheckDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="lastAuthCheckDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstLoginDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstUserAddDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountLastActivity" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountLastPassChange" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
@@ -934,6 +942,12 @@
                 <xs:element name="licenseType" type="xs:string" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="accountIssued" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstAuthCheckDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="lastAuthCheckDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstLoginDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstUserAddDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountLastActivity" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountLastPassChange" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>

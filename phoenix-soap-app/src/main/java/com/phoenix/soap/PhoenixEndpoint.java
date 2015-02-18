@@ -830,6 +830,7 @@ public class PhoenixEndpoint {
      */
     @PayloadRoot(localPart = "getCertificateRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public GetCertificateResponse getCertificate(@RequestPayload GetCertificateRequest request, MessageContext context) throws CertificateException {
         String owner = this.authRemoteUserFromCert(context, this.request);
         log.info("Remote user connected (getCertificate): " + owner);
@@ -1193,6 +1194,7 @@ public class PhoenixEndpoint {
             targetUserObj.setHa1(newHA1Dec);
             targetUserObj.setHa1b(newHA1BDec);
             targetUserObj.setForcePasswordChange(false);
+            targetUserObj.setDateLastPasswordChange(Calendar.getInstance());
             em.persist(targetUserObj);
             
             response.setResult(1);
@@ -1431,13 +1433,31 @@ public class PhoenixEndpoint {
             Calendar calIssued = localUser.getIssued();
             resp.setAccountIssued(calIssued == null ? null : getXMLDate(calIssued.getTime()));
             
+            Calendar firstUserAddTime = localUser.getDateFirstUserAdded();
+            resp.setFirstUserAddDate(firstUserAddTime == null ? null : getXMLDate(firstUserAddTime.getTime()));
+            
+            Calendar firstLogin = localUser.getDateFirstLogin();
+            resp.setFirstLoginDate(firstLogin == null ? null : getXMLDate(firstLogin.getTime()));
+            
+            Calendar lastActivity = localUser.getDateLastActivity();
+            resp.setAccountLastActivity(lastActivity == null ? null : getXMLDate(lastActivity.getTime()));
+            
+            Calendar lastPasswdChange = localUser.getDateLastPasswordChange();
+            resp.setAccountLastPassChange(lastPasswdChange == null ? null : getXMLDate(lastPasswdChange.getTime()));
+            
+            Calendar firstAuthCheck = localUser.getDateFirstAuthCheck();
+            resp.setFirstAuthCheckDate(firstAuthCheck == null ? null : getXMLDate(firstAuthCheck.getTime()));
+            
+            Calendar lastAuthCheck = localUser.getDateLastAuthCheck();
+            resp.setLastAuthCheckDate(lastAuthCheck == null ? null : getXMLDate(lastAuthCheck.getTime()));
+            
             // License type.
             String licType = localUser.getLicenseType();
             resp.setLicenseType(licType == null ? "-1" : licType);
             
             // Number of stored files for given user.
             resp.setStoredFilesNum(Integer.valueOf((int)fmanager.getStoredFilesNum(localUser)));
-       
+            
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
                 resp.setErrCode(405);
@@ -1492,6 +1512,17 @@ public class PhoenixEndpoint {
                     resp.setCertValid(TrueFalseNA.TRUE);
                     resp.setCertStatus(CertificateStatus.OK);
                 }
+                
+                // First login if not set.
+                Calendar fAuthCheck = localUser.getDateFirstAuthCheck();
+                if (fAuthCheck == null || fAuthCheck.before(get1971())){
+                    localUser.setDateFirstAuthCheck(Calendar.getInstance());
+                    log.info(String.format("First autch check set to: %s", localUser.getDateFirstAuthCheck()));
+                }
+
+                // Update last activity date.
+                localUser.setDateLastAuthCheck(Calendar.getInstance());
+                em.persist(localUser);
                 
                 logAction(certSip, "authCheck3", null);
             } catch (Exception e){
@@ -1579,6 +1610,24 @@ public class PhoenixEndpoint {
             // Account issued time.
             Calendar calIssued = localUser.getIssued();
             resp.setAccountIssued(calIssued == null ? null : getXMLDate(calIssued.getTime()));
+            
+            Calendar firstUserAddTime = localUser.getDateFirstUserAdded();
+            resp.setFirstUserAddDate(firstUserAddTime == null ? null : getXMLDate(firstUserAddTime.getTime()));
+            
+            Calendar firstLogin = localUser.getDateFirstLogin();
+            resp.setFirstLoginDate(firstLogin == null ? null : getXMLDate(firstLogin.getTime()));
+            
+            Calendar lastActivity = localUser.getDateLastActivity();
+            resp.setAccountLastActivity(lastActivity == null ? null : getXMLDate(lastActivity.getTime()));
+            
+            Calendar lastPasswdChange = localUser.getDateLastPasswordChange();
+            resp.setAccountLastPassChange(lastPasswdChange == null ? null : getXMLDate(lastPasswdChange.getTime()));
+            
+            Calendar firstAuthCheck = localUser.getDateFirstAuthCheck();
+            resp.setFirstAuthCheckDate(firstAuthCheck == null ? null : getXMLDate(firstAuthCheck.getTime()));
+            
+            Calendar lastAuthCheck = localUser.getDateLastAuthCheck();
+            resp.setLastAuthCheckDate(lastAuthCheck == null ? null : getXMLDate(lastAuthCheck.getTime()));
             
             // License type.
             String licType = localUser.getLicenseType();
