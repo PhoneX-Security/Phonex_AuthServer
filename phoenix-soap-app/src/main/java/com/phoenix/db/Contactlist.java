@@ -52,9 +52,11 @@ public class Contactlist implements Serializable {
     private ContactlistStatus entryState;
 
     // auditing information about creating and last change
-    @Temporal(javax.persistence.TemporalType.TIME)
+    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(name = "dateCreated", nullable = true, columnDefinition = "DATETIME")
     private Date dateCreated;
-    @Temporal(javax.persistence.TemporalType.TIME)
+    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(name = "dateLastEdit", nullable = true, columnDefinition = "DATETIME")
     private Date dateLastEdit;
     
     @Column(nullable = false, columnDefinition = "TINYINT(1)")
