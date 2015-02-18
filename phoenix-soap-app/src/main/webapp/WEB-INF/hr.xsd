@@ -826,6 +826,42 @@
         </xs:complexType>
     </xs:element>
     
+    <xs:element name="accountInfoV1Request">
+        <xs:complexType> 
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>   
+        </xs:complexType> 
+    </xs:element>
+    
+    <xs:element name="accountInfoV1Response">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 3
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="certValid" type="hr:trueFalseNA"/>
+                <xs:element name="certStatus" type="hr:certificateStatus"/>
+                <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
+                
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="licenseType" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountIssued" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
     <xs:element name="binaryMessageUpload">
         <xs:annotation>
             <xs:documentation>

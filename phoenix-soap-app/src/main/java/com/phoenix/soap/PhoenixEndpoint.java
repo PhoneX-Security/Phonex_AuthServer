@@ -1449,6 +1449,129 @@ public class PhoenixEndpoint {
     }
     
     /**
+     * Obtain basic information about current account.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "accountInfoV1Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AccountInfoV1Response accountInfoV1(@RequestPayload AccountInfoV1Request request, MessageContext context) throws CertificateException {
+        String owner = this.authRemoteUserFromCert(context, this.request);
+        log.info("Remote user connected (accountInfoV1) : " + owner);
+        
+        AccountInfoV1Response resp = new AccountInfoV1Response();
+        resp.setCertValid(TrueFalseNA.NA);
+        resp.setCertStatus(CertificateStatus.MISSING);
+        resp.setForcePasswordChange(TrueFalse.FALSE);
+        resp.setAccountDisabled(true);
+        resp.setAuxVersion(0);
+        resp.setAuxJSON("");
+        resp.setErrCode(404);
+        try {
+            // Integer version by default set to 3. 
+            // Changes window of the login validity.
+            int reqVersion = 3;
+            Integer reqVersionInt = request.getVersion();
+            if (reqVersionInt != null){
+                reqVersion = reqVersionInt.intValue();
+            }
+            
+            // Date conversion can throw exception
+            resp.setAccountExpires(getXMLDate(new Date()));
+            resp.setServerTime(getXMLDate(new Date()));
+            resp.setAccountIssued(getXMLDate(new Date()));
+            
+            // user is provided in request thus try to load it from database
+            String sip = request.getTargetUser();
+            log.info(String.format("User [%s] is asking for details, reqVer: %d", sip, reqVersion));
+            
+            // user matches, load subscriber data for him
+            Subscriber localUser = this.dataService.getLocalUser(sip);
+            if (localUser == null){
+                log.warn("Local user was not found in database for: " + sip);
+                return resp;
+            }
+            
+            // User valid ?
+            resp.setAccountDisabled(localUser.isDeleted());
+            
+            // Time can be null, account expire time.
+            Calendar cal = localUser.getExpires();
+            resp.setAccountExpires(cal == null ? null : getXMLDate(cal.getTime()));
+            
+            // Account issued time.
+            Calendar calIssued = localUser.getIssued();
+            resp.setAccountIssued(calIssued == null ? null : getXMLDate(calIssued.getTime()));
+            
+            // License type.
+            Integer licType = localUser.getLicenseType();
+            resp.setLicenseType(licType == null ? -1 : licType);
+       
+            // If user was deleted, login was not successful.
+            if (localUser.isDeleted()){
+                resp.setErrCode(405);
+                return resp;
+            }
+            
+            // Force password change?
+            Boolean passwdChange = localUser.getForcePasswordChange();
+            if (passwdChange!=null && passwdChange==true){
+                resp.setForcePasswordChange(TrueFalse.TRUE);
+            }
+            
+            // now try to test certificate if any provided
+            try {
+                // check user validity
+                if (owner.equals(sip)==false){
+                    resp.setCertValid(TrueFalseNA.FALSE);
+                    return resp;
+                }
+                
+                // Get certificate chain from cert parameter. Obtain user certificate
+                // that was used in connection
+                X509Certificate certChain[] = auth.getCertChain(context, this.request);
+                // client certificate SHOULD be stored first here, so assume it
+                X509Certificate cert509 = certChain[0];
+                // time-date validity
+                cert509.checkValidity();
+                // is signed by server CA?
+                //cert509.verify(this.trustManager.getServerCA().getPublicKey());
+                trustManager.checkTrusted(cert509);
+                
+                // is revoked?
+                Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
+                if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
+                    log.info("Certificate for user is revoked: " + cert509.getSerialNumber().longValue());
+                    resp.setCertValid(TrueFalseNA.FALSE);
+                    resp.setCertStatus(CertificateStatus.REVOKED);
+                } else {
+                    resp.setCertValid(TrueFalseNA.TRUE);
+                    resp.setCertStatus(CertificateStatus.OK);
+                }
+                
+                logAction(owner, "accountInfo1", null);
+            } catch (Exception e){
+                // no certificate, just return response, exception is 
+                // actually really expected :)
+                log.debug("Certificate was not valid: ", e);
+                resp.setCertValid(TrueFalseNA.FALSE);
+                resp.setCertStatus(CertificateStatus.INVALID);
+                return resp;
+            }
+         } catch(Exception e){
+             log.warn("Exception in password change procedure", e);
+             throw new RuntimeException(e);
+         }
+         
+        resp.setErrCode(0);
+        return resp;
+    }
+    
+    /**
      * Signing certificates in Certificate Signing Request that come from remote 
      * party - mobile devices.
      * 
