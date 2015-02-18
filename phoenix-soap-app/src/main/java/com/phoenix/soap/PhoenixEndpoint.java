@@ -1362,8 +1362,8 @@ public class PhoenixEndpoint {
             resp.setAccountIssued(calIssued == null ? null : getXMLDate(calIssued.getTime()));
             
             // License type.
-            Integer licType = localUser.getLicenseType();
-            resp.setLicenseType(licType == null ? -1 : licType);
+            String licType = localUser.getLicenseType();
+            resp.setLicenseType(licType == null ? "-1" : licType);
        
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
@@ -1508,8 +1508,8 @@ public class PhoenixEndpoint {
             resp.setAccountIssued(calIssued == null ? null : getXMLDate(calIssued.getTime()));
             
             // License type.
-            Integer licType = localUser.getLicenseType();
-            resp.setLicenseType(licType == null ? -1 : licType);
+            String licType = localUser.getLicenseType();
+            resp.setLicenseType(licType == null ? "-1" : licType);
        
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
