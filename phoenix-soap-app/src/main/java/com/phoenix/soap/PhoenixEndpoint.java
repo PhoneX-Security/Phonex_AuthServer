@@ -779,7 +779,7 @@ public class PhoenixEndpoint {
                     }
                     
                     Xcap xcapEntity = pmanager.updateXCAPPolicyFile(tuser.getUsername(), tuser.getDomain(), sips);
-                    log.info("XcapEntity persisted: " + xcapEntity.toString());
+                    log.info("XcapEntity persisted");
                     this.em.flush();
                     
                     // Synchronize roster list.
@@ -1027,6 +1027,43 @@ public class PhoenixEndpoint {
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public PasswordChangeResponse passwordChange(@RequestPayload PasswordChangeRequest request, MessageContext context) throws CertificateException {
+        // Prepare request v2.
+        PasswordChangeV2Request req2 = new PasswordChangeV2Request();
+        req2.setAuthHash(request.getAuthHash());
+        req2.setNewHA1(request.getNewHA1());
+        req2.setNewHA1B(request.getNewHA1B());
+        req2.setServerToken(request.getServerToken());
+        req2.setTargetUser(request.getTargetUser());
+        req2.setUser(request.getUser());
+        req2.setUsrToken(request.getUsrToken());
+        req2.setVersion(1);
+        
+        // Do the job.
+        PasswordChangeV2Response resp2 = this.passwordChangeV2(req2, context);
+        
+        // Convert back to v1.
+        PasswordChangeResponse resp1 = new PasswordChangeResponse();
+        resp1.setReason(resp2.getReason());
+        resp1.setResult(resp2.getResult());
+        resp1.setTargetUser(resp2.getTargetUser());
+        return resp1;
+    }
+    
+    /**
+     * Changing user password. 
+     * 
+     * With this call user can change password even for different user (in its group).
+     * Passwords for both HA1 and HA1B has to be provided.
+     * 
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "passwordChangeV2Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public PasswordChangeV2Response passwordChangeV2(@RequestPayload PasswordChangeV2Request request, MessageContext context) throws CertificateException {
         // protect user identity and avoid MITM, require SSL
         this.checkOneSideSSL(context, this.request);
         
@@ -1047,7 +1084,7 @@ public class PhoenixEndpoint {
         log.info("Remote user connected (passwordChange): " + sip);
         
         // construct response wrapper
-        PasswordChangeResponse response = new PasswordChangeResponse();
+        PasswordChangeV2Response response = new PasswordChangeV2Response();
         response.setResult(-1);
         
         // obtain new password encrypted by my AES
@@ -1060,7 +1097,23 @@ public class PhoenixEndpoint {
             throw new IllegalArgumentException("Null password");
         }
                 
-        try {            
+        try {   
+            // Integer version by default set to 3. 
+            // Changes window of the login validity.
+            int reqVersion = 1;
+            Integer reqVersionInt = request.getVersion();
+            if (reqVersionInt != null){
+                reqVersion = reqVersionInt.intValue();
+            }
+            
+            // Adjust millisecond window size for auth hash validity.
+            // This was increased in v3 so users are not bullied for not 
+            // minute-precise time setup.
+            long milliSecondWindowSize = 1000L * 60L;
+            if (reqVersion >= 2){
+                milliSecondWindowSize = 1000L * 60L * 10L;
+            } 
+            
             // check token here!
             boolean ott_valid = this.dataService.isOneTimeTokenValid(sip, request.getUsrToken(), request.getServerToken(), "");
             if (ott_valid==false){
@@ -1077,10 +1130,10 @@ public class PhoenixEndpoint {
                 userHashes[c] = this.dataService.generateUserAuthToken(
                     sip, owner.getHa1(), 
                     request.getUsrToken(), request.getServerToken(), 
-                    1000 * 60, i);
+                    milliSecondWindowSize, i);
                 encKeys[c] = this.dataService.generateUserEncToken(sip, owner.getHa1(), 
                     request.getUsrToken(), request.getServerToken(), 
-                    1000 * 60, i);
+                    milliSecondWindowSize, i);
             }
             
             // verify one of auth hashes
@@ -1591,12 +1644,54 @@ public class PhoenixEndpoint {
     @PayloadRoot(localPart = "signCertificateRequest", namespace = NAMESPACE_URI)
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    public SignCertificateResponse signCertificate(@RequestPayload SignCertificateRequest request, MessageContext context) throws CertificateException {
+    public SignCertificateResponse signCertificate(@RequestPayload SignCertificateRequest req1, MessageContext context) throws CertificateException {
+        // Construct v2 request.
+        SignCertificateV2Request req2 = new SignCertificateV2Request();
+        req2.setAuthHash(req1.getAuthHash());
+        req2.setCSR(req1.getCSR());
+        req2.setServerToken(req1.getServerToken());
+        req2.setUser(req1.getUser());
+        req2.setUsrToken(req1.getUsrToken());
+        req2.setVersion(1);
+        
+        // Do the job.
+        SignCertificateV2Response resp2 = this.signCertificateV2(req2, context);
+        
+        // Convert back to version 1.
+        SignCertificateResponse resp1 = new SignCertificateResponse();
+        resp1.setCertificate(resp2.getCertificate());
+        return resp1;
+    }
+    
+    /**
+     * Signing certificates in Certificate Signing Request that come from remote 
+     * party - mobile devices.
+     * 
+     * Be very careful during this method, it is used ONLY when new user is added
+     * to the system. Audit everything and be very strict with signing something.
+     * 
+     * Restrictions:
+     *  1. user must be in database -> local user
+     *  2. user has to have enabled flag allowing signing new certificate
+     *      this flag is immediately reseted after signing. Only manual intervention
+     *      can revert value of the flag to enable signing again.
+     *  3. user has to provide AUTH token to prove identity
+     *      sha1(challenge, time_block, user, hashed_password_to_sip_server) 
+     *  4. connection has to use SSL to avoid MITM.
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException 
+     */
+    @PayloadRoot(localPart = "signCertificateV2Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public SignCertificateV2Response signCertificateV2(@RequestPayload SignCertificateV2Request request, MessageContext context) throws CertificateException {
         // protect user identity and avoid MITM, require SSL
         this.checkOneSideSSL(context, this.request);
         
         // construct response wrapper
-        SignCertificateResponse response = new SignCertificateResponse();
+        SignCertificateV2Response response = new SignCertificateV2Response();
         CertificateWrapper certificate = new CertificateWrapper();
         certificate.setStatus(CertificateStatus.INVALID);
         response.setCertificate(certificate);
@@ -1627,6 +1722,22 @@ public class PhoenixEndpoint {
                 throw new IllegalArgumentException("Not authorized");
             }
             
+            // Integer version by default set to 3. 
+            // Changes window of the login validity.
+            int reqVersion = 1;
+            Integer reqVersionInt = request.getVersion();
+            if (reqVersionInt != null){
+                reqVersion = reqVersionInt.intValue();
+            }
+            
+            // Adjust millisecond window size for auth hash validity.
+            // This was increased in v3 so users are not bullied for not 
+            // minute-precise time setup.
+            long milliSecondWindowSize = 1000L * 60L;
+            if (reqVersion >= 2){
+                milliSecondWindowSize = 1000L * 60L * 10L;
+            } 
+            
             // check token here!
             boolean ott_valid = this.dataService.isOneTimeTokenValid(reqUser, request.getUsrToken(), request.getServerToken(), "");
             if (ott_valid==false){
@@ -1643,10 +1754,10 @@ public class PhoenixEndpoint {
                 userHashes[c] = this.dataService.generateUserAuthToken(
                     reqUser, localUser.getHa1(), 
                     request.getUsrToken(), request.getServerToken(), 
-                    1000 * 60, i);
+                    milliSecondWindowSize, i);
                 encKeys[c] = this.dataService.generateUserEncToken(reqUser, localUser.getHa1(), 
                     request.getUsrToken(), request.getServerToken(), 
-                    1000 * 60, i);
+                    milliSecondWindowSize, i);
             }
             
             // verify one of auth hashes
@@ -1816,7 +1927,7 @@ public class PhoenixEndpoint {
         return response;
     }
     
-     /**
+    /**
      * Obtains one time token. 
      * Required for some special further actions.
      * @param request

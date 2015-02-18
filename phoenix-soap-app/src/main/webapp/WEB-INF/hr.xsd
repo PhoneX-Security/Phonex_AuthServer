@@ -577,6 +577,43 @@
         </xs:complexType>
     </xs:element>
     
+    <xs:element name="signCertificateV2Request">
+        <xs:annotation>
+            <xs:documentation>
+                Request for signing certificate by server CA - be very carefull!
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="usrToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="CSR" type="hr:binaryPayload"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="signCertificateV2Response">
+        <xs:annotation>
+            <xs:documentation>
+                Response contains X.509 certificates
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="certificate" 
+                            type="hr:certificateWrapper" 
+                            minOccurs="1" 
+                            maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
     <xs:element name="getOneTimeTokenRequest">
         <xs:annotation>
             <xs:documentation>
@@ -640,6 +677,46 @@
                 <xs:element name="targetUser" type="hr:userSIP"/>
                 <xs:element name="result" type="xs:int"/>
                 <xs:element name="reason" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    
+    <xs:element name="passwordChangeV2Request">
+        <xs:annotation>
+            <xs:documentation>
+                Request to change password to provided value. 
+                User can also change password for different user - see targetUser field.
+                Password is encrypted like CSR is, but in base64, 
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="usrToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="newHA1" type="hr:binaryPayload"/>
+                <xs:element name="newHA1B" type="hr:binaryPayload"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>   
+        </xs:complexType>
+    </xs:element>
+        
+    <xs:element name="passwordChangeV2Response">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for password change request
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="result" type="xs:int"/>
+                <xs:element name="reason" type="xs:string"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
