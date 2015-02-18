@@ -204,7 +204,7 @@ public class PhoenixEndpoint {
                 throw new CertificateException("You are not authorized, go away!");
             }
             
-            log.info("Request came from user: [" + sip + "]");
+            log.info("AuthCheckFromCert Request came from user: [" + sip + "]");
             this.owner_sip = sip;
             Subscriber subs = this.dataService.getLocalUser(sip);
             if (subs==null){
@@ -2508,7 +2508,6 @@ public class PhoenixEndpoint {
                 fmanager.deleteFilesList(sfList);
                 
                 // Get all new nonces - notify user about new files
-                String ownerSip = PhoenixDataService.getSIP(owner);
                 List<String> nc = fmanager.getStoredFilesNonces(owner);
                 pmanager.notifyNewFiles(ownerSip, nc);
                 
@@ -2563,7 +2562,6 @@ public class PhoenixEndpoint {
             }
             
             // Get all new nonces - notify user about new files
-            String ownerSip = PhoenixDataService.getSIP(owner);
             List<String> nc = fmanager.getStoredFilesNonces(owner);
             pmanager.notifyNewFiles(ownerSip, nc);
             
