@@ -124,6 +124,11 @@ public class PhoenixEndpoint {
     private static final String NAMESPACE_URI = "http://phoenix.com/hr/schemas";
     
     private static final boolean CLIENT_DEBUG=true;
+    private static final int CLIST_CHANGE_ERROR_GENERIC = -1;
+    private static final int CLIST_CHANGE_ERROR_EMPTY_REQUEST_LIST = -3;
+    private static final int CLIST_CHANGE_ERROR_ALREADY_ADDED = -2;
+    private static final int CLIST_CHANGE_ERROR_INVALID_NAME = -5;
+    private static final int CLIST_CHANGE_ERROR_NO_USER = -6;
     
     @Autowired
     private SessionFactory sessionFactory;
@@ -575,7 +580,7 @@ public class PhoenixEndpoint {
         if (elems==null || elems.isEmpty()){
             log.info("elems is empty");
             ContactlistReturn ret = new ContactlistReturn();
-            ret.setResultCode(-3);
+            ret.setResultCode(CLIST_CHANGE_ERROR_EMPTY_REQUEST_LIST);
             
             response.getReturn().add(ret);
             return response;
@@ -615,7 +620,7 @@ public class PhoenixEndpoint {
                 }
                 
                 ContactlistReturn ret = new ContactlistReturn();
-                ret.setResultCode(-1);
+                ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
                 ret.setTargetUser(elem.getTargetUser());
                 ret.setUser(PhoenixDataService.getSIP(s));
                 
@@ -672,7 +677,7 @@ public class PhoenixEndpoint {
                         // add action
                         if (action==ContactlistAction.ADD){
                             // makes no sense, already in
-                            ret.setResultCode(-2);
+                            ret.setResultCode(CLIST_CHANGE_ERROR_ALREADY_ADDED);
                             response.getReturn().add(ret);
                             log.info("Wanted to add already existing user");
                             continue;
@@ -682,7 +687,7 @@ public class PhoenixEndpoint {
                         if (action==ContactlistAction.UPDATE && elem.getDisplayName()!=null){
                             final String newDispName = elem.getDisplayName();
                             if (newDispName.isEmpty()==false && newDispName.matches(DISPLAY_NAME_REGEX)==false){
-                                ret.setResultCode(-5);
+                                ret.setResultCode(CLIST_CHANGE_ERROR_INVALID_NAME);
                                 response.getReturn().add(ret);
                                 log.info("Display name regex fail: [" + newDispName + "]");
                                 continue;
@@ -720,7 +725,7 @@ public class PhoenixEndpoint {
                     } else {                        
                         // contact list entry is empty -> record does not exist
                         if (action == ContactlistAction.REMOVE){
-                            ret.setResultCode(-1);
+                            ret.setResultCode(CLIST_CHANGE_ERROR_NO_USER);
                             response.getReturn().add(ret);
                             log.info("Wanted to delete non-existing whitelist record");
                             continue;
@@ -749,13 +754,13 @@ public class PhoenixEndpoint {
                             ret.setResultCode(1);
                             response.getReturn().add(ret);
                         } else {
-                            ret.setResultCode(-1);
+                            ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
                             response.getReturn().add(ret);
                         }
                     }
                 } catch(Exception e){
                     log.info("Manipulation with contactlist failed", e);
-                    ret.setResultCode(-1);
+                    ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
                     response.getReturn().add(ret);
                 }
             }
