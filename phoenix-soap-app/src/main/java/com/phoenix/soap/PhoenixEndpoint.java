@@ -1106,7 +1106,7 @@ public class PhoenixEndpoint {
         }
                 
         try {   
-            // Integer version by default set to 3. 
+            // Integer version by default set to 2. 
             // Changes window of the login validity.
             int reqVersion = 2;
             Integer reqVersionInt = request.getVersion();
@@ -1149,7 +1149,7 @@ public class PhoenixEndpoint {
             String encKey = "";
             for (int c=0; c<=2; c++){
                 String curAuthHash = userHashes[c];
-                log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+curAuthHash+"]");
+                log.info("Verify auth hash["+request.getAuthHash()+"] vs. genhash["+curAuthHash+"] window: "+ milliSecondWindowSize);
                 if (curAuthHash.equals(request.getAuthHash())){
                     encKey = encKeys[c];
                     authHash_valid=true;
@@ -1274,7 +1274,7 @@ public class PhoenixEndpoint {
         req3.setTargetUser(request.getTargetUser());
         req3.setUnregisterIfOK(request.getUnregisterIfOK());
         Integer reqVer = request.getVersion();
-        if (reqVer == null){
+        if (reqVer == null || reqVer.compareTo(0) == 0){
             reqVer = 2;
         }
         req3.setVersion(reqVer);
@@ -1321,7 +1321,7 @@ public class PhoenixEndpoint {
         req3.setTargetUser(request.getTargetUser());
         req3.setUnregisterIfOK(request.getUnregisterIfOK());
         Integer reqVer = request.getVersion();
-        if (reqVer == null){
+        if (reqVer == null || reqVer.compareTo(0) == 0){
             reqVer = 2;
         }
         req3.setVersion(reqVer);
