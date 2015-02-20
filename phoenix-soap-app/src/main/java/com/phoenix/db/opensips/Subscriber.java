@@ -90,6 +90,8 @@ public class Subscriber implements java.io.Serializable {
         // License type for the user. 
         @Column(name = "license_type", nullable = true, length = 64)
         private String licenseType;
+        @Column(name = "app_version", nullable = true, length = 128)
+        private String appVersion;
 
 	public Subscriber() {
 	}
@@ -297,6 +299,14 @@ public class Subscriber implements java.io.Serializable {
 
         public void setDateLastPasswordChange(Calendar dateLastPasswordChange) {
             this.dateLastPasswordChange = dateLastPasswordChange;
+        }
+
+        public String getAppVersion() {
+            return appVersion;
+        }
+
+        public void setAppVersion(String appVersion) {
+            this.appVersion = appVersion;
         }
         
 }

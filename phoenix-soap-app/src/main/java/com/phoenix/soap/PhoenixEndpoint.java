@@ -74,6 +74,7 @@ import com.phoenix.soap.beans.WhitelistAction;
 import com.phoenix.soap.beans.WhitelistElement;
 import com.phoenix.soap.beans.WhitelistGetResponse;
 import com.phoenix.utils.AESCipher;
+import com.phoenix.utils.StringUtils;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
@@ -1520,6 +1521,12 @@ public class PhoenixEndpoint {
                 if (fAuthCheck == null || fAuthCheck.before(get1971())){
                     localUser.setDateFirstAuthCheck(Calendar.getInstance());
                     log.info(String.format("First autch check set to: %s", localUser.getDateFirstAuthCheck()));
+                }
+                
+                // Store app version provided by the user so we have statistics of update and for debugging.
+                String appVersion = StringUtils.takeMaxN(request.getAppVersion(), 128);
+                if (appVersion != null){
+                    localUser.setAppVersion(appVersion);
                 }
 
                 // Update last activity date.
