@@ -1013,6 +1013,7 @@ public class PhoenixEndpoint {
             
             // Update last activity date.
             sub.setDateLastActivity(Calendar.getInstance());
+            sub.setLastAuthCheckIp(auth.getIp(this.request));
             em.persist(sub);
             log.info(String.format("Last activity set to: %s", sub.getDateLastActivity()));
         }
@@ -1531,6 +1532,7 @@ public class PhoenixEndpoint {
 
                 // Update last activity date.
                 localUser.setDateLastAuthCheck(Calendar.getInstance());
+                localUser.setLastAuthCheckIp(auth.getIp(this.request));
                 em.persist(localUser);
                 
                 logAction(certSip, "authCheck3", null);

@@ -165,6 +165,26 @@ public class EndpointAuth {
     }
     
     /**
+     * Gets IP address from request.
+     * @param request
+     * @return 
+     */
+    public String getIp(HttpServletRequest request){
+        String ipAddress = null;
+        
+        try {
+            ipAddress = request.getHeader("X-FORWARDED-FOR");
+            if (ipAddress == null) {
+                ipAddress = request.getRemoteAddr();
+            }
+        } catch(Exception e){
+            
+        }
+        
+        return ipAddress;
+    }
+    
+    /**
      * Extracts CN from X500Name
      * @param name
      * @return 

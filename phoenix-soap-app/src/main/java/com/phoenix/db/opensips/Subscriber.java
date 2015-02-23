@@ -92,6 +92,10 @@ public class Subscriber implements java.io.Serializable {
         private String licenseType;
         @Column(name = "app_version", nullable = true, length = 128)
         private String appVersion;
+        @Column(name = "last_action_ip", nullable = true, length = 128)
+        private String lastActionIp;
+        @Column(name = "last_authcheck_ip", nullable = true, length = 128)
+        private String lastAuthCheckIp;
 
 	public Subscriber() {
 	}
@@ -307,6 +311,22 @@ public class Subscriber implements java.io.Serializable {
 
         public void setAppVersion(String appVersion) {
             this.appVersion = appVersion;
+        }
+
+        public String getLastActionIp() {
+            return lastActionIp;
+        }
+
+        public void setLastActionIp(String lastActionIp) {
+            this.lastActionIp = lastActionIp;
+        }
+
+        public String getLastAuthCheckIp() {
+            return lastAuthCheckIp;
+        }
+
+        public void setLastAuthCheckIp(String lastAuthCheckIp) {
+            this.lastAuthCheckIp = lastAuthCheckIp;
         }
         
 }
