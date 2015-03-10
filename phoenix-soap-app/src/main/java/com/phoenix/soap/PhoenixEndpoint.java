@@ -76,6 +76,7 @@ import com.phoenix.soap.beans.WhitelistGetResponse;
 import com.phoenix.utils.AESCipher;
 import com.phoenix.utils.StringUtils;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -776,22 +777,7 @@ public class PhoenixEndpoint {
                 // regenerating policy for given contact
                 try {
                     Subscriber tuser = entry.getValue();
-                    
-                    List<Contactlist> contactlistForSubscriber = dataService.getContactlistForSubscriber(entry.getValue());
-                    Map<Integer, Subscriber> internalUsersInContactlist = dataService.getInternalUsersInContactlist(contactlistForSubscriber);
-                    
-                    List<String> sips = new ArrayList(contactlistForSubscriber.size());
-                    for(Entry<Integer, Subscriber> e : internalUsersInContactlist.entrySet()){
-                        String clsip = PhoenixDataService.getSIP(e.getValue());
-                        sips.add(clsip);
-                    }
-                    
-                    Xcap xcapEntity = pmanager.updateXCAPPolicyFile(tuser.getUsername(), tuser.getDomain(), sips);
-                    log.info("XcapEntity persisted");
-                    this.em.flush();
-                    
-                    // Synchronize roster list.
-                    dataService.syncRosterWithRetry(tuser, contactlistForSubscriber, 3);
+                    this.dataService.resyncRoster(tuser);
                 } catch(Exception ex){
                     log.error("Exception during presence rules generation for: " + entry.getValue(), ex);
                 }

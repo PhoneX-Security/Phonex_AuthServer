@@ -28,6 +28,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -824,6 +825,35 @@ public class PhoenixDataService {
         } else {
             return "";
         }
+    }
+    
+    public void resyncRoster(Subscriber tuser) throws IOException{
+        List<Contactlist> contactlistForSubscriber = getContactlistForSubscriber(tuser);
+        
+        // Obsoleted, not using XCAP anymore.
+//        Map<Integer, Subscriber> internalUsersInContactlist = getInternalUsersInContactlist(contactlistForSubscriber);
+//        List<String> sips = new ArrayList(contactlistForSubscriber.size());
+//        for(Map.Entry<Integer, Subscriber> e : internalUsersInContactlist.entrySet()){
+//            String clsip = PhoenixDataService.getSIP(e.getValue());
+//            sips.add(clsip);
+//        }      
+//        Xcap xcapEntity = pmanager.updateXCAPPolicyFile(tuser.getUsername(), tuser.getDomain(), sips);
+//        log.info("XcapEntity persisted");
+//        this.em.flush();
+
+        // Synchronize roster list.
+        syncRosterWithRetry(tuser, contactlistForSubscriber, 3);
+    }
+    
+    public void resyncRoster(String userName) throws IOException{
+        // regenerating policy for given contact
+        Subscriber tuser = getLocalUser(userName); 
+        if (tuser == null){
+            log.info("Cannot update roster for user " + userName + ", unknown destination");
+            return;
+        }
+
+        this.resyncRoster(tuser);
     }
     
     /**
