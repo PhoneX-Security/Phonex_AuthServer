@@ -140,14 +140,28 @@ public class AMQPListener extends BackgroundThreadService {
             this.ensureConnected();
 
             final QueueingConsumer consumer = new QueueingConsumer(channel);
-            channel.basicConsume(QUEUE_USERS_NAME, true, consumer);
+            final String consumerTag = consumer.getConsumerTag();
+            log.info(String.format("Consumer tag: %s", consumerTag));
+
+            final String serverConsumerTag = channel.basicConsume(QUEUE_USERS_NAME, false, consumer);
+            log.info(String.format("Server consumer tag: %s", serverConsumerTag));
+
             while (this.running) {
                 final QueueingConsumer.Delivery delivery = consumer.nextDelivery(2000);
                 if (delivery == null) {
                     continue;
                 }
 
-                processNewMessage(delivery);
+                final long deliveryTag = delivery.getEnvelope().getDeliveryTag();
+                log.info(String.format("Valid message received, tag=%d", deliveryTag));
+
+                // Ack message here.
+                channel.basicAck(deliveryTag, false);
+                try {
+                    processNewMessage(delivery);
+                } catch(Exception ex){
+                    log.error("Exception in message processing", ex);
+                }
             }
 
             // Close channel.
