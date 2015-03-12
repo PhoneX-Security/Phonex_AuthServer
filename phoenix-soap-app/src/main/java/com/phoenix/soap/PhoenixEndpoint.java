@@ -20,13 +20,9 @@ import com.phoenix.db.extra.WhitelistObjType;
 import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.db.opensips.Xcap;
-import com.phoenix.service.EndpointAuth;
+import com.phoenix.service.*;
 import com.phoenix.service.files.FileManager;
-import com.phoenix.service.PhoenixDataService;
-import com.phoenix.service.PhoenixServerCASigner;
 import com.phoenix.service.pres.PresenceManager;
-import com.phoenix.service.ServerCommandExecutor;
-import com.phoenix.service.TrustVerifier;
 import com.phoenix.soap.beans.AuthCheckRequestV2;
 import com.phoenix.soap.beans.AuthCheckResponseV2;
 import com.phoenix.soap.beans.TrueFalse;
@@ -161,10 +157,13 @@ public class PhoenixEndpoint {
     
     @Autowired(required = true)
     private ServerCommandExecutor executor;
+
+    @Autowired
+    private AMQPListener amqpListener;
     
     // owner SIP obtained from certificate
     private String owner_sip;
-    public static final String DISPLAY_NAME_REGEX="^[a-zA-Z0-9_\\-\\s\\./]+$";
+    public static final String DISPLAY_NAME_REGEX="^[a-zA-Z0-9_\\-\\s\\./!;\\(\\)@#&*\\[\\]\\^]+$";
     
     // Calendar for year 1971, used to check null-like dates.
     public static Calendar c1971;
@@ -737,6 +736,14 @@ public class PhoenixEndpoint {
                         
                         // add action
                         if (action == ContactlistAction.ADD){
+                            final String newDispName = elem.getDisplayName();
+                            if (!newDispName.isEmpty() && !newDispName.matches(DISPLAY_NAME_REGEX)){
+                                ret.setResultCode(CLIST_CHANGE_ERROR_INVALID_NAME);
+                                response.getReturn().add(ret);
+                                log.info("Display name regex fail: [" + newDispName + "]");
+                                continue;
+                            }
+
                             cl = new Contactlist();
                             cl.setDateCreated(new Date());
                             cl.setDateLastEdit(new Date());
@@ -748,7 +755,7 @@ public class PhoenixEndpoint {
                             
                             // whitelist state
                             WhitelistAction waction = elem.getWhitelistAction();
-                            if (waction == WhitelistAction.ENABLE || waction == WhitelistAction.ENABLE){
+                            if (waction == WhitelistAction.ENABLE || waction == WhitelistAction.ADD){
                                 cl.setInWhitelist(true);
                             } else {
                                 cl.setInWhitelist(false);
@@ -987,21 +994,21 @@ public class PhoenixEndpoint {
             Calendar fUserAdded = sub.getDateFirstUserAdded();
             if (askingForDifferentThanOurs && (fUserAdded == null || fUserAdded.before(get1971()))){
                 sub.setDateFirstUserAdded(Calendar.getInstance());
-                log.info(String.format("First user added date set to: %s", sub.getDateFirstUserAdded()));
+                log.info(String.format("First user added date set to: %s", sub.getDateFirstUserAdded().getTime()));
             }   
             
             // First login if not set.
             Calendar fLogin = sub.getDateFirstLogin();
             if (fLogin == null || fLogin.before(get1971())){
                 sub.setDateFirstLogin(Calendar.getInstance());
-                log.info(String.format("First login set to: %s", sub.getDateFirstLogin()));
+                log.info(String.format("First login set to: %s", sub.getDateFirstLogin().getTime()));
             }
             
             // Update last activity date.
             sub.setDateLastActivity(Calendar.getInstance());
             sub.setLastActionIp(auth.getIp(this.request));
             em.persist(sub);
-            log.info(String.format("Last activity set to: %s", sub.getDateLastActivity()));
+            log.info(String.format("Last activity set to: %s", sub.getDateLastActivity().getTime()));
         }
         
         logAction(owner, "getCert", null);
@@ -1291,11 +1298,11 @@ public class PhoenixEndpoint {
      * User can provide its auth hash and test its authentication with password.
      * This service is available on both ports with user certificate required or not.
      * Thus user can provide certificate and in this case it will be tested as well.
-     * 
+     *
      * @param request
      * @param context
      * @return
-     * @throws CertificateException 
+     * @throws CertificateException
      */
     @PayloadRoot(localPart = "authCheckV2Request", namespace = NAMESPACE_URI)
     @ResponsePayload
@@ -1708,7 +1715,8 @@ public class PhoenixEndpoint {
      *  3. user has to provide AUTH token to prove identity
      *      sha1(challenge, time_block, user, hashed_password_to_sip_server) 
      *  4. connection has to use SSL to avoid MITM.
-     * @param request
+     *
+     * @param req1
      * @param context
      * @return
      * @throws CertificateException 
@@ -1946,8 +1954,9 @@ public class PhoenixEndpoint {
             log.info("Certificate signed: " + sign);
             
             // update cacert in CA database - missing certificate values (binary, digest)
+            final String crtDigest = this.signer.getCertificateDigest(sign);
             cacertsSigned.setRawCert(sign.getEncoded());
-            cacertsSigned.setCertHash(this.signer.getCertificateDigest(sign));
+            cacertsSigned.setCertHash(crtDigest);
             em.persist(cacertsSigned);
             
             // flush transaction
@@ -1964,7 +1973,14 @@ public class PhoenixEndpoint {
                 log.info(String.format("First login set to: %s", localUser.getDateFirstLogin()));
                 em.persist(localUser);
             }
-            
+
+            // New login was successful, broadcast push notification.
+            try {
+                amqpListener.pushNewCertificate(reqUser, sign.getNotBefore().getTime(), crtDigest.substring(0, 10));
+            } catch(Exception ex){
+                log.error("Error in pushing new cert event", ex);
+            }
+
             logAction(reqUser, "signCert", null);
         } catch (InvalidKeyException ex) {
             log.warn("Problem with signing - invalid key", ex);
@@ -2748,5 +2764,13 @@ public class PhoenixEndpoint {
 
     public void setExecutor(ServerCommandExecutor executor) {
         this.executor = executor;
+    }
+
+    public AMQPListener getAmqpListener() {
+        return amqpListener;
+    }
+
+    public void setAmqpListener(AMQPListener amqpListener) {
+        this.amqpListener = amqpListener;
     }
 }

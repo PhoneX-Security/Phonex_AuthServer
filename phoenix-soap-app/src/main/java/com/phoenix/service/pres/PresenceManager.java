@@ -255,6 +255,7 @@ public class PresenceManager {
     
     /**
      * Sends server command to reload all presence data.
+     * @deprecated
      */
     @Transactional
     public void reloadPresence(){
@@ -369,12 +370,13 @@ public class PresenceManager {
         
         // Generate publish packet
         final String pidf = getPresencePublishPidf(notifSip, PresenceManager.PresenceStatus.OPEN, b64);
-        
-        // Send presence command
-        ServerMIPuaPublish cmd = new ServerMIPuaPublish(notifSip, 3600, pidf);
-        
-        // send notification
-        sendCommand(cmd);
+
+        // Deprecated, not using PuaPublish anymore, now works with XMPP.
+//        // Send presence command
+//        ServerMIPuaPublish cmd = new ServerMIPuaPublish(notifSip, 3600, pidf);
+//
+//        // send notification
+//        sendCommand(cmd);
     }
     
     /**

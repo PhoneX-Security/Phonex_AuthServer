@@ -24,7 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
 * Helper subclass for monitoring all active subscribers to detect 
 * missing / extra XCAP rules for SIPNotification presence account.
-* 
+*
+* @deprecated
 * @author ph4r05
 */
 @Service
@@ -116,7 +117,8 @@ public class XcapNotifierMonitor extends BackgroundThreadService {
                 pm.updateXCAPPolicyFile(usernameNotif, tmpS.getDomain(), arrayList);
 
                 // Refresh XCAP server via MI command.
-                pm.sendCommand(new ServerMIRefreshWatchers(usernameNotif + "@" + tmpS.getDomain(), 0));
+                // Deprecated...
+//                pm.sendCommand(new ServerMIRefreshWatchers(usernameNotif + "@" + tmpS.getDomain(), 0));
 
                 log.info("Added XCAP for notification for: " + tmpSip);
             }

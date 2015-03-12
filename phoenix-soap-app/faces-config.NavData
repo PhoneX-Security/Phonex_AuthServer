@@ -2,29 +2,11 @@
 <Scene Scope="Project" version="2">
     <Scope Scope="Faces Configuration Only"/>
     <Scope Scope="Project">
-        <Node id="templates/includes/footer.xhtml" x="900" y="150" zoom="true"/>
-        <Node id="templates/includes/loginformIn.xhtml" x="150" y="150" zoom="true"/>
-        <Node id="userManager/editUser.xhtml" x="650" y="450" zoom="true"/>
-        <Node id="index.jsp" x="400" y="600" zoom="true"/>
         <Node id="menu/help.html" x="900" y="300" zoom="true"/>
-        <Node id="templates/includes/bodyViewCards.xhtml" x="150" y="900" zoom="true"/>
+        <Node id="index.jsp" x="400" y="600" zoom="true"/>
         <Node id="userManager/index.xhtml" x="650" y="300" zoom="true"/>
-        <Node id="templates/main.xhtml" x="900" y="450" zoom="true"/>
-        <Node id="cardsManagement/security/timeout.jsp" x="400" y="300" zoom="true"/>
-        <Node id="templates/includes/registrationform.xhtml" x="1150" y="150" zoom="true"/>
-        <Node id="cardsManagement/security/secure/logging.xhtml" x="650" y="600" zoom="true"/>
-        <Node id="cardsManagement/security/loggedout.jsp" x="150" y="750" zoom="true"/>
-        <Node id="templates/includes/header.xhtml" x="1650" y="150" zoom="true"/>
-        <Node id="userManager/loginPage.xhtml" x="1400" y="150" zoom="true"/>
         <Node id="card.xhtml" x="400" y="450" zoom="true"/>
-        <Node id="templates/includes/addcard.xhtml" x="400" y="150" zoom="true"/>
-        <Node id="templates/includes/loginform.xhtml" x="1400" y="300" zoom="true"/>
-        <Node id="categoryManager/view.xhtml" x="150" y="450" zoom="true"/>
-        <Node id="categoryManager/index.xhtml" x="150" y="600" zoom="true"/>
-        <Node id="mobile/index.xhtml" x="400" y="750" zoom="true"/>
-        <Node id="templates/includes/bodyViewCards_ex.xhtml" x="150" y="300" zoom="true"/>
         <Node id="welcome.xhtml" x="1150" y="300" zoom="true"/>
-        <Node id="desktopHome.xhtml" x="650" y="150" zoom="true"/>
     </Scope>
     <Scope Scope="All Faces Configurations"/>
 </Scene>

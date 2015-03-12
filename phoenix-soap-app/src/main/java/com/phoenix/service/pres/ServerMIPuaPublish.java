@@ -12,6 +12,8 @@ import java.util.List;
 /**
  * Server MI command to manually publish new information about some account.
  * {@see http://www.opensips.org/html/docs/modules/devel/pua_mi.html}.
+ *
+ * @deprecated
  * @author ph4r05
  */
 public class ServerMIPuaPublish extends ServerMICommand {

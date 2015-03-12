@@ -5,6 +5,10 @@
  */
 package com.phoenix.service;
 
+import com.phoenix.service.push.ClistSyncEventMessage;
+import com.phoenix.service.push.NewCertEventMessage;
+import com.phoenix.service.push.NewFileEventMessage;
+import com.phoenix.service.push.SimplePushMessage;
 import com.phoenix.utils.JiveGlobals;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -190,6 +194,10 @@ public class AMQPListener extends BackgroundThreadService {
         log.info(String.format("AMPQListener thread ended. Running: %s, this: %s", running, this));
     }
 
+    /**
+     * Process new message coming from users amqp queue.
+     * @param delivery
+     */
     private void processNewMessage(QueueingConsumer.Delivery delivery) {
         try {
             final String message = new String(delivery.getBody());
@@ -219,26 +227,68 @@ public class AMQPListener extends BackgroundThreadService {
         }
     }
 
+    /**
+     * Send push message for new certificate event.
+     * Will send request for a push message for this event to the XMPP queue for processing.
+     *
+     * @param user
+     * @param certNotBefore
+     * @param certHashPrefix
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushNewCertificate(String user, long certNotBefore, String certHashPrefix) throws JSONException, IOException {
+        JSONObject jsonPush = this.buildLoginPushMsg(user, certNotBefore, certHashPrefix);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
+    /**
+     * Broadcasts new file notification.
+     * @param user
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushNewFile(String user) throws JSONException, IOException {
+        JSONObject jsonPush = this.buildNewFileNotification(user);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
     public JSONObject buildClistSyncNotification(String user) throws JSONException {
-        JSONObject obj = new JSONObject();
-        obj.put("action", "push");
-        obj.put("user", user);
-        obj.put("msg", "clistSync");
+        final long tstamp = System.currentTimeMillis();
+        final ClistSyncEventMessage part = new ClistSyncEventMessage(tstamp);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
 
-        JSONArray msgArray = new JSONArray();
-        msgArray.put(buildPushMsg("clistSync", System.currentTimeMillis()));
-
-        obj.put("msgs", msgArray);
-        return obj;
+        return msg.getJson();
     }
 
-    public JSONObject buildPushMsg(String pushAction, long tstamp) throws JSONException {
-        JSONObject obj = new JSONObject();
-        obj.put("push", pushAction);
-        obj.put("tstamp", tstamp);
-        return obj;
+    public JSONObject buildNewFileNotification(String user) throws JSONException {
+        final long tstamp = System.currentTimeMillis();
+        final NewFileEventMessage part = new NewFileEventMessage(tstamp);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
+
+        return msg.getJson();
     }
 
+    public JSONObject buildLoginPushMsg(String user, long certNotBefore, String certHashPrefix) throws JSONException {
+        final long tstamp = System.currentTimeMillis();
+        final NewCertEventMessage part = new NewCertEventMessage(tstamp, certNotBefore, certHashPrefix);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
+
+        return msg.getJson();
+    }
+
+    /**
+     * Send given message to XMPP queue.
+     * @param body
+     * @throws IOException
+     */
     public void xmppPublish(byte[] body) throws IOException {
         channel.basicPublish("", QUEUE_XMPP_NAME, null, body);
     }

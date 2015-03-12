@@ -12,7 +12,8 @@ import java.util.List;
 /**
  * OpenSips MI command for refreshing watcher list - notification that XCAP 
  * policy has changed to the server.
- * 
+ *
+ * @deprecated
  * @author ph4r05
  */
 public final class ServerMIRefreshWatchers extends ServerMICommand {

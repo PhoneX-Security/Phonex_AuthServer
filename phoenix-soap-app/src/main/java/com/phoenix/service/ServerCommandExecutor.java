@@ -63,6 +63,7 @@ public class ServerCommandExecutor extends BackgroundThreadService {
     
     /**
      * Reload presence meta data
+     * @deprecated
      */
     @Transactional
     public void reloadPresence(){
