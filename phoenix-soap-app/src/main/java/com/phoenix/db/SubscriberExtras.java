@@ -13,7 +13,7 @@ public class SubscriberExtras {
     @Column(name = "id", unique = true, nullable = false)
     private Long id;
 
-    @Column(name = "turnPasswd", nullable = false, length = 64)
+    @Column(name = "turnPasswd", nullable = true, length = 64)
     private String turnPasswd;
 
     // Can user sign new certificate?

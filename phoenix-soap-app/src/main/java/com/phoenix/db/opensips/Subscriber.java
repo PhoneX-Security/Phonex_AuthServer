@@ -43,7 +43,7 @@ public class Subscriber implements java.io.Serializable {
 	private boolean isAdmin;
         @Column(name = "primaryGroup")
 	private Integer primaryGroup;
-    @Column(name = "turnPasswd", nullable = false, length = 64)
+    @Column(name = "turnPasswd", nullable = true, length = 64)
     private String turnPasswd;
         
         // Can user sign new certificate?

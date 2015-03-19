@@ -111,8 +111,8 @@ public class EndpointAuth {
                     this.trustManager.checkClientTrusted(certChain, "auth");
                     sb.append("certificate check passed (chain is valid)...").append(NL);
                     
-                    log.info("Certificate result: " + sb.toString());
-                } catch (Exception ex) {
+                    log.debug("Certificate result: " + sb.toString());
+                } catch (Throwable ex) {
                     sb.append("certificate check failed!!!!").append(NL);
                     sb.append(ex.getMessage());
                     

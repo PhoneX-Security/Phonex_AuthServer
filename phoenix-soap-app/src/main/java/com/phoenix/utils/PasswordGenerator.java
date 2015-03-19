@@ -10,14 +10,19 @@ import java.util.Vector;
  * Created by dusanklinec on 19.03.15.
  */
 public class PasswordGenerator {
-    private static final char[] characters = initCharacters();
-    private static final char[] allCharacters = initAllCharacters();
-    private static final char[] specialChars = new char[]{'_', ';', '-', '+', '=', '|', '!', '@', '#', '$', '^', '.', '/' };
+    private static final char[] specialChars;
+    private static final char[] characters;
+    private static final char[] allCharacters;
+
+    static {
+        specialChars = new char[]{'_', ';', '-', '+', '=', '|', '@', '.', '/'};
+        characters = initCharacters();
+        allCharacters = initAllCharacters();
+    }
 
     private static char[] initCharacters() {
-        final int initialCapacity = 63;
         // a vector is a variable-size array
-        final List<Character> chars = new Vector<Character>(initialCapacity);
+        final List<Character> chars = new Vector<Character>();
 
         // add digits 0–9
         for (char c = '0'; c <= '9'; c++) {
@@ -46,7 +51,7 @@ public class PasswordGenerator {
     }
 
     private static char[] initAllCharacters(){
-        final ArrayList<Character> lst = new ArrayList<Character>(characters.length + specialChars.length);
+        final ArrayList<Character> lst = new ArrayList<Character>();
         for (char ch : characters) {
             lst.add(ch);
         }

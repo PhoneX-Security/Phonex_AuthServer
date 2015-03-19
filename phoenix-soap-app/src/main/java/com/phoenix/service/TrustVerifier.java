@@ -161,8 +161,9 @@ public class TrustVerifier implements X509TrustManager {
             // Set validation parameters
             params = new PKIXParameters(trustStoreCA);
             params.setRevocationEnabled(false); // to avoid exception on empty CRL
+            log.info("Verification params loaded");
             log.debug("Verification params loaded; params=" + params.toString());
-            
+
             // Load all trusted certificates
             ArrayList<X509Certificate> certs = new ArrayList<X509Certificate>();
             Enumeration<String> aliases = trustStoreCA.aliases();

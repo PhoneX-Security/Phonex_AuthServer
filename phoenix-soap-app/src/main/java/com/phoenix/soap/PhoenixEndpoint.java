@@ -493,7 +493,7 @@ public class PhoenixEndpoint {
             //
             // Alias is empty -> get all contact list records
             //
-            log.info("Alias is empty");
+            log.info("ClistGetRequest: Alias is empty, requestor: " + ownerSip);
             String getContactListQuery;
             
             // standard query to CL, for given user, now only internal user
@@ -894,7 +894,7 @@ public class PhoenixEndpoint {
             // special case - server certificate
             // TODO: refactor this, unclean method
             if (sip!=null && "server".equalsIgnoreCase(sip)){
-                log.info("Obtaining server certificate");
+                log.info("Obtaining server certificate ["+owner+"]");
                 // now just add certificate to response
                 wr.setStatus(CertificateStatus.OK);
                 wr.setUser(sip);
@@ -905,12 +905,12 @@ public class PhoenixEndpoint {
             
             // null subscriber - fail, user has to exist in database
             if (s==null){
-                log.info("User is not found in database");
+                log.info("User is not found in database, " + sip + "; requestor: " + owner);
                 wr.setStatus(CertificateStatus.NOUSER);
                 response.getReturn().add(wr);
                 continue;
             } else {
-                log.info("User to obtain certificate for: " + s.getUsername());
+                log.info("User to obtain certificate for: " + s.getUsername() + "; requestor: " + owner);
             }
             
             // init return structure
@@ -960,8 +960,9 @@ public class PhoenixEndpoint {
             
             // certificate
             X509Certificate cert509 = cert.getCert();
-            log.info("cert is not null!; DBserial=[" + cert.getSerial() + "] Real ceritificate: " + cert509);
-            
+            log.info("cert is not null!; DBserial=[" + cert.getSerial() + "].");
+            log.debug("cert is not null!; DBserial=[" + cert.getSerial() + "]. Real ceritificate: " + cert509);
+
             // time validity
             try{
                 // time-date validity
@@ -973,14 +974,14 @@ public class PhoenixEndpoint {
                 // is revoked?
                 Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
                 if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
-                    log.info("Certificate for user is revoked: " + cert509.getSerialNumber().longValue());
+                    log.info("Certificate for user "+(s.getUsername())+" is revoked: " + cert509.getSerialNumber().longValue());
                     wr.setStatus(CertificateStatus.REVOKED);
                     response.getReturn().add(wr);
                     continue;
                 }
             } catch(Exception e){
                 // certificate is invalid
-                log.info("Certificate for user is invalid", e);
+                log.info("Certificate for user "+(s.getUsername())+" is invalid", e);
                 wr.setStatus(CertificateStatus.INVALID);
                 response.getReturn().add(wr);
                 continue;
@@ -998,21 +999,21 @@ public class PhoenixEndpoint {
             Calendar fUserAdded = sub.getDateFirstUserAdded();
             if (askingForDifferentThanOurs && (fUserAdded == null || fUserAdded.before(get1971()))){
                 sub.setDateFirstUserAdded(Calendar.getInstance());
-                log.info(String.format("First user added date set to: %s", sub.getDateFirstUserAdded().getTime()));
+                log.info(String.format("First user added date set to: %s, for %s", sub.getDateFirstUserAdded().getTime(), owner));
             }   
             
             // First login if not set.
             Calendar fLogin = sub.getDateFirstLogin();
             if (fLogin == null || fLogin.before(get1971())){
                 sub.setDateFirstLogin(Calendar.getInstance());
-                log.info(String.format("First login set to: %s", sub.getDateFirstLogin().getTime()));
+                log.info(String.format("First login set to: %s, for %s", sub.getDateFirstLogin().getTime(), owner));
             }
             
             // Update last activity date.
             sub.setDateLastActivity(Calendar.getInstance());
             sub.setLastActionIp(auth.getIp(this.request));
             em.persist(sub);
-            log.info(String.format("Last activity set to: %s", sub.getDateLastActivity().getTime()));
+            log.info(String.format("Last activity set to: %s, for %s", sub.getDateLastActivity().getTime(), owner));
         }
         
         logAction(owner, "getCert", null);
@@ -1533,25 +1534,30 @@ public class PhoenixEndpoint {
                 localUser.setDateLastAuthCheck(Calendar.getInstance());
                 localUser.setLastAuthCheckIp(auth.getIp(this.request));
 
-                // Turn password.
-                final String turnPasswd = localUser.getTurnPasswd();
-                if (turnPasswd == null || turnPasswd.length() == 0){
-                    localUser.setTurnPasswd(PasswordGenerator.genPassword(16, true));
+                try {
+                    // Turn password.
+                    final String turnPasswd = localUser.getTurnPasswd();
+                    if (turnPasswd == null || turnPasswd.length() == 0) {
+                        localUser.setTurnPasswd(PasswordGenerator.genPassword(24, true));
+                    }
+
+                    // Base field - action/method of this message.
+                    jsonAuxObj.put(AUTH_TURN_PASSWD_KEY, localUser.getTurnPasswd());
+
+                    // Build AUX JSON object.
+                    resp.setAuxJSON(jsonAuxObj.toString());
+
+                    // TODO: send AMQP message to the TURN server so it updates auth credentials.
+                } catch(Throwable th){
+                    log.error("Exception in authcheck", th);
                 }
 
-                // Base field - action/method of this message.
-                jsonAuxObj.put(AUTH_TURN_PASSWD_KEY, localUser.getTurnPasswd());
-
-                // Build AUX JSON object.
-                resp.setAuxJSON(jsonAuxObj.toString());
-
                 em.persist(localUser);
-                
                 logAction(certSip, "authCheck3", null);
-            } catch (Exception e){
+            } catch (Throwable e){
                 // no certificate, just return response, exception is 
                 // actually really expected :)
-                log.debug("Certificate was not valid: ", e);
+                log.info("Certificate was not valid: ", e);
                 resp.setCertValid(TrueFalseNA.FALSE);
                 resp.setCertStatus(CertificateStatus.INVALID);
                 return resp;
@@ -1566,7 +1572,7 @@ public class PhoenixEndpoint {
                 cmd.setPriority(1);
                 executor.addToHiPriorityQueue(cmd);*/
             }
-         } catch(Exception e){
+         } catch(Throwable e){
              log.warn("Exception in password change procedure", e);
              throw new RuntimeException(e);
          }
@@ -1890,8 +1896,8 @@ public class PhoenixEndpoint {
             // extract CSR from request - decrypt 
             log.info("Going to extract request");
             PKCS10CertificationRequest csrr = this.signer.getReuest(csr, false);
-            log.info("Request extracted: " + csrr);
-            log.info("Request extracted: " + csrr.getSubject().toString());
+            log.debug("Request extracted: " + csrr);
+            log.debug("Request extracted: " + csrr.getSubject().toString());
             
             // check request validity - CN format, match to username in request
             String certCN = this.auth.getCNfromX500Name(csrr.getSubject());
@@ -1970,7 +1976,7 @@ public class PhoenixEndpoint {
             // sign certificate by server CA, setting DN from CSR, issuer from CA data,
             // adding appropriate X509v3 extensions - CA:false
             X509Certificate sign = this.signer.sign(csrr, serial, notBefore, notAfter);
-            log.info("Certificate signed: " + sign);
+            log.debug("Certificate signed: " + sign);
             
             // update cacert in CA database - missing certificate values (binary, digest)
             final String crtDigest = this.signer.getCertificateDigest(sign);
@@ -1986,11 +1992,12 @@ public class PhoenixEndpoint {
             Calendar fLogin = localUser.getDateFirstLogin();
             if (fLogin == null || fLogin.before(get1971())){
                 localUser.setDateFirstLogin(Calendar.getInstance());
-                log.info(String.format("First login set to: %s", localUser.getDateFirstLogin()));
+                log.info(String.format("First login set to: %s", localUser.getDateFirstLogin().getTime()));
                 em.persist(localUser);
             }
 
             // flush transaction
+            log.info(String.format("New certificate signed for user %s, certSerial: %s", reqUser, serial));
             em.flush();
 
             // New login was successful, broadcast push notification.
@@ -2025,7 +2032,7 @@ public class PhoenixEndpoint {
             log.warn("Problem with signing - IO exception", ex);
             
             throw new CertificateException(ex);
-        } catch (Exception ex){
+        } catch (Throwable ex){
             log.warn("General exception during signing", ex);
             
             throw new CertificateException(ex);
@@ -2090,7 +2097,7 @@ public class PhoenixEndpoint {
         }
         
         // Iterating over the request.
-        log.info("dhkeys is not null; size: " + dhkeys.size());
+        log.info("ftAddDHKeys; size: " + dhkeys.size() + "; requestor: " + ownerSip);
         int errCode=-1;
         
         try {
@@ -2116,7 +2123,7 @@ public class PhoenixEndpoint {
                     
                     this.dataService.persist(entity);
                     result=1;
-                } catch(Exception e){
+                } catch(Throwable e){
                     log.warn("Exception when adding DH key to the database", e);
                 } finally {
                     response.getResult().getCode().add(result);
