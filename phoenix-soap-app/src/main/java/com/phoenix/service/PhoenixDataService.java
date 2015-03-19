@@ -278,7 +278,6 @@ public class PhoenixDataService {
     /**
      * Loads all subscribers in internal contact list.
      * @param owner
-     * @param target
      * @return 
      */
     public List<Contactlist> getContactlistForSubscriber(Subscriber owner){
@@ -547,7 +546,7 @@ public class PhoenixDataService {
     
     /**
      * Returns remote subscriber from user SIP
-     * @param sip
+     * @param s
      * @return 
      */
     public CAcertsSigned getCertificateForUser(Subscriber s){

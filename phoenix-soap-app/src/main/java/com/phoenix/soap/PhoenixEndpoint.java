@@ -35,6 +35,8 @@ import com.phoenix.soap.beans.WhitelistGetRequest;
 import com.phoenix.soap.beans.WhitelistRequestElement;
 import com.phoenix.soap.beans.WhitelistResponse;
 
+import com.phoenix.utils.PasswordGenerator;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
@@ -127,7 +129,9 @@ public class PhoenixEndpoint {
     private static final int CLIST_CHANGE_ERROR_ALREADY_ADDED = -2;
     private static final int CLIST_CHANGE_ERROR_INVALID_NAME = -5;
     private static final int CLIST_CHANGE_ERROR_NO_USER = -6;
-    
+
+    private static final String AUTH_TURN_PASSWD_KEY = "turnPwd";
+
     @Autowired
     private SessionFactory sessionFactory;
     
@@ -1365,6 +1369,8 @@ public class PhoenixEndpoint {
         resp.setAuxVersion(0);
         resp.setAuxJSON("");
         resp.setErrCode(404);
+        JSONObject jsonAuxObj = new JSONObject();
+
         try {
             // Integer version by default set to 3. 
             // Changes window of the login validity.
@@ -1526,6 +1532,19 @@ public class PhoenixEndpoint {
                 // Update last activity date.
                 localUser.setDateLastAuthCheck(Calendar.getInstance());
                 localUser.setLastAuthCheckIp(auth.getIp(this.request));
+
+                // Turn password.
+                final String turnPasswd = localUser.getTurnPasswd();
+                if (turnPasswd == null || turnPasswd.length() == 0){
+                    localUser.setTurnPasswd(PasswordGenerator.genPassword(16, true));
+                }
+
+                // Base field - action/method of this message.
+                jsonAuxObj.put(AUTH_TURN_PASSWD_KEY, localUser.getTurnPasswd());
+
+                // Build AUX JSON object.
+                resp.setAuxJSON(jsonAuxObj.toString());
+
                 em.persist(localUser);
                 
                 logAction(certSip, "authCheck3", null);
@@ -1959,13 +1978,10 @@ public class PhoenixEndpoint {
             cacertsSigned.setCertHash(crtDigest);
             em.persist(cacertsSigned);
             
-            // flush transaction
-            em.flush();
-            
             response.getCertificate().setStatus(CertificateStatus.OK);
             response.getCertificate().setCertificate(sign.getEncoded());
             response.getCertificate().setUser(reqUser);
-            
+
             // If user does not have first login date filled in, add this one.
             Calendar fLogin = localUser.getDateFirstLogin();
             if (fLogin == null || fLogin.before(get1971())){
@@ -1973,6 +1989,9 @@ public class PhoenixEndpoint {
                 log.info(String.format("First login set to: %s", localUser.getDateFirstLogin()));
                 em.persist(localUser);
             }
+
+            // flush transaction
+            em.flush();
 
             // New login was successful, broadcast push notification.
             try {

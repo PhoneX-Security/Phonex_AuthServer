@@ -43,6 +43,8 @@ public class Subscriber implements java.io.Serializable {
 	private boolean isAdmin;
         @Column(name = "primaryGroup")
 	private Integer primaryGroup;
+    @Column(name = "turnPasswd", nullable = false, length = 64)
+    private String turnPasswd;
         
         // Can user sign new certificate?
         @Column(name = "canSignNewCert", nullable = false, columnDefinition = "TINYINT(1)")
@@ -328,5 +330,12 @@ public class Subscriber implements java.io.Serializable {
         public void setLastAuthCheckIp(String lastAuthCheckIp) {
             this.lastAuthCheckIp = lastAuthCheckIp;
         }
-        
+
+        public String getTurnPasswd() {
+            return turnPasswd;
+        }
+
+        public void setTurnPasswd(String turnPasswd) {
+            this.turnPasswd = turnPasswd;
+        }
 }
