@@ -24,6 +24,6 @@ echo "mv /usr/share/apache-tomcat-7.0.34/webapps/phoenix.war /home/phonex/phoeni
 echo "cp /tmp/phoenix.war /usr/share/apache-tomcat-7.0.34/webapps/"
 echo "/etc/init.d/tomcat stop"
 echo "/etc/init.d/tomcat start"
-
-echo "/etc/init.d/tomcat stop; sleep 2; mv /usr/share/apache-tomcat-7.0.34/webapps/phoenix.war /home/phonex/phoenix.war.prev; /bin/cp /tmp/phoenix.war /usr/share/apache-tomcat-7.0.34/webapps/; /bin/rm -rf /usr/share/apache-tomcat-7.0.34/webapps/phoenix; /etc/init.d/tomcat start"
+echo ""
+echo "/etc/init.d/tomcat stop; sleep 2 && /bin/mv /usr/share/apache-tomcat-7.0.34/webapps/phoenix.war /home/phonex/phoenix.war.prev && /bin/cp /tmp/phoenix.war /usr/share/apache-tomcat-7.0.34/webapps/ && /bin/rm -rf /usr/share/apache-tomcat-7.0.34/webapps/phoenix && /etc/init.d/tomcat start"
 

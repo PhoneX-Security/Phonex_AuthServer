@@ -114,6 +114,8 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
             }
             
             List<Subscriber> subList = uq.getResultList();
+            log.info("Going to sync roster for #of entries: " + (subList == null ? 0 : subList.size()));
+
             for (Subscriber owner : subList) {
                 if (!isRunning() || !running){
                     log.info("Aborting execution, ending...");

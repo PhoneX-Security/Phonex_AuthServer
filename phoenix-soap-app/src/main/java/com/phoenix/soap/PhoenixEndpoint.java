@@ -2504,6 +2504,13 @@ public class PhoenixEndpoint {
             e.setUsed(Boolean.TRUE);
             e.setWhenUsed(new Date());
             this.dataService.persist(e, true);
+
+            // Broadcast push notification about new used key.
+            try {
+                amqpListener.pushDHKeyUsed(PhoenixDataService.getSIP(owner));
+            } catch(Exception ex){
+                log.error("Error in pushing dh key used event", ex);
+            }
             
             return response;
         } catch(Exception e){

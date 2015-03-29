@@ -5,10 +5,7 @@
  */
 package com.phoenix.service;
 
-import com.phoenix.service.push.ClistSyncEventMessage;
-import com.phoenix.service.push.NewCertEventMessage;
-import com.phoenix.service.push.NewFileEventMessage;
-import com.phoenix.service.push.SimplePushMessage;
+import com.phoenix.service.push.*;
 import com.phoenix.utils.JiveGlobals;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -218,6 +215,17 @@ public class AMQPListener extends BackgroundThreadService {
                 this.xmppPublish(jsonPushString.getBytes("UTF-8"));
                 log.info("Push message sent: " + jsonPushString);
 
+            } else if ("versionUpdated".equalsIgnoreCase("job")) {
+                // TODO: TBD.
+
+            } else if ("licenseUpdated".equalsIgnoreCase("license")){
+                final JSONObject data = obj.getJSONObject("data");
+                final String userName = data.getString("username");
+                log.info("License updated: " + userName);
+
+                // Contactlist refresh push notification to XMPP.
+                pushLicenseCheck(userName);
+
             } else {
                 log.info("Unrecognized job: " + job);
             }
@@ -239,6 +247,53 @@ public class AMQPListener extends BackgroundThreadService {
      */
     public void pushNewCertificate(String user, long certNotBefore, String certHashPrefix) throws JSONException, IOException {
         JSONObject jsonPush = this.buildLoginPushMsg(user, certNotBefore, certHashPrefix);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
+    /**
+     * Send push message for DH key used event.
+     * Notifies user about DH Key download, he may be interested in keeping some amount of DHkeys on the server.
+     *
+     * @param user
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushDHKeyUsed(String user)  throws JSONException, IOException {
+        JSONObject jsonPush = this.buildDHKeyUsedhMsg(user);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
+    /**
+     * Send push message for license check event.
+     * Sends user a push message notifying him something has changed with his license so he should check it.
+     * License also might got expired.
+     *
+     * @param user
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushLicenseCheck(String user)  throws JSONException, IOException {
+        JSONObject jsonPush = this.buildLicenseCheckMsg(user);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
+    /**
+     * Send push message for application version check.
+     * Sends user a push message notifying him something has changed with his license so he should check it.
+     * License also might got expired.
+     *
+     * @param user
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushVersionCheck(String user)  throws JSONException, IOException {
+        JSONObject jsonPush = this.buildVersionCheckMsg(user);
         final String jsonPushString = jsonPush.toString();
         this.xmppPublish(jsonPushString.getBytes("UTF-8"));
         log.info("Push message sent: " + jsonPushString);
@@ -278,6 +333,33 @@ public class AMQPListener extends BackgroundThreadService {
     public JSONObject buildLoginPushMsg(String user, long certNotBefore, String certHashPrefix) throws JSONException {
         final long tstamp = System.currentTimeMillis();
         final NewCertEventMessage part = new NewCertEventMessage(tstamp, certNotBefore, certHashPrefix);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
+
+        return msg.getJson();
+    }
+
+    public JSONObject buildDHKeyUsedhMsg(String user) throws JSONException {
+        final long tstamp = System.currentTimeMillis();
+        final DHKeyUsedEventMessage part = new DHKeyUsedEventMessage(tstamp);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
+
+        return msg.getJson();
+    }
+
+    public JSONObject buildLicenseCheckMsg(String user) throws JSONException {
+        final long tstamp = System.currentTimeMillis();
+        final LicenseCheckEventMessage part = new LicenseCheckEventMessage(tstamp);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
+
+        return msg.getJson();
+    }
+
+    public JSONObject buildVersionCheckMsg(String user) throws JSONException {
+        final long tstamp = System.currentTimeMillis();
+        final VersionCheckEventMessage part = new VersionCheckEventMessage(tstamp);
         final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
         msg.addPart(part);
 

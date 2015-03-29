@@ -4,12 +4,7 @@
  */
 package com.phoenix.service;
 
-import com.phoenix.db.CAcertsSigned;
-import com.phoenix.db.Contactlist;
-import com.phoenix.db.OneTimeToken;
-import com.phoenix.db.RemoteUser;
-import com.phoenix.db.Whitelist;
-import com.phoenix.db.WhitelistDstObj;
+import com.phoenix.db.*;
 import com.phoenix.db.extra.ContactlistObjType;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.pres.TransferRosterItem;
@@ -28,16 +23,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -56,6 +42,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import static com.phoenix.service.pres.PresenceManager.NOTIFIER_SUFFIX;
+
 /**
  * Answers data questions for endpoint.
  * @author ph4r05
@@ -65,7 +53,24 @@ import org.springframework.transaction.annotation.Transactional;
 public class PhoenixDataService {
     private static final Logger log = LoggerFactory.getLogger(PhoenixDataService.class);
     private static final String PROP_DEBUG_ROSTER="phonex.svc.rostersync.debug";
-    
+
+    /**
+     * <p>No subscription is established.</p>
+     */
+    public static final int SUB_NONE = 0;
+    /**
+     * <p>The roster owner has a subscription to the roster item's presence.</p>
+     */
+    public static final int SUB_TO = 1;
+    /**
+     * <p>The roster item has a subscription to the roster owner's presence.</p>
+     */
+    public static final int SUB_FROM = 2;
+    /**
+     * <p>The roster item and owner have a mutual subscription.</p>
+     */
+    public static final int SUB_BOTH = 3;
+
     @Autowired
     private SessionFactory sessionFactory;
     
@@ -323,25 +328,7 @@ public class PhoenixDataService {
         
         return ret;
     }
-    
-    /**
-     * <p>No subscription is established.</p>
-     */
-    public static final int SUB_NONE = 0;
-    
-    /**
-     * <p>The roster owner has a subscription to the roster item's presence.</p>
-     */
-    public static final int SUB_TO = 1;
-    /**
-     * <p>The roster item has a subscription to the roster owner's presence.</p>
-     */
-    public static final int SUB_FROM = 2;
-    /**
-     * <p>The roster item and owner have a mutual subscription.</p>
-     */
-    public static final int SUB_BOTH = 3;
-    
+
     /**
      * Builds roster data from contactlist.
      * @param clist
@@ -854,7 +841,57 @@ public class PhoenixDataService {
 
         this.resyncRoster(tuser);
     }
-    
+
+    /**
+     * Returns list of subscribers with expired licenses that have not been notified about this yet.
+     * @return
+     */
+    @Transactional
+    public List<Subscriber> getAllExpiredNonNotifiedLicenses(){
+        List<Subscriber> result = new LinkedList<Subscriber>();
+
+        // now loading whitelist entries from database for owner, for intern user destination
+        StringBuilder sb = new StringBuilder();
+        sb.append("SELECT s.* FROM subscriber s ");
+        sb.append("LEFT JOIN licenseNotifications ln ON ln.subscriber=s.id ");
+        sb.append("WHERE s.expires_on IS NOT NULL AND s.expires_on < NOW() AND ");
+        sb.append("(ln.licenseDateExpire IS NULL OR ln.licenseDateExpire != s.expires_on)");
+
+        Query nativeQuery = getEm().createNativeQuery(sb.toString(), Subscriber.class);
+        List resultList = nativeQuery.getResultList();
+        for(Object obj : resultList){
+            Subscriber tmpS = (Subscriber) obj;
+            result.add(tmpS);
+        }
+
+//        Query query = em.createQuery(sb.toString());
+//        List<Object[]> resultList = query.getResultList();
+//        for(Object[] o : resultList){
+//            final Subscriber s = (Subscriber) o[0];
+//            result.add(s);
+//        }
+
+        return result;
+    }
+
+    /**
+     * Inserts / updates license notification for given user.
+     * @param s
+     */
+    @Transactional
+    public void setLicenseNotification(Subscriber s){
+        final String olderThanQueryString = "DELETE FROM LicenseNotifications d WHERE d.subscriber = :s";
+        Query delQuery = em.createQuery(olderThanQueryString);
+        delQuery.setParameter("s", s);
+        delQuery.executeUpdate();
+
+        final LicenseNotifications ln = new LicenseNotifications();
+        ln.setSubscriber(s);
+        ln.setLicenseDateExpire(s.getExpires());
+        ln.setLastNotificationDate(Calendar.getInstance());
+        em.persist(ln);
+    }
+
     /**
      * Unwraps hibernate session from JPA 2
      * @return 

@@ -80,7 +80,7 @@ public class FSCleaner  extends BackgroundThreadService {
             
             log.info("FSCleaner ended");
         } catch(Exception ex){
-            log.info("Problem occurred during updating Xcap", ex);
+            log.info("Problem occurred during FS cleaning", ex);
         }
    }
    

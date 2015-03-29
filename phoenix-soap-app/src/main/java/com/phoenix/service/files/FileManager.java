@@ -6,8 +6,10 @@
 
 package com.phoenix.service.files;
 
+import com.phoenix.db.DHKeys;
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.service.AMQPListener;
 import com.phoenix.service.EndpointAuth;
 import static com.phoenix.soap.PhoenixEndpoint.getDate;
 import java.io.File;
@@ -17,12 +19,18 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
+
+import com.phoenix.service.PhoenixDataService;
+import com.phoenix.soap.beans.FtDHKeyUserInfo;
+import com.phoenix.soap.beans.FtDHkeyState;
 import org.apache.commons.io.FileUtils;
 import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.SessionFactory;
@@ -57,6 +65,9 @@ public class FileManager {
     
     @Autowired(required = true)
     private EndpointAuth auth;
+
+    @Autowired
+    private AMQPListener amqpListener;
     
     @PersistenceContext
     protected EntityManager em;
@@ -343,7 +354,32 @@ public class FileManager {
     public int expireOldDHKeys(){
         int result = 0;
         try {
-            Date expirationDate = new Date(System.currentTimeMillis() + 1000L*60L*60L*24L*3L);    
+            final Date expirationDate = new Date(System.currentTimeMillis() + 1000L*60L*60L*24L*3L);
+            Set<Subscriber> subs = new HashSet<Subscriber>();
+
+            // Step 1 - get all users which have some expired keys.
+            String queryStats = "SELECT NEW com.phoenix.db.DHKeys(dh.id, dh.owner, dh.forUser, dh.nonce2," +
+                    "dh.created, dh.expires, dh.used, dh.uploaded) FROM DHKeys dh WHERE dh.expires < :de";
+            TypedQuery<DHKeys> query = em.createQuery(queryStats, DHKeys.class);
+            query.setParameter("de", expirationDate);
+            List<DHKeys> resultList = query.getResultList();
+            for(DHKeys keyInfo : resultList){
+                subs.add(keyInfo.getOwner());
+            }
+
+            // For each user broadcast one push message.
+            for(Subscriber owner : subs) {
+                // Broadcast push notification about new used key.
+                try {
+                    final String sip = PhoenixDataService.getSIP(owner);
+                    log.info("Sending expired DH key event to: " + sip);
+                    amqpListener.pushDHKeyUsed(sip);
+                } catch (Exception ex) {
+                    log.error("Error in pushing dh key used event", ex);
+                }
+            }
+
+            // Step 2 - delete all expired keys.
             final String olderThanQueryString = "DELETE FROM DHKeys d WHERE d.expires < :de";
             Query delQuery = em.createQuery(olderThanQueryString);
             delQuery.setParameter("de", expirationDate);
@@ -351,7 +387,7 @@ public class FileManager {
             
             log.info("Expired DH keys=" + result);
         } catch(Exception ex){
-            log.error("Exception during expiriation old DH keys procedure", ex);
+            log.error("Exception during expiration old DH keys procedure", ex);
         }
         
         return result;
@@ -715,5 +751,13 @@ public class FileManager {
 
     public void setFileDir(String fileDir) {
         this.fileDir = fileDir;
-    }    
+    }
+
+    public AMQPListener getAmqpListener() {
+        return amqpListener;
+    }
+
+    public void setAmqpListener(AMQPListener amqpListener) {
+        this.amqpListener = amqpListener;
+    }
 }
