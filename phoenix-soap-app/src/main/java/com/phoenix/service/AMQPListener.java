@@ -312,6 +312,23 @@ public class AMQPListener extends BackgroundThreadService {
         log.info("Push message sent: " + jsonPushString);
     }
 
+    /**
+     * Send push message for new certificate event.
+     * Will send request for a push message for this event to the XMPP queue for processing.
+     *
+     * @param user
+     * @param certNotBefore
+     * @param certHashPrefix
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushContactCertUpdate(String user, String destUser, long certNotBefore, String certHashPrefix) throws JSONException, IOException {
+        JSONObject jsonPush = this.buildContactCertUpdateMsg(user);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
     public JSONObject buildClistSyncNotification(String user) throws JSONException {
         final long tstamp = System.currentTimeMillis();
         final ClistSyncEventMessage part = new ClistSyncEventMessage(tstamp);
@@ -360,6 +377,15 @@ public class AMQPListener extends BackgroundThreadService {
     public JSONObject buildVersionCheckMsg(String user) throws JSONException {
         final long tstamp = System.currentTimeMillis();
         final VersionCheckEventMessage part = new VersionCheckEventMessage(tstamp);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
+
+        return msg.getJson();
+    }
+
+    public JSONObject buildContactCertUpdateMsg(String user) throws JSONException {
+        final long tstamp = System.currentTimeMillis();
+        final ContactCertUpdateEventMessage part = new ContactCertUpdateEventMessage(tstamp);
         final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
         msg.addPart(part);
 

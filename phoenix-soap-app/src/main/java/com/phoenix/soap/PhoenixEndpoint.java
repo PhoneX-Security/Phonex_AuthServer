@@ -2000,11 +2000,18 @@ public class PhoenixEndpoint {
             log.info(String.format("New certificate signed for user %s, certSerial: %s", reqUser, serial));
             em.flush();
 
-            // New login was successful, broadcast push notification.
+            // New login was successful, broadcast push notification informing the signed user about new device certificate.
             try {
                 amqpListener.pushNewCertificate(reqUser, sign.getNotBefore().getTime(), crtDigest.substring(0, 10));
             } catch(Exception ex){
                 log.error("Error in pushing new cert event", ex);
+            }
+
+            // Broadcast push notification for all contact who have this one in its contact list.
+            try {
+                dataService.notifyNewCertificateToRoster(localUser, sign.getNotBefore().getTime(), crtDigest);
+            } catch(Exception ex){
+                log.error("Error in pushing contact cert update event", ex);
             }
 
             logAction(reqUser, "signCert", null);

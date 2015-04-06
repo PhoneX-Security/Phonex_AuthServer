@@ -7,6 +7,8 @@ package com.phoenix.service;
 import com.phoenix.db.*;
 import com.phoenix.db.extra.ContactlistObjType;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.service.executor.JobFinishedListener;
+import com.phoenix.service.executor.JobRunnable;
 import com.phoenix.service.pres.TransferRosterItem;
 import com.phoenix.utils.JiveGlobals;
 import java.io.BufferedReader;
@@ -24,6 +26,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.Future;
 import javax.net.ssl.X509TrustManager;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -82,9 +85,15 @@ public class PhoenixDataService {
     
     @Autowired(required = true)
     private X509TrustManager trustManager;
+
+    @Autowired
+    private TaskExecutor executor;
     
     @Autowired
     private JiveGlobals jiveGlobals;
+
+    @Autowired
+    private AMQPListener amqpListener;
 
     /**
      * Returns SIP address from subscriber record
@@ -202,7 +211,6 @@ public class PhoenixDataService {
         
         return result;
     }
-    
     
     /**
      * Specialized method to just extract whitelist for one owner and one target subscriber,
@@ -893,6 +901,56 @@ public class PhoenixDataService {
     }
 
     /**
+     * Notifies new certificate event to all account that have this account in their rosters.
+     */
+    @Transactional
+    public void notifyNewCertificateToRoster(final Subscriber s, final long time, final String certHash){
+        executor.submit("contactCertUpdatePush", new JobRunnable() {
+            @Override
+            public void run() {
+                internalNotifyNewCertificateToRoster(s, time, certHash);
+            }
+        }, new JobFinishedListener() {
+            @Override
+            public void jobFinished(JobRunnable job, Future<?> future) {
+                log.info("contact cert update finished.");
+            }
+        });
+    }
+
+    @Transactional
+    private void internalNotifyNewCertificateToRoster(Subscriber s, long time, String certHash){
+        try {
+            final String sip = PhoenixDataService.getSIP(s);
+
+            // Send notifications to all entries in our contact list.
+            List<Contactlist> contactlistForSubscriber = getContactlistForSubscriber(s);
+            if (contactlistForSubscriber == null || contactlistForSubscriber.isEmpty()){
+                return;
+            }
+
+            // Delete non-existent roster items from the roster.
+            for(Contactlist ce : contactlistForSubscriber){
+                ContactlistObjType ctype = ce.getObjType();
+                if (ctype!=ContactlistObjType.INTERNAL_USER){
+                    continue;
+                }
+
+                final Subscriber peer = ce.getObj().getIntern_user();
+                if (peer==null || peer.isDeleted()){
+                    continue;
+                }
+
+                final String peerSip = PhoenixDataService.getSIP(peer);
+                amqpListener.pushContactCertUpdate(peerSip, sip, time, certHash);
+            }
+
+        } catch(Exception e){
+            log.error("Exception in new cert roster notification", e);
+        }
+    }
+
+    /**
      * Unwraps hibernate session from JPA 2
      * @return 
      */
@@ -939,5 +997,21 @@ public class PhoenixDataService {
 
     public void setJiveGlobals(JiveGlobals jiveGlobals) {
         this.jiveGlobals = jiveGlobals;
+    }
+
+    public TaskExecutor getExecutor() {
+        return executor;
+    }
+
+    public void setExecutor(TaskExecutor executor) {
+        this.executor = executor;
+    }
+
+    public AMQPListener getAmqpListener() {
+        return amqpListener;
+    }
+
+    public void setAmqpListener(AMQPListener amqpListener) {
+        this.amqpListener = amqpListener;
     }
 }
