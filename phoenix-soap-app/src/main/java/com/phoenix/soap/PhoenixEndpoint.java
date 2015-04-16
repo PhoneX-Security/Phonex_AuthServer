@@ -1597,8 +1597,6 @@ public class PhoenixEndpoint {
         log.info("Remote user connected (accountInfoV1) : " + owner);
         
         AccountInfoV1Response resp = new AccountInfoV1Response();
-        resp.setCertValid(TrueFalseNA.NA);
-        resp.setCertStatus(CertificateStatus.MISSING);
         resp.setForcePasswordChange(TrueFalse.FALSE);
         resp.setAccountDisabled(true);
         resp.setAuxVersion(0);
@@ -1621,7 +1619,13 @@ public class PhoenixEndpoint {
             // user is provided in request thus try to load it from database
             String sip = request.getTargetUser();
             log.info(String.format("User [%s] is asking for details, reqVer: %d", sip, reqVersion));
-            
+            if (!StringUtils.isEmpty(sip) && !owner.equalsIgnoreCase(sip)){
+                log.error(String.format("Requesting a different user than in certificate. cert=%s, req=%s", owner, sip));
+                resp.setErrCode(-10);
+                return resp;
+            }
+            sip = owner;
+
             // user matches, load subscriber data for him
             Subscriber localUser = this.dataService.getLocalUser(sip);
             if (localUser == null){
@@ -1676,50 +1680,11 @@ public class PhoenixEndpoint {
             if (passwdChange!=null && passwdChange==true){
                 resp.setForcePasswordChange(TrueFalse.TRUE);
             }
-            
-            // now try to test certificate if any provided
-            try {
-                // check user validity
-                if (owner.equals(sip)==false){
-                    resp.setCertValid(TrueFalseNA.FALSE);
-                    return resp;
-                }
-                
-                // Get certificate chain from cert parameter. Obtain user certificate
-                // that was used in connection
-                X509Certificate certChain[] = auth.getCertChain(context, this.request);
-                // client certificate SHOULD be stored first here, so assume it
-                X509Certificate cert509 = certChain[0];
-                // time-date validity
-                cert509.checkValidity();
-                // is signed by server CA?
-                //cert509.verify(this.trustManager.getServerCA().getPublicKey());
-                trustManager.checkTrusted(cert509);
-                
-                // is revoked?
-                Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
-                if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
-                    log.info("Certificate for user is revoked: " + cert509.getSerialNumber().longValue());
-                    resp.setCertValid(TrueFalseNA.FALSE);
-                    resp.setCertStatus(CertificateStatus.REVOKED);
-                } else {
-                    resp.setCertValid(TrueFalseNA.TRUE);
-                    resp.setCertStatus(CertificateStatus.OK);
-                }
-                
-                logAction(owner, "accountInfo1", null);
-            } catch (Exception e){
-                // no certificate, just return response, exception is 
-                // actually really expected :)
-                log.debug("Certificate was not valid: ", e);
-                resp.setCertValid(TrueFalseNA.FALSE);
-                resp.setCertStatus(CertificateStatus.INVALID);
-                return resp;
-            }
-         } catch(Exception e){
-             log.warn("Exception in password change procedure", e);
-             throw new RuntimeException(e);
-         }
+
+        } catch(Exception e){
+            log.warn("Exception in password change procedure", e);
+            throw new RuntimeException(e);
+        }
          
         resp.setErrCode(0);
         return resp;

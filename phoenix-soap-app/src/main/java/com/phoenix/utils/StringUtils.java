@@ -29,4 +29,8 @@ public class StringUtils {
         
         return string.substring(0, lengthLimit);
     }
+
+    public static boolean isEmpty(String str){
+        return str == null || str.isEmpty();
+    }
 }
