@@ -469,7 +469,13 @@ public class RESTController {
         // Local verified user is needed
         Subscriber owner = this.authUserFromCert(request);
         String ownerSip = PhoenixDataService.getSIP(owner);        
-        log.info("User connected: " + owner);
+        log.info(String.format("User connected: %s, download. FileType: %s, nonce2: %s, req: %s, resp: %s, controller: %s",
+                ownerSip, filetype, nonce2, request, response, this));
+
+        log.debug(String.format("Servlet: %s,  reqUri: %s, qString: %s, context: %s, range: %s; " +
+                        "localName: %s, localPort: %s, remoteName: %s, remotePort: %s",
+                request.getServletPath(), request.getRequestURI(), request.getQueryString(), request.getContextPath(), request.getHeader("Range"),
+                request.getLocalName(), request.getLocalPort(), request.getRemoteHost(), request.getRemotePort()));
         
         try {
             //
@@ -678,7 +684,7 @@ public class RESTController {
             if (ranges.isEmpty() || full.equals(ranges.get(0))) {
 
                 // Return full file.
-                Range r = full;
+                final Range r = full;
                 response.setContentType(contentType);
                 response.setHeader("Content-Range", "bytes " + r.start + "-" + r.end + "/" + r.total);
 
@@ -700,15 +706,17 @@ public class RESTController {
             } else if (ranges.size() == 1) {
 
                 // Return single part of file.
-                Range r = ranges.get(0);
+                final Range r = ranges.get(0);
                 response.setContentType(contentType);
                 response.setHeader("Content-Range", "bytes " + r.start + "-" + r.end + "/" + r.total);
                 response.setHeader("Content-Length", String.valueOf(r.length));
                 response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT); // 206.
+                log.info(String.format("Range copy [%s]. %d-%d/%d (total), length=%d, out=%s", fileName, r.start, r.end, r.total, r.length, output));
 
                 if (content) {
                     // Copy single part range.
-                    copy(input, output, r.start, r.length);
+                    final long totalCopied = copy(input, output, r.start, r.length);
+                    log.info(String.format("Copy finished for [%s], length=%d, copied=%d", fileName, r.length, totalCopied));
                 }
 
             } else {
@@ -795,31 +803,46 @@ public class RESTController {
      * @param length Length of the byte range.
      * @throws IOException If something fails at I/O level.
      */
-    private static void copy(RandomAccessFile input, OutputStream output, long start, long length)
-        throws IOException
-    {
-        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-        int read;
+    private static long copy(final RandomAccessFile input, final OutputStream output, final long start, final long length) throws IOException {
+        final byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+        int read = -1;
+        long totalCopied = 0;
+        long toRead = length;
 
-        if (input.length() == length) {
+        final long fileLen = input.length();
+        log.debug(String.format("FileCopy starting, fileLen=%d, desiredLength=%d, offset=%d, input=%s, output=%s", fileLen, length, start, input, output));
+
+        if (fileLen == length) {
             // Write full range.
             while ((read = input.read(buffer)) > 0) {
                 output.write(buffer, 0, read);
+                totalCopied += read;
             }
         } else {
             // Write partial range.
             input.seek(start);
-            long toRead = length;
 
-            while ((read = input.read(buffer)) > 0) {
-                if ((toRead -= read) > 0) {
-                    output.write(buffer, 0, read);
-                } else {
-                    output.write(buffer, 0, (int) toRead + read);
-                    break;
+            try {
+                while ((read = input.read(buffer)) > 0) {
+                    toRead -= read;
+
+                    if (toRead > 0) {
+                        output.write(buffer, 0, read);
+                        totalCopied += read;
+                    } else {
+                        output.write(buffer, 0, (int) toRead + read);
+                        totalCopied += toRead + read;
+                        break;
+                    }
                 }
+            } catch(IOException ex){
+                log.error(String.format("Exception in file copy, toRead=%d, read=%d, totalCopied=%d, fileLen=%d, desiredLen=%d, offset=%d",
+                        toRead, read, totalCopied, fileLen, length, start), ex);
+                throw ex;
             }
         }
+
+        return totalCopied;
     }
 
     /**
