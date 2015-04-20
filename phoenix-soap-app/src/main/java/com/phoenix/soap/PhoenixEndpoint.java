@@ -692,13 +692,17 @@ public class PhoenixEndpoint {
                         
                         // update - displayName
                         if (action==ContactlistAction.UPDATE && elem.getDisplayName()!=null){
-                            final String newDispName = elem.getDisplayName();
-                            if (newDispName.isEmpty()==false && newDispName.matches(DISPLAY_NAME_REGEX)==false){
-                                ret.setResultCode(CLIST_CHANGE_ERROR_INVALID_NAME);
-                                response.getReturn().add(ret);
-                                log.info("Display name regex fail: [" + newDispName + "]");
-                                continue;
+                            String newDispName = elem.getDisplayName();
+                            if (newDispName != null && !newDispName.isEmpty()){
+                                newDispName = StringUtils.takeMaxN(newDispName, 128);
                             }
+
+//                            if (newDispName.isEmpty()==false && newDispName.matches(DISPLAY_NAME_REGEX)==false){
+//                                ret.setResultCode(CLIST_CHANGE_ERROR_INVALID_NAME);
+//                                response.getReturn().add(ret);
+//                                log.info("Display name regex fail: [" + newDispName + "]");
+//                                continue;
+//                            }
                             
                             cl.setDisplayName(newDispName);
                             this.dataService.persist(cl, true);
@@ -740,13 +744,17 @@ public class PhoenixEndpoint {
                         
                         // add action
                         if (action == ContactlistAction.ADD){
-                            final String newDispName = elem.getDisplayName();
-                            if (!newDispName.isEmpty() && !newDispName.matches(DISPLAY_NAME_REGEX)){
-                                ret.setResultCode(CLIST_CHANGE_ERROR_INVALID_NAME);
-                                response.getReturn().add(ret);
-                                log.info("Display name regex fail: [" + newDispName + "]");
-                                continue;
+                            String newDispName = elem.getDisplayName();
+                            if (newDispName != null && !newDispName.isEmpty()){
+                                newDispName = StringUtils.takeMaxN(newDispName, 128);
                             }
+
+//                            if (!newDispName.isEmpty() && !newDispName.matches(DISPLAY_NAME_REGEX)){
+//                                ret.setResultCode(CLIST_CHANGE_ERROR_INVALID_NAME);
+//                                response.getReturn().add(ret);
+//                                log.info("Display name regex fail: [" + newDispName + "]");
+//                                continue;
+//                            }
 
                             cl = new Contactlist();
                             cl.setDateCreated(new Date());
@@ -755,7 +763,7 @@ public class PhoenixEndpoint {
                             cl.setObjType(ContactlistObjType.INTERNAL_USER);
                             cl.setObj(new ContactlistDstObj(s));
                             cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
-                            cl.setDisplayName(elem.getDisplayName());
+                            cl.setDisplayName(newDispName);
                             
                             // whitelist state
                             WhitelistAction waction = elem.getWhitelistAction();
