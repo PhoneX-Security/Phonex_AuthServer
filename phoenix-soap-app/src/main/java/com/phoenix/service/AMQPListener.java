@@ -215,10 +215,10 @@ public class AMQPListener extends BackgroundThreadService {
                 this.xmppPublish(jsonPushString.getBytes("UTF-8"));
                 log.info("Push message sent: " + jsonPushString);
 
-            } else if ("versionUpdated".equalsIgnoreCase("job")) {
+            } else if ("versionUpdated".equalsIgnoreCase(job)) {
                 // TODO: TBD.
 
-            } else if ("licenseUpdated".equalsIgnoreCase("license")){
+            } else if ("licenseUpdated".equalsIgnoreCase(job)){
                 final JSONObject data = obj.getJSONObject("data");
                 final String userName = data.getString("username");
                 log.info("License updated: " + userName);
