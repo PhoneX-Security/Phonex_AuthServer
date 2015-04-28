@@ -4,94 +4,38 @@
  */
 package com.phoenix.soap;
 
-import com.phoenix.db.CAcertsSigned;
-import com.phoenix.db.Contactlist;
-import com.phoenix.db.ContactlistDstObj;
-import com.phoenix.db.DHKeys;
-import com.phoenix.db.RemoteUser;
-import com.phoenix.db.StoredFiles;
-import com.phoenix.db.UsageLogs;
-import com.phoenix.db.Whitelist;
-import com.phoenix.db.WhitelistDstObj;
-import com.phoenix.db.WhitelistSrcObj;
+import com.phoenix.db.*;
 import com.phoenix.db.extra.ContactlistObjType;
 import com.phoenix.db.extra.ContactlistStatus;
 import com.phoenix.db.extra.WhitelistObjType;
 import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.db.opensips.Subscriber;
-import com.phoenix.db.opensips.Xcap;
 import com.phoenix.service.*;
 import com.phoenix.service.files.FileManager;
 import com.phoenix.service.pres.PresenceManager;
-import com.phoenix.soap.beans.AuthCheckRequestV2;
-import com.phoenix.soap.beans.AuthCheckResponseV2;
-import com.phoenix.soap.beans.TrueFalse;
-import com.phoenix.soap.beans.TrueFalseNA;
-import com.phoenix.soap.beans.CertificateRequestElement;
-import com.phoenix.soap.beans.CertificateStatus;
-import com.phoenix.soap.beans.CertificateWrapper;
-import com.phoenix.soap.beans.WhitelistRequest;
-import com.phoenix.soap.beans.WhitelistGetRequest;
-import com.phoenix.soap.beans.WhitelistRequestElement;
-import com.phoenix.soap.beans.WhitelistResponse;
-
+import com.phoenix.soap.beans.*;
+import com.phoenix.utils.AESCipher;
+import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.PasswordGenerator;
+import com.phoenix.utils.StringUtils;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.ejb.HibernateEntityManager;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ws.context.MessageContext;
 import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
+import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
 
-import com.phoenix.soap.beans.ContactListElement;
-import com.phoenix.soap.beans.ContactlistAction;
-import com.phoenix.soap.beans.ContactlistChangeRequest;
-import com.phoenix.soap.beans.ContactlistChangeRequestElement;
-import com.phoenix.soap.beans.ContactlistChangeResponse;
-import com.phoenix.soap.beans.ContactlistGetRequest;
-import com.phoenix.soap.beans.ContactlistGetResponse;
-import com.phoenix.soap.beans.ContactlistReturn;
-import com.phoenix.soap.beans.EnabledDisabled;
-import com.phoenix.soap.beans.FtAddDHKeysRequest;
-import com.phoenix.soap.beans.FtAddDHKeysResponse;
-import com.phoenix.soap.beans.FtRemoveDHKeysRequest;
-import com.phoenix.soap.beans.FtRemoveDHKeysResponse;
-import com.phoenix.soap.beans.*;
-import com.phoenix.soap.beans.FtDHKey;
-import com.phoenix.soap.beans.GetCertificateRequest;
-import com.phoenix.soap.beans.GetCertificateResponse;
-import com.phoenix.soap.beans.GetOneTimeTokenRequest;
-import com.phoenix.soap.beans.GetOneTimeTokenResponse;
-import com.phoenix.soap.beans.PasswordChangeRequest;
-import com.phoenix.soap.beans.PasswordChangeResponse;
-import com.phoenix.soap.beans.SignCertificateRequest;
-import com.phoenix.soap.beans.SignCertificateResponse;
-import com.phoenix.soap.beans.UserIdentifier;
-import com.phoenix.soap.beans.UserPresenceStatus;
-import com.phoenix.soap.beans.UserWhitelistStatus;
-import com.phoenix.soap.beans.WhitelistAction;
-import com.phoenix.soap.beans.WhitelistElement;
-import com.phoenix.soap.beans.WhitelistGetResponse;
-import com.phoenix.utils.AESCipher;
-import com.phoenix.utils.StringUtils;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SignatureException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
@@ -100,19 +44,16 @@ import javax.servlet.http.HttpServletRequest;
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.pkcs.PKCS10CertificationRequest;
-import org.springframework.ws.context.MessageContext;
-import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
-
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.ejb.HibernateEntityManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SignatureException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Basic phoenix service endpoint for whitelist and contactlist manipulation
@@ -877,8 +818,8 @@ public class PhoenixEndpoint {
         GetCertificateResponse response = new GetCertificateResponse();
         
         // maximum length?
-        if (request.getElement()==null || request.getElement().isEmpty() || request.getElement().size()>256){
-            throw new IllegalArgumentException("Invalid size of request");
+        if (request.getElement()==null || request.getElement().isEmpty() || request.getElement().size()>512){
+            throw new IllegalArgumentException(String.format("Invalid size of request: %d", MiscUtils.collectionSize(request.getElement())));
         }
         
         // Iterate over certificate requests and process it one-by-one.
