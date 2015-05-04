@@ -1422,6 +1422,13 @@ public class PhoenixEndpoint {
             if (passwdChange!=null && passwdChange==true){
                 resp.setForcePasswordChange(TrueFalse.TRUE);
             }
+
+            // AUXJson - trial event logs.
+            if (localUser.getExpires().before(Calendar.getInstance())){
+                final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
+                final JSONObject jsonObj = dataService.eventLogToJson(logs, localUser);
+                jsonAuxObj.put("evtlog", jsonObj);
+            }
             
             // if we have some certificate, we can continue with checks
             X509Certificate[] chain = auth.getCertificateChainFromConnection(context, this.request);
@@ -1493,9 +1500,6 @@ public class PhoenixEndpoint {
                     // Base field - action/method of this message.
                     jsonAuxObj.put(AUTH_TURN_PASSWD_KEY, localUser.getTurnPasswd());
 
-                    // Build AUX JSON object.
-                    resp.setAuxJSON(jsonAuxObj.toString());
-
                     // TODO: send AMQP message to the TURN server so it updates auth credentials.
                 } catch(Throwable th){
                     log.error("Exception in authcheck", th);
@@ -1521,11 +1525,14 @@ public class PhoenixEndpoint {
                 cmd.setPriority(1);
                 executor.addToHiPriorityQueue(cmd);*/
             }
+
+            resp.setAuxJSON(jsonAuxObj.toString());
+
          } catch(Throwable e){
              log.warn("Exception in password change procedure", e);
              throw new RuntimeException(e);
          }
-         
+
         resp.setErrCode(0);
         return resp;
     }
@@ -1551,6 +1558,8 @@ public class PhoenixEndpoint {
         resp.setAuxVersion(0);
         resp.setAuxJSON("");
         resp.setErrCode(404);
+
+        final JSONObject jsonAuxObj = new JSONObject();
         try {
             // Integer version by default set to 3. 
             // Changes window of the login validity.
@@ -1630,11 +1639,19 @@ public class PhoenixEndpoint {
                 resp.setForcePasswordChange(TrueFalse.TRUE);
             }
 
+            // AUXJson - trial event logs.
+            if (localUser.getExpires().before(Calendar.getInstance())){
+                final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
+                final JSONObject jsonObj = dataService.eventLogToJson(logs, localUser);
+                jsonAuxObj.put("evtlog", jsonObj);
+            }
+
+            resp.setAuxJSON(jsonAuxObj.toString());
         } catch(Exception e){
             log.warn("Exception in password change procedure", e);
             throw new RuntimeException(e);
         }
-         
+
         resp.setErrCode(0);
         return resp;
     }
@@ -2634,7 +2651,84 @@ public class PhoenixEndpoint {
         
         return response;
     }
-    
+
+    /**
+     * Request from the user to store this event related to the trial account.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "trialEventSaveRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public TrialEventSaveResponse trialEventSave(@RequestPayload TrialEventSaveRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        String ownerSip = PhoenixDataService.getSIP(owner);
+        log.info("Remote user connected (trialEventSave): " + ownerSip);
+
+        // Construct response
+        TrialEventSaveResponse response = new TrialEventSaveResponse();
+        response.setErrCode(0);
+
+        try {
+            // Check for the number of events stored for this user.
+            long numEvents = dataService.getCountOfTrialEvents(owner);
+            if (numEvents >= 2000){
+                throw new RuntimeException("Too many records for the user " + ownerSip);
+            }
+
+            TrialEventLog te = new TrialEventLog();
+            te.setDateCreated(new Date());
+            te.setOwner(owner);
+            te.setEtype(request.getEtype());
+            em.persist(te);
+
+            return response;
+        } catch(Exception e){
+            response.setErrCode(-2);
+            log.error("Exception trialEventSave()", e);
+        }
+
+        return response;
+    }
+
+    /**
+     * Request from the user's trial event log.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "trialEventGetRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public TrialEventGetResponse trialEventGet(@RequestPayload TrialEventGetRequest request, MessageContext context) throws CertificateException {
+        Subscriber owner = this.authUserFromCert(context, this.request);
+        String ownerSip = PhoenixDataService.getSIP(owner);
+        log.info("Remote user connected (trialEventGet): " + ownerSip);
+
+        // Construct response
+        TrialEventGetResponse response = new TrialEventGetResponse();
+        response.setErrCode(0);
+
+        try {
+            final Integer etype = request.getEtype();
+            final List<TrialEventLog> logs = dataService.getTrialEventLogs(owner, etype == null || etype == -1 ? null : etype);
+            final JSONObject jsonObj = dataService.eventLogToJson(logs, owner);
+            response.setRespJSON(jsonObj.toString());
+
+            return response;
+        } catch(Exception e){
+            response.setErrCode(-2);
+            log.error("Exception trialEventSave()", e);
+        }
+
+        return response;
+    }
+
     /**
      * Stores information about some action to the usage logs.
      * @param user

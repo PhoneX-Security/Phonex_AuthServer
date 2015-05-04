@@ -11,32 +11,14 @@ import com.phoenix.service.executor.JobFinishedListener;
 import com.phoenix.service.executor.JobRunnable;
 import com.phoenix.service.pres.TransferRosterItem;
 import com.phoenix.utils.JiveGlobals;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.io.Writer;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.security.NoSuchAlgorithmException;
-import java.util.*;
-import java.util.concurrent.Future;
-import javax.net.ssl.X509TrustManager;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
 import org.bouncycastle.util.encoders.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.ejb.HibernateEntityManager;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +27,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import static com.phoenix.service.pres.PresenceManager.NOTIFIER_SUFFIX;
+import javax.net.ssl.X509TrustManager;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import javax.persistence.TypedQuery;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.util.concurrent.Future;
 
 /**
  * Answers data questions for endpoint.
@@ -741,7 +735,7 @@ public class PhoenixDataService {
     public String generateUserAuthToken(String sip, String ha1, String usrToken, String serverToken, long milliWindow, int offset) throws NoSuchAlgorithmException{
         // determine current time window
         String base = generateUserTokenBase(sip, ha1, usrToken, serverToken, milliWindow, offset);
-        return generateHash(base+"PHOENIX_AUTH", false, 3779);
+        return generateHash(base + "PHOENIX_AUTH", false, 3779);
     }
     
       /**
@@ -948,6 +942,67 @@ public class PhoenixDataService {
         } catch(Exception e){
             log.error("Exception in new cert roster notification", e);
         }
+    }
+
+    @Transactional
+    public long getCountOfTrialEvents(Subscriber s){
+        TypedQuery<Long> countQuery = em.createQuery("SELECT COUNT(te) FROM TrialEventLog te WHERE te.owner=:owner", Long.class);
+        countQuery.setParameter("owner", s);
+        Long sfCount = countQuery.getSingleResult();
+        return sfCount == null ? 0 : sfCount;
+    }
+
+    @Transactional
+    public List<TrialEventLog> getTrialEventLogs(Subscriber s, Integer type){
+        List<TrialEventLog> result = new LinkedList<TrialEventLog>();
+
+        try {
+            // now loading whitelist entries from database for owner, for intern user destination
+            StringBuilder sb = new StringBuilder();
+            sb.append("SELECT te FROM TrialEventLog te WHERE te.owner=:owner ");
+            if (type != null) {
+                sb.append(" AND te.etype=:etype ");
+            }
+
+            TypedQuery<TrialEventLog> query = em.createQuery(sb.toString(), TrialEventLog.class);
+            query.setParameter("owner", s);
+            if (type != null) {
+                query.setParameter("etype", type);
+            }
+
+            List<TrialEventLog> resultList = query.getResultList();
+            result.addAll(resultList);
+
+        } catch(Exception ex){
+            log.error("Exception in getTrialLogs", ex);
+        }
+
+        return result;
+    }
+
+    /**
+     * Converts eventlog to JSON.
+     * @param log
+     * @return
+     */
+    public JSONObject eventLogToJson(List<TrialEventLog> log, Subscriber s) throws JSONException {
+        JSONObject obj = new JSONObject();
+
+        // Destination user this push message is designated.
+        obj.put("user", getSIP(s));
+
+        // Array of push messages.
+        JSONArray msgArray = new JSONArray();
+        for (TrialEventLog evt : log) {
+            JSONObject evtObj = new JSONObject();
+            evtObj.put("id", evt.getId());
+            evtObj.put("type", evt.getEtype());
+            evtObj.put("date", evt.getDateCreated().getTime());
+            msgArray.put(evtObj);
+        }
+
+        obj.put("events", msgArray);
+        return obj;
     }
 
     /**
