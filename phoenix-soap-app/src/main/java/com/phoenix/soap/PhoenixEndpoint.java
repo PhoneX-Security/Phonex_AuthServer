@@ -1428,6 +1428,7 @@ public class PhoenixEndpoint {
                 final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
                 final JSONObject jsonObj = dataService.eventLogToJson(logs, localUser);
                 jsonAuxObj.put("evtlog", jsonObj);
+                resp.setAuxJSON(jsonAuxObj.toString());
             }
             
             // if we have some certificate, we can continue with checks
@@ -1499,6 +1500,7 @@ public class PhoenixEndpoint {
 
                     // Base field - action/method of this message.
                     jsonAuxObj.put(AUTH_TURN_PASSWD_KEY, localUser.getTurnPasswd());
+                    resp.setAuxJSON(jsonAuxObj.toString());
 
                     // TODO: send AMQP message to the TURN server so it updates auth credentials.
                 } catch(Throwable th){
