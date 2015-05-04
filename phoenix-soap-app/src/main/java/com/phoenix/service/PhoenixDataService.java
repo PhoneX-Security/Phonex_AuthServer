@@ -980,6 +980,14 @@ public class PhoenixDataService {
         return result;
     }
 
+    @Transactional
+    public int cleanTrialLogsOlderThan(Date date){
+        final String olderThanQueryString = "DELETE FROM TrialEventLog d WHERE d.dateCreated < :de";
+        Query delQuery = em.createQuery(olderThanQueryString);
+        delQuery.setParameter("de", date);
+        return delQuery.executeUpdate();
+    }
+
     /**
      * Converts eventlog to JSON.
      * @param log
