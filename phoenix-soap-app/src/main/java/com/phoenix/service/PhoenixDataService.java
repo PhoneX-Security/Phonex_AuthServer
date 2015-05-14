@@ -989,6 +989,17 @@ public class PhoenixDataService {
     }
 
     /**
+     * Adds support contact elements to the object given.
+     * @param s
+     * @param objToSet
+     */
+    public void setSupportContacts(Subscriber s, JSONObject objToSet) throws JSONException {
+        JSONArray arr = new JSONArray();
+        arr.put("phonex-support@phone-x.net");
+        objToSet.put("support_contacts", arr);
+    }
+
+    /**
      * Converts eventlog to JSON.
      * @param log
      * @return

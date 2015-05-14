@@ -1430,6 +1430,10 @@ public class PhoenixEndpoint {
                 jsonAuxObj.put("evtlog", jsonObj);
                 resp.setAuxJSON(jsonAuxObj.toString());
             }
+
+            // Support contacts.
+            dataService.setSupportContacts(localUser, jsonAuxObj);
+            resp.setAuxJSON(jsonAuxObj.toString());
             
             // if we have some certificate, we can continue with checks
             X509Certificate[] chain = auth.getCertificateChainFromConnection(context, this.request);
@@ -1648,7 +1652,10 @@ public class PhoenixEndpoint {
                 jsonAuxObj.put("evtlog", jsonObj);
             }
 
+            // Support contacts.
+            dataService.setSupportContacts(localUser, jsonAuxObj);
             resp.setAuxJSON(jsonAuxObj.toString());
+
         } catch(Exception e){
             log.warn("Exception in password change procedure", e);
             throw new RuntimeException(e);
