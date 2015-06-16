@@ -5,6 +5,9 @@
 package com.phoenix.db;
 
 import com.phoenix.db.opensips.Subscriber;
+import org.hibernate.annotations.Index;
+
+import javax.persistence.*;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Serializable;
@@ -12,18 +15,8 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.Date;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.ManyToOne;
-import javax.persistence.Temporal;
-import javax.persistence.Transient;
-import org.hibernate.annotations.Index;
 
 /**
  * CA database of signed certificates, revocations.
@@ -43,6 +36,17 @@ public class CAcertsSigned implements Serializable {
     @ManyToOne
     @JoinColumn(name="subscriber_id", nullable=true, unique=false)
     private Subscriber subscriber;
+
+    @Column(nullable = false)
+    @Index(name="names")
+    private String subscriberName;
+
+    /**
+     * For implementation of multiple device support? Device ID.
+     */
+    @Column(nullable = true)
+    @Index(name="names")
+    private String subscriberResource;
     
     @Transient
     private X509Certificate cert;
@@ -203,9 +207,41 @@ public class CAcertsSigned implements Serializable {
     public void setRevokedReason(String revokedReason) {
         this.revokedReason = revokedReason;
     }
-    
+
+    public String getSubscriberName() {
+        return subscriberName;
+    }
+
+    public void setSubscriberName(String subscriberName) {
+        this.subscriberName = subscriberName;
+    }
+
+    public String getSubscriberResource() {
+        return subscriberResource;
+    }
+
+    public void setSubscriberResource(String subscriberResource) {
+        this.subscriberResource = subscriberResource;
+    }
+
     @Override
     public String toString() {
-        return "CAcertsSigned{" + "serial=" + serial + ", subscriber=" + subscriber + ", cert=" + cert + ", certHash=" + certHash + ", rawCert=" + rawCert + ", notValidBefore=" + notValidBefore + ", notValidAfter=" + notValidAfter + ", DN=" + DN + ", CN=" + CN + ", dateSigned=" + dateSigned + ", isRevoked=" + isRevoked + ", dateRevoked=" + dateRevoked + ", revokedReason=" + revokedReason + '}';
+        return "CAcertsSigned{" +
+                "serial=" + serial +
+                ", subscriber=" + subscriber +
+                ", subscriberName='" + subscriberName + '\'' +
+                ", subscriberResource='" + subscriberResource + '\'' +
+                ", cert=" + cert +
+                ", certHash='" + certHash + '\'' +
+                ", notValidBefore=" + notValidBefore +
+                ", notValidAfter=" + notValidAfter +
+                ", DN='" + DN + '\'' +
+                ", CN='" + CN + '\'' +
+                ", dateSigned=" + dateSigned +
+                ", isRevoked=" + isRevoked +
+                ", dateRevoked=" + dateRevoked +
+                ", revokedReason='" + revokedReason + '\'' +
+                ", rawCert=" + Arrays.toString(rawCert) +
+                '}';
     }
 }

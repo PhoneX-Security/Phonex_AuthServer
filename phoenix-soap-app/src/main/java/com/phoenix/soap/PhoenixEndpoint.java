@@ -10,14 +10,12 @@ import com.phoenix.db.extra.ContactlistStatus;
 import com.phoenix.db.extra.WhitelistObjType;
 import com.phoenix.db.extra.WhitelistStatus;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.db.tools.DBObjectLoader;
 import com.phoenix.service.*;
 import com.phoenix.service.files.FileManager;
 import com.phoenix.service.pres.PresenceManager;
 import com.phoenix.soap.beans.*;
-import com.phoenix.utils.AESCipher;
-import com.phoenix.utils.MiscUtils;
-import com.phoenix.utils.PasswordGenerator;
-import com.phoenix.utils.StringUtils;
+import com.phoenix.utils.*;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.hibernate.Session;
@@ -750,7 +748,187 @@ public class PhoenixEndpoint {
        
         return response;
     }
-    
+
+    /**
+     * Deprecated version of the call.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public GetCertificateResponse getCertificateOld(GetCertificateRequest request, MessageContext context) throws CertificateException {
+        String owner = this.authRemoteUserFromCert(context, this.request);
+        log.info("Remote user connected (getCertificate): " + owner);
+
+        // support also remote users :)
+        // 1. try to load local user
+        Subscriber sub = null;
+        RemoteUser rem = null;
+
+        // Monitor if user is asking for different certificates than his.
+        // If yes, use this infromation to set first user add date if is empty.
+        boolean askingForDifferentThanOurs = false;
+        boolean askingForServer = false;
+        final Date curDate = new Date();
+
+        // for whitelist searching (ommiting groups right now)
+        // searching as destination in someones whitelist
+        WhitelistDstObj dstObj = new WhitelistDstObj();
+
+        // at first try local
+        sub = this.dataService.getLocalUser(owner);
+        // now try remote
+        if (sub==null){
+            rem = this.dataService.getRemoteUser(owner);
+            // set remote
+            dstObj.setExtern_user(rem);
+        } else {
+            // sub is not null, set intern
+            dstObj.setIntern_user(sub);
+        }
+
+        // still null?
+        if (sub==null && rem==null){
+            throw new IllegalArgumentException("User you are claiming you are does not exist!");
+        }
+
+        // define answer, will be iteratively filled in
+        GetCertificateResponse response = new GetCertificateResponse();
+        final List<CertificateWrapper> crtRet = response.getReturn();
+
+        // maximum length?
+        if (request.getElement() == null || request.getElement().isEmpty() || request.getElement().size() > 1024){
+            throw new IllegalArgumentException(String.format("Invalid size of request: %d", MiscUtils.collectionSize(request.getElement())));
+        }
+
+        // Iterate over certificate requests and process it one-by-one.
+        for(CertificateRequestElement el : request.getElement()){
+            // At first obtain user object we are talking about.
+            // Now assume only local user, we will have procedure for extern and groups also
+            // in future (I hope so:)).
+            Subscriber s = null;
+            String sip = el.getUser();
+            if (sip!=null && !sip.isEmpty()){
+                s = dataService.getLocalUser(sip);
+            } else {
+                throw new RuntimeException("Both user identifiers are null");
+            }
+
+            askingForDifferentThanOurs |= !owner.equalsIgnoreCase(sip);
+
+            // current certificate answer
+            CertificateWrapper wr = new CertificateWrapper();
+
+            // special case - server certificate
+            // TODO: refactor this, unclean method
+            if (sip!=null && "server".equalsIgnoreCase(sip)){
+                log.info("Obtaining server certificate ["+owner+"]");
+                // now just add certificate to response
+                wr.setStatus(CertificateStatus.OK);
+                wr.setUser(sip);
+                wr.setCertificate(this.trustManager.getServerCA().getEncoded());
+                crtRet.add(wr);
+                continue;
+            }
+
+            // null subscriber - fail, user has to exist in database
+            if (s==null){
+                log.info("User is not found in database, " + sip + "; requestor: " + owner);
+                wr.setStatus(CertificateStatus.NOUSER);
+                crtRet.add(wr);
+                continue;
+            } else {
+                log.info("User to obtain certificate for: " + s.getUsername() + "; requestor: " + owner);
+            }
+
+            // init return structure
+            wr.setStatus(CertificateStatus.MISSING);
+            wr.setUser(PhoenixDataService.getSIP(s));
+            wr.setCertificate(null);
+
+            // If user provided certificate hash, first check whether it is valid
+            // and real certificate for user. If yes, then just confirm this to save
+            // bandwidth. No certificate is really sent to user, no real certificate
+            // checks are done (expiration, signature, etc...)
+            String certHash = el.getCertificateHash();
+            if (!StringUtils.isEmpty(certHash)){
+                boolean valid = false;
+                try {
+                    valid = this.dataService.isProvidedHashValid(s, certHash);
+                } catch(Exception ex){
+                    log.warn("Exception during testing existing certificate hash", ex);
+                }
+
+                // it is valid -> no need to continue
+                if (valid==true){
+                    wr.setProvidedCertStatus(CertificateStatus.OK);
+                    wr.setStatus(CertificateStatus.OK);
+                    wr.setCertificate(null);
+                    crtRet.add(wr);
+                    continue;
+                } else {
+                    wr.setProvidedCertStatus(CertificateStatus.INVALID);
+                }
+            }
+
+            // obtain certificate for particular subscriber
+            CAcertsSigned cert = this.dataService.getCertificateForUser(s);
+            if (cert==null || cert.getCert()==null){
+                log.info("Certificate for user ["+s.getUsername()+"] is null");
+                log.info("cert: " + cert);
+                if (cert!=null){
+                    log.info("Cert not null: " + cert.getCert());
+                    log.info("Cert not null len: " + cert.getRawCert().length);
+                }
+
+                wr.setStatus(CertificateStatus.MISSING);
+                crtRet.add(wr);
+                continue;
+            }
+
+            // certificate
+            X509Certificate cert509 = cert.getCert();
+            log.info("cert is not null!; DBserial=[" + cert.getSerial() + "].");
+            log.debug("cert is not null!; DBserial=[" + cert.getSerial() + "]. Real ceritificate: " + cert509);
+
+            // time validity
+            try{
+                // time-date validity
+                cert509.checkValidity();
+
+                // is certificate valid?
+                this.trustManager.checkTrusted(cert509);
+
+                // is revoked?
+                Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
+                if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
+                    log.info("Certificate for user "+(s.getUsername())+" is revoked: " + cert509.getSerialNumber().longValue());
+                    wr.setStatus(CertificateStatus.REVOKED);
+                    crtRet.add(wr);
+                    continue;
+                }
+            } catch(Exception e){
+                // certificate is invalid
+                log.info("Certificate for user "+(s.getUsername())+" is invalid", e);
+                wr.setStatus(CertificateStatus.INVALID);
+                crtRet.add(wr);
+                continue;
+            }
+
+            // now just add certificate to response
+            wr.setStatus(CertificateStatus.OK);
+            wr.setCertificate(cert509.getEncoded());
+            crtRet.add(wr);
+        }
+
+        // Logic for setting first user added field.
+        updateStatsForCertGet(sub, askingForDifferentThanOurs);
+        logAction(owner, "getCert", null);
+        return response;
+    }
+
     /**
      * Method for obtaining user certificate. 
      * User calls this if wants to communicate with remote user and in never communicated
@@ -781,192 +959,258 @@ public class PhoenixEndpoint {
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public GetCertificateResponse getCertificate(@RequestPayload GetCertificateRequest request, MessageContext context) throws CertificateException {
-        String owner = this.authRemoteUserFromCert(context, this.request);
-        log.info("Remote user connected (getCertificate): " + owner);
-       
-        // support also remote users :)
-        // 1. try to load local user
-        Subscriber sub = null;
-        RemoteUser rem = null;
-        
-        // Monitor if user is asking for different certificates than his.
-        // If yes, use this infromation to set first user add date if is empty.
-        boolean askingForDifferentThanOurs = false;
-        
-        // for whitelist searching (ommiting groups right now)
-        // searching as destination in someones whitelist
-        WhitelistDstObj dstObj = new WhitelistDstObj();
+        try {
+            String owner = this.authRemoteUserFromCert(context, this.request);
+            log.info("Remote user connected (getCertificate): " + owner);
 
-        // at first try local
-        sub = this.dataService.getLocalUser(owner);        
-        // now try remote
-        if (sub==null){
-            rem = this.dataService.getRemoteUser(owner);
-            // set remote
-            dstObj.setExtern_user(rem);
-        } else {
-            // sub is not null, set intern
-            dstObj.setIntern_user(sub);
-        }
-        
-        // still null? 
-        if (sub==null && rem==null){
-            throw new IllegalArgumentException("User you are claiming you are does not exist!");
-        }
-        
-        // define answer, will be iteratively filled in
-        GetCertificateResponse response = new GetCertificateResponse();
-        
-        // maximum length?
-        if (request.getElement()==null || request.getElement().isEmpty() || request.getElement().size()>512){
-            throw new IllegalArgumentException(String.format("Invalid size of request: %d", MiscUtils.collectionSize(request.getElement())));
-        }
-        
-        // Iterate over certificate requests and process it one-by-one.
-        for(CertificateRequestElement el : request.getElement()){
-            // At first obtain user object we are talking about.
-            // Now assume only local user, we will have procedure for extern and groups also
-            // in future (I hope so:)).
-            Subscriber s = null;
-            String sip = el.getUser();
-            if (sip!=null && !sip.isEmpty()){
-                s = dataService.getLocalUser(sip);
-            } else {
-                throw new RuntimeException("Both user identifiers are null");
+            // Support also remote users.
+            RemoteUser rem = null;
+
+            // Monitor if user is asking for different certificates than his.
+            // If yes, use this information to set first user add date if is empty.
+            boolean askingForDifferentThanOurs = false;
+            boolean askingForServer = false;
+            final Date curDate = new Date();
+
+            // at first try local
+            final Subscriber sub = this.dataService.getLocalUser(owner);
+            // now try remote
+            if (sub == null) {
+                rem = this.dataService.getRemoteUser(owner);
             }
-            
-            askingForDifferentThanOurs |= !owner.equalsIgnoreCase(sip);
-            
-            // current certificate answer
-            CertificateWrapper wr = new CertificateWrapper();
-            
-            // special case - server certificate
-            // TODO: refactor this, unclean method
-            if (sip!=null && "server".equalsIgnoreCase(sip)){
+
+            // still null?
+            if (sub == null && rem == null) {
+                throw new IllegalArgumentException("User you are claiming you are does not exist!");
+            }
+
+            // define answer, will be iteratively filled in
+            GetCertificateResponse response = new GetCertificateResponse();
+            final List<CertificateWrapper> crtRet = response.getReturn();
+
+            // maximum length?
+            if (request.getElement() == null || request.getElement().isEmpty() || request.getElement().size() > 768) {
+                throw new IllegalArgumentException(String.format("Invalid size of request: %d", MiscUtils.collectionSize(request.getElement())));
+            }
+
+            // SQL for loading certificates based on the hash.
+            final String certHashQuery = "SELECT cs FROM CAcertsSigned cs WHERE certHash IN :hashes";
+
+            // Load subscriber in bulks from the database.
+            DBObjectLoader<Subscriber, String> subscriberLoader = new DBObjectLoader<Subscriber, String>(Subscriber.class, dataService);
+            subscriberLoader.setSqlStatement("SELECT u FROM Subscriber u WHERE CONCAT(u.username, '@', u.domain) IN :sip");
+            subscriberLoader.setWhereInColumn("sip");
+            subscriberLoader.setOperationThreshold(250);
+
+            // Extract SIP user names for bulk load & certificate hashes for easy check.
+            final Set<String> sipUsers = new HashSet<String>();
+            // Sip -> Certificate hash record.
+            final Map<String, String> certHashes = new HashMap<String, String>();
+            for (CertificateRequestElement el : request.getElement()) {
+                final String sip = SipUri.getCanonicalSipContact(el.getUser(), false);
+                final String certHash = el.getCertificateHash();
+
+                sipUsers.add(sip);
+                subscriberLoader.add(sip);
+                askingForDifferentThanOurs |= !owner.equalsIgnoreCase(sip);
+                askingForServer |= "server".equalsIgnoreCase(sip);
+
+                if (!StringUtils.isEmpty(certHash)) {
+                    certHashes.put(sip, certHash);
+                }
+            }
+
+            // Set of found users in the database, from this users not found in DB are computed.
+            final Set<String> foundUsersInDb = new HashSet<String>();
+            // Do the mass query for Subscribers, load in bulks (250). Load certificates for those bulks.
+            while (subscriberLoader.loadNewData()) {
+                // Load all subscribers in this bulk.
+                final List<Subscriber> subs = subscriberLoader.getLoadedData();
+                // All certificate hashes to be loaded in a bulk in this stage.
+                final Map<String, String> curCertHashes = new HashMap<String, String>();
+                // Set of all cert hashes found in the database.
+                final Set<String> usersWithFoundCertHashes = new HashSet<String>();
+                // List of subscribers that need to load new certificates for.
+                final List<Subscriber> subToLoadCert = new ArrayList<Subscriber>(subs.size());
+                // Set of all users (SIP) with satisfied certificate request. Users not here should return MISSING status as no certificate was found for them.
+                final Set<String> sipWithCertDone = new HashSet<String>();
+                // Certificate status for certificates with provided cert hash.
+                final Map<String, CertificateStatus> certStatus = new HashMap<String, CertificateStatus>();
+                // Sip -> Sub map.
+                final Map<String, Subscriber> subMap = new HashMap<String, Subscriber>();
+
+                // Process this bulk and prepare state structures, cert hash grouping.
+                for (Subscriber s : subs) {
+                    final String curSip = PhoenixDataService.getSIP(s);
+                    foundUsersInDb.add(curSip);
+                    subMap.put(curSip, s);
+
+                    // Load certificate hashes in this bulk.
+                    if (certHashes.containsKey(curSip)) {
+                        curCertHashes.put(curSip, certHashes.get(curSip));
+                    } else {
+                        subToLoadCert.add(s);
+                    }
+                }
+
+                // Load all certificates with hashes provided by users.
+                List<CAcertsSigned> resultList = curCertHashes.isEmpty() ?
+                        new ArrayList<CAcertsSigned>() :
+                        em.createQuery(certHashQuery, CAcertsSigned.class)
+                                .setParameter("hashes", curCertHashes.values())
+                                .getResultList();
+
+                for (CAcertsSigned cert : resultList) {;
+                    final String certSip = cert.getSubscriberName();
+                    final boolean isValid = !cert.getIsRevoked()
+                            && cert.getNotValidAfter() != null
+                            && cert.getNotValidAfter().after(curDate);
+
+                    // Mark that for this user certificate was found based on the cert hash.
+                    usersWithFoundCertHashes.add(certSip);
+
+                    if (!isValid) {
+                        // Certificate is not valid, load a new one.
+                        subToLoadCert.add(subMap.get(certSip));
+                    } else {
+                        // Certificate is done, mark as finished.
+                        sipWithCertDone.add(certSip);
+                        // Certificate request finished -> add response to the list.
+                        CertificateWrapper w = new CertificateWrapper();
+                        w.setUser(certSip);
+                        w.setProvidedCertStatus(CertificateStatus.OK);
+                        w.setStatus(CertificateStatus.OK);
+                        crtRet.add(w);
+                    }
+
+                    certStatus.put(certSip, isValid ? CertificateStatus.OK : CertificateStatus.INVALID);
+                }
+
+                // Handle users with provided cert hash but no certificate was found for given cert hash.
+                for(String userSipWithProvidedCertHash : curCertHashes.keySet()){
+                    if (usersWithFoundCertHashes.contains(userSipWithProvidedCertHash)){
+                        continue;
+                    }
+
+                    certStatus.put(userSipWithProvidedCertHash, CertificateStatus.MISSING);
+                }
+
+                // Load all certificates without hashes, new certificates whose hash does not match, total bulk.
+                // subToLoadCert might got extended when provided certificate referenced with cert hash is invalid.
+                // Certificates with CertificateStatus.OK in certStatus are not here, not needed to load.
+                // Still need to handle missing certificates.
+                final Map<String, CAcertsSigned> loadedCertList = dataService.getCertificatesForUsers(subToLoadCert);
+                for (CAcertsSigned curCert : loadedCertList.values()) {
+                    final String curSip = curCert.getSubscriberName();
+                    sipWithCertDone.add(curSip);
+
+                    // Certificate request finished -> add response to the list.
+                    CertificateWrapper w = new CertificateWrapper();
+                    w.setUser(curSip);
+                    w.setStatus(CertificateStatus.OK);
+                    w.setCertificate(curCert.getRawCert());
+                    // Here situation when provided cert is invalid, but we are returning a new valid one handled.
+                    if (certStatus.containsKey(curSip)) {
+                        w.setProvidedCertStatus(certStatus.get(curSip));
+                    }
+
+                    crtRet.add(w);
+                }
+
+                // Here handle response generation for users without any valid certificate.
+                for (Subscriber curSub : subs) {
+                    final String curSip = PhoenixDataService.getSIP(curSub);
+                    if (sipWithCertDone.contains(curSip)){
+                        continue;
+                    }
+
+                    // Certificate request finished -> add response to the list.
+                    CertificateWrapper w = new CertificateWrapper();
+                    w.setUser(curSip);
+                    w.setStatus(CertificateStatus.MISSING);
+                    // If provided certificate hash pointed to invalid certificate.
+                    if (certStatus.containsKey(curSip)) {
+                        w.setProvidedCertStatus(certStatus.get(curSip));
+                    }
+
+                    crtRet.add(w);
+
+                    // Add to request-handled-set.
+                    sipWithCertDone.add(curSip);
+                }
+            }
+
+            // Finish request - add those not found in the user database.
+            for(String curSip : sipUsers){
+                if (foundUsersInDb.contains(curSip)){
+                    continue;
+                }
+
+                // Certificate request finished -> add response to the list.
+                CertificateWrapper w = new CertificateWrapper();
+                w.setUser(curSip);
+                w.setStatus(CertificateStatus.NOUSER);
+                crtRet.add(w);
+            }
+
+            // Special case - asking for server certificate
+            if (askingForServer){
                 log.info("Obtaining server certificate ["+owner+"]");
-                // now just add certificate to response
+                CertificateWrapper wr = new CertificateWrapper();
                 wr.setStatus(CertificateStatus.OK);
-                wr.setUser(sip);
+                wr.setUser("server");
                 wr.setCertificate(this.trustManager.getServerCA().getEncoded());
-                response.getReturn().add(wr);
-                continue;
+                crtRet.add(wr);
             }
-            
-            // null subscriber - fail, user has to exist in database
-            if (s==null){
-                log.info("User is not found in database, " + sip + "; requestor: " + owner);
-                wr.setStatus(CertificateStatus.NOUSER);
-                response.getReturn().add(wr);
-                continue;
-            } else {
-                log.info("User to obtain certificate for: " + s.getUsername() + "; requestor: " + owner);
-            }
-            
-            // init return structure
-            wr.setStatus(CertificateStatus.MISSING);
-            wr.setUser(PhoenixDataService.getSIP(s));
-            wr.setCertificate(null);
-            
-            // If user provided certificate hash, first check whether it is valid
-            // and real certificate for user. If yes, then just confirm this to save
-            // bandwidth. No certificate is really sent to user, no real certificate
-            // checks are done (expiration, signature, etc...)
-            String certHash = el.getCertificateHash();
-            if (certHash!=null && certHash.isEmpty()==false){
-                boolean valid = false;
-                try {
-                    valid = this.dataService.isProvidedHashValid(s, certHash);
-                } catch(Exception ex){
-                    log.warn("Exception during testing existing certificate hash", ex);
-                }
-                
-                // it is valid -> no need to continue
-                if (valid==true){
-                    wr.setProvidedCertStatus(CertificateStatus.OK);
-                    wr.setStatus(CertificateStatus.OK);
-                    wr.setCertificate(null);
-                    response.getReturn().add(wr);
-                    continue;
-                } else {
-                    wr.setProvidedCertStatus(CertificateStatus.INVALID);
-                }
-            }
-            
-            // obtain certificate for particular subscriber
-            CAcertsSigned cert = this.dataService.getCertificateForUser(s);
-            if (cert==null || cert.getCert()==null){
-                log.info("Certificate for user ["+s.getUsername()+"] is null");
-                log.info("cert: " + cert);
-                if (cert!=null){
-                    log.info("Cert not null: " + cert.getCert());
-                    log.info("Cert not null len: " + cert.getRawCert().length);
-                }
-                
-                wr.setStatus(CertificateStatus.MISSING);
-                response.getReturn().add(wr);
-                continue;
-            }
-            
-            // certificate
-            X509Certificate cert509 = cert.getCert();
-            log.info("cert is not null!; DBserial=[" + cert.getSerial() + "].");
-            log.debug("cert is not null!; DBserial=[" + cert.getSerial() + "]. Real ceritificate: " + cert509);
 
-            // time validity
-            try{
-                // time-date validity
-                cert509.checkValidity();
-                
-                // is certificate valid?
-                this.trustManager.checkTrusted(cert509);
-                
-                // is revoked?
-                Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
-                if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
-                    log.info("Certificate for user "+(s.getUsername())+" is revoked: " + cert509.getSerialNumber().longValue());
-                    wr.setStatus(CertificateStatus.REVOKED);
-                    response.getReturn().add(wr);
-                    continue;
-                }
-            } catch(Exception e){
-                // certificate is invalid
-                log.info("Certificate for user "+(s.getUsername())+" is invalid", e);
-                wr.setStatus(CertificateStatus.INVALID);
-                response.getReturn().add(wr);
-                continue;
-            }
-            
-            // now just add certificate to response
-            wr.setStatus(CertificateStatus.OK);
-            wr.setCertificate(cert509.getEncoded());
-            response.getReturn().add(wr);
+            // Logic for setting first user added field.
+            updateStatsForCertGet(sub, askingForDifferentThanOurs);
+            logAction(owner, "getCert", null);
+            return response;
+
+        } catch(Exception ex){
+            log.error("Exception in new getCertificate(), fallback to old getCertificate() method", ex);
+            return getCertificateOld(request, context);
         }
-        
-        // Logic for setting first user added field.
-        if (sub != null){
+    }
+
+    /**
+     * Updates date statistics for the user.
+     * @param sub
+     * @param askingForDifferentThanOurs
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    private void updateStatsForCertGet(Subscriber sub, boolean askingForDifferentThanOurs){
+        if (sub == null){
+            return;
+        }
+
+        try {
+            final String owner = PhoenixDataService.getSIP(sub);
+
             // If user does not have first login date filled in, add this one.
             Calendar fUserAdded = sub.getDateFirstUserAdded();
-            if (askingForDifferentThanOurs && (fUserAdded == null || fUserAdded.before(get1971()))){
+            if (askingForDifferentThanOurs && (fUserAdded == null || fUserAdded.before(get1971()))) {
                 sub.setDateFirstUserAdded(Calendar.getInstance());
                 log.info(String.format("First user added date set to: %s, for %s", sub.getDateFirstUserAdded().getTime(), owner));
-            }   
-            
+            }
+
             // First login if not set.
             Calendar fLogin = sub.getDateFirstLogin();
-            if (fLogin == null || fLogin.before(get1971())){
+            if (fLogin == null || fLogin.before(get1971())) {
                 sub.setDateFirstLogin(Calendar.getInstance());
                 log.info(String.format("First login set to: %s, for %s", sub.getDateFirstLogin().getTime(), owner));
             }
-            
+
             // Update last activity date.
             sub.setDateLastActivity(Calendar.getInstance());
             sub.setLastActionIp(auth.getIp(this.request));
             em.persist(sub);
             log.info(String.format("Last activity set to: %s, for %s", sub.getDateLastActivity().getTime(), owner));
+
+        } catch(Throwable t){
+            log.error("Exception in writing statistics for the user", t);
         }
-        
-        logAction(owner, "getCert", null);
-        return response;
     }
     
     /**
@@ -1900,6 +2144,7 @@ public class PhoenixEndpoint {
             cacertsSigned.setDN(csrr.getSubject().toString());
             cacertsSigned.setDateSigned(new Date());
             cacertsSigned.setSubscriber(localUser);
+            cacertsSigned.setSubscriberName(PhoenixDataService.getSIP(localUser));
             cacertsSigned.setRawCert(new byte[0]);
             cacertsSigned.setCertHash("");
             cacertsSigned.setNotValidBefore(notBefore);

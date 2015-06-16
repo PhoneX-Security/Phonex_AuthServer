@@ -559,6 +559,51 @@ public class PhoenixDataService {
             return null;
         }
     }
+
+    /**
+     * Returns remote subscriber from user SIP.
+     * Only the newest valid, non revoked certificate is returned for each user.
+     *
+     * @param s
+     * @return
+     */
+    public Map<String, CAcertsSigned> getCertificatesForUsers(List<Subscriber> s){
+        try {
+            // If empty subscriber list, return empty map.
+            if (s == null || s.isEmpty()){
+                return new HashMap<String, CAcertsSigned>();
+            }
+
+            List<CAcertsSigned> allCerts = em.createQuery("SELECT cs FROM CAcertsSigned cs "
+                    + " WHERE cs.subscriber IN :s "
+                    + " AND cs.isRevoked=false"
+                    + " AND cs.notValidAfter>:n"
+                    + " ORDER BY cs.dateSigned DESC", CAcertsSigned.class)
+                    .setParameter("s", s)
+                    .setParameter("n", new Date())
+                    .getResultList();
+
+            Map<String, CAcertsSigned> ret = new HashMap<String, CAcertsSigned>();
+            for(CAcertsSigned curCert : allCerts){
+                final String sip = curCert.getSubscriberName();
+
+                // Get previous, if is newer, keep the old one.
+                final CAcertsSigned prevCert = ret.get(sip);
+                if (prevCert != null
+                        && prevCert.getDateSigned() != null
+                        && prevCert.getDateSigned().after(curCert.getDateSigned())){
+                    continue;
+                }
+
+                ret.put(sip, curCert);
+            }
+
+            return ret;
+        } catch(Exception ex){
+            log.info("Problem occurred during loading certificate from database", ex);
+            return new HashMap<String, CAcertsSigned>();
+        }
+    }
     
     /**
      * Generates randomized hash on base64 encoding from given seed
@@ -986,6 +1031,33 @@ public class PhoenixDataService {
         Query delQuery = em.createQuery(olderThanQueryString);
         delQuery.setParameter("de", date);
         return delQuery.executeUpdate();
+    }
+
+    /**
+     * Transactional wrapper for IN(...) select.
+     * @param typeParameterClass
+     * @param sqlStatement
+     * @param argsNames
+     * @param argsWhere
+     * @param whereInColumn
+     * @param whereObjs
+     * @return
+     */
+    @Transactional
+    public List queryIn(Class typeParameterClass, String sqlStatement, String[] argsNames, Object[] argsWhere, String whereInColumn, List whereObjs){
+        final int argLen = argsNames == null ? 0 : argsNames.length;
+
+        // Create query object.
+        final TypedQuery query = em.createQuery(sqlStatement, typeParameterClass);
+
+        // Set provided parameters to the query.
+        for(int i=0; i < argLen; i++){
+            query.setParameter(argsNames[i], argsWhere[i]);
+        }
+
+        // Set list parameters.
+        query.setParameter(whereInColumn, whereObjs);
+        return query.getResultList();
     }
 
     /**
