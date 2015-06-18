@@ -1002,6 +1002,17 @@ public class PhoenixEndpoint {
             subscriberLoader.setWhereInColumn("sip");
             subscriberLoader.setOperationThreshold(250);
 
+            // Statistics for debugging.
+            final int requestSize = MiscUtils.collectionSize(request.getElement());
+            int loadedSubscribers = 0;
+            int certHashesProvided = 0;
+            int certLoadedByHash = 0;
+            int certValidByHash = 0;
+            int certMissingByHash = 0;
+            int certLoadedTotal = 0;
+            int certNotFound = 0;
+            int noUserCount = 0;
+
             // Extract SIP user names for bulk load & certificate hashes for easy check.
             final Set<String> sipUsers = new HashSet<String>();
             // Sip -> Certificate hash record.
@@ -1044,10 +1055,12 @@ public class PhoenixEndpoint {
                     final String curSip = PhoenixDataService.getSIP(s);
                     foundUsersInDb.add(curSip);
                     subMap.put(curSip, s);
+                    loadedSubscribers += 1;
 
                     // Load certificate hashes in this bulk.
                     if (certHashes.containsKey(curSip)) {
                         curCertHashes.put(curSip, certHashes.get(curSip));
+                        certHashesProvided += 1;
                     } else {
                         subToLoadCert.add(s);
                     }
@@ -1060,11 +1073,13 @@ public class PhoenixEndpoint {
                                 .setParameter("hashes", curCertHashes.values())
                                 .getResultList();
 
-                for (CAcertsSigned cert : resultList) {;
+                for (CAcertsSigned cert : resultList) {
                     final String certSip = cert.getSubscriberName();
                     final boolean isValid = !cert.getIsRevoked()
                             && cert.getNotValidAfter() != null
                             && cert.getNotValidAfter().after(curDate);
+                    certLoadedByHash += 1;
+                    certValidByHash += isValid ? 1 : 0;
 
                     // Mark that for this user certificate was found based on the cert hash.
                     usersWithFoundCertHashes.add(certSip);
@@ -1092,6 +1107,7 @@ public class PhoenixEndpoint {
                         continue;
                     }
 
+                    certMissingByHash += 1;
                     certStatus.put(userSipWithProvidedCertHash, CertificateStatus.MISSING);
                 }
 
@@ -1115,6 +1131,7 @@ public class PhoenixEndpoint {
                     }
 
                     crtRet.add(w);
+                    certLoadedTotal += 1;
                 }
 
                 // Here handle response generation for users without any valid certificate.
@@ -1137,6 +1154,7 @@ public class PhoenixEndpoint {
 
                     // Add to request-handled-set.
                     sipWithCertDone.add(curSip);
+                    certNotFound += 1;
                 }
             }
 
@@ -1151,6 +1169,7 @@ public class PhoenixEndpoint {
                 w.setUser(curSip);
                 w.setStatus(CertificateStatus.NOUSER);
                 crtRet.add(w);
+                noUserCount += 1;
             }
 
             // Special case - asking for server certificate
@@ -1166,6 +1185,13 @@ public class PhoenixEndpoint {
             // Logic for setting first user added field.
             updateStatsForCertGet(sub, askingForDifferentThanOurs);
             logAction(owner, "getCert", null);
+
+            // Statistics for debugging.
+            log.info(String.format("GetCertificate: %s, requestSize: %d, loadedUsers: %d, certHashesProvided: %d, " +
+                    "certLoadedByHash: %d, certValidByHash: %d, certMissingByHash: %d, certLoadedRaw: %d, " +
+                    "certNotFound: %d, noUserCount: %d", owner, requestSize, loadedSubscribers, certHashesProvided,
+                    certLoadedByHash, certValidByHash, certMissingByHash, certLoadedTotal, certNotFound, noUserCount));
+
             return response;
 
         } catch(Exception ex){
