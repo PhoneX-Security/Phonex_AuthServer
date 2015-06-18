@@ -1095,6 +1095,7 @@ public class PhoenixEndpoint {
                         w.setUser(certSip);
                         w.setProvidedCertStatus(CertificateStatus.OK);
                         w.setStatus(CertificateStatus.OK);
+                        w.setCertificate(null);
                         crtRet.add(w);
                     }
 
@@ -1145,6 +1146,7 @@ public class PhoenixEndpoint {
                     CertificateWrapper w = new CertificateWrapper();
                     w.setUser(curSip);
                     w.setStatus(CertificateStatus.MISSING);
+                    w.setCertificate(null);
                     // If provided certificate hash pointed to invalid certificate.
                     if (certStatus.containsKey(curSip)) {
                         w.setProvidedCertStatus(certStatus.get(curSip));
@@ -1168,6 +1170,7 @@ public class PhoenixEndpoint {
                 CertificateWrapper w = new CertificateWrapper();
                 w.setUser(curSip);
                 w.setStatus(CertificateStatus.NOUSER);
+                w.setCertificate(null);
                 crtRet.add(w);
                 noUserCount += 1;
             }
@@ -1769,7 +1772,9 @@ public class PhoenixEndpoint {
                     // Turn password.
                     final String turnPasswd = localUser.getTurnPasswd();
                     if (turnPasswd == null || turnPasswd.length() == 0) {
-                        localUser.setTurnPasswd(PasswordGenerator.genPassword(24, true));
+                        final String turnPasswdGen = PasswordGenerator.genPassword(24, true);
+                        localUser.setTurnPasswd(turnPasswdGen);
+                        localUser.setTurnPasswdHa1(MiscUtils.getHA1(localUser.getUsername(), localUser.getPassword(), turnPasswdGen));
                     }
 
                     // Base field - action/method of this message.
