@@ -39,8 +39,8 @@ public class Subscriber implements java.io.Serializable {
 	private Integer primaryGroup;
     @Column(name = "turnPasswd", nullable = true, length = 64)
     private String turnPasswd;
-    @Column(name = "turn_passwd_ha1", nullable = true, length = 32)
-    private String turnPasswdHa1;
+    @Column(name = "turn_passwd_ha1b", nullable = true, length = 32)
+    private String turnPasswdHa1b;
         
         // Can user sign new certificate?
         @Column(name = "canSignNewCert", nullable = false, columnDefinition = "TINYINT(1)")
@@ -339,12 +339,12 @@ public class Subscriber implements java.io.Serializable {
         return isAdmin;
     }
 
-    public String getTurnPasswdHa1() {
-        return turnPasswdHa1;
+    public String getTurnPasswdHa1b() {
+        return turnPasswdHa1b;
     }
 
-    public void setTurnPasswdHa1(String turnPasswdHa1) {
-        this.turnPasswdHa1 = turnPasswdHa1;
+    public void setTurnPasswdHa1b(String turnPasswdHa1b) {
+        this.turnPasswdHa1b = turnPasswdHa1b;
     }
 
     public Boolean getCanSignNewCert() {

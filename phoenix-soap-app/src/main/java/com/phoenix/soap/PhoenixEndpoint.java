@@ -1774,7 +1774,7 @@ public class PhoenixEndpoint {
                     if (turnPasswd == null || turnPasswd.length() == 0) {
                         final String turnPasswdGen = PasswordGenerator.genPassword(24, true);
                         localUser.setTurnPasswd(turnPasswdGen);
-                        localUser.setTurnPasswdHa1(MiscUtils.getHA1(localUser.getUsername(), localUser.getPassword(), turnPasswdGen));
+                        localUser.setTurnPasswdHa1b(MiscUtils.getHA1(PhoenixDataService.getSIP(localUser), localUser.getDomain(), turnPasswdGen));
                     }
 
                     // Base field - action/method of this message.
