@@ -1617,7 +1617,7 @@ public class PhoenixEndpoint {
             resp.setAccountIssued(getXMLDate(new Date()));
             
             // user is provided in request thus try to load it from database
-            String sip = request.getTargetUser();
+            final String sip = request.getTargetUser();
             log.info(String.format("User [%s] is asking to verify credentials, reqVer: %d", sip, reqVersion));
             
             // user matches, load subscriber data for him
@@ -1643,13 +1643,15 @@ public class PhoenixEndpoint {
                     break;
                 }
             }
-            
-            if (authHash_valid==false){
+
+            // Invalid login here. You shall not pass!
+            if (!authHash_valid){
                 return resp;
             }
             
             // User valid ?
             resp.setAccountDisabled(localUser.isDeleted());
+            resp.setErrCode(200);
             
             // Time can be null, account expire time.
             Calendar cal = localUser.getExpires();
@@ -1683,7 +1685,7 @@ public class PhoenixEndpoint {
             
             // Number of stored files for given user.
             resp.setStoredFilesNum(Integer.valueOf((int)fmanager.getStoredFilesNum(localUser)));
-            
+
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
                 resp.setErrCode(405);
@@ -1707,10 +1709,53 @@ public class PhoenixEndpoint {
             // Support contacts.
             dataService.setSupportContacts(localUser, jsonAuxObj);
             resp.setAuxJSON(jsonAuxObj.toString());
+
+            // Turn password.
+            try {
+                final String turnPasswd = localUser.getTurnPasswd();
+                if (turnPasswd == null || turnPasswd.length() == 0) {
+                    final String turnPasswdGen = PasswordGenerator.genPassword(24, true);
+                    localUser.setTurnPasswd(turnPasswdGen);
+                    localUser.setTurnPasswdHa1b(MiscUtils.getHA1(PhoenixDataService.getSIP(localUser), localUser.getDomain(), turnPasswdGen));
+                }
+
+                // Fix turn ha1b password if missing.
+                final String turnHa1b = localUser.getTurnPasswdHa1b();
+                if (turnHa1b == null || turnHa1b.length() == 0){
+                    localUser.setTurnPasswdHa1b(MiscUtils.getHA1(PhoenixDataService.getSIP(localUser), localUser.getDomain(), turnPasswd));
+                }
+
+                // Base field - action/method of this message.
+                jsonAuxObj.put(AUTH_TURN_PASSWD_KEY, localUser.getTurnPasswd());
+                resp.setAuxJSON(jsonAuxObj.toString());
+
+                // TODO: send AMQP message to the TURN server so it updates auth credentials.
+            } catch(Throwable th){
+                log.error("Exception in authcheck, turn password set.", th);
+            }
+
+            // Store app version provided by the user so we have statistics of update and for debugging.
+            String appVersion = StringUtils.takeMaxN(request.getAppVersion(), 128);
+            if (appVersion != null){
+                localUser.setAppVersion(appVersion);
+            }
+
+            // Update last activity date.
+            localUser.setDateLastAuthCheck(Calendar.getInstance());
+            localUser.setLastAuthCheckIp(auth.getIp(this.request));
+
+            // First login if not set.
+            Calendar fAuthCheck = localUser.getDateFirstAuthCheck();
+            if (fAuthCheck == null || fAuthCheck.before(get1971())){
+                localUser.setDateFirstAuthCheck(Calendar.getInstance());
+                log.info(String.format("First auth check set to: %s", localUser.getDateFirstAuthCheck()));
+            }
             
             // if we have some certificate, we can continue with checks
             X509Certificate[] chain = auth.getCertificateChainFromConnection(context, this.request);
             if (chain==null){
+                em.persist(localUser);
+                logAction(sip, "authCheck3", null);
                 return resp;
             }
             
@@ -1724,7 +1769,7 @@ public class PhoenixEndpoint {
                 }
                 
                 // check user validity
-                if (certSip.equals(sip)==false){
+                if (!certSip.equals(sip)){
                     resp.setCertValid(TrueFalseNA.FALSE);
                     return resp;
                 }
@@ -1749,41 +1794,6 @@ public class PhoenixEndpoint {
                 } else {
                     resp.setCertValid(TrueFalseNA.TRUE);
                     resp.setCertStatus(CertificateStatus.OK);
-                }
-                
-                // First login if not set.
-                Calendar fAuthCheck = localUser.getDateFirstAuthCheck();
-                if (fAuthCheck == null || fAuthCheck.before(get1971())){
-                    localUser.setDateFirstAuthCheck(Calendar.getInstance());
-                    log.info(String.format("First autch check set to: %s", localUser.getDateFirstAuthCheck()));
-                }
-                
-                // Store app version provided by the user so we have statistics of update and for debugging.
-                String appVersion = StringUtils.takeMaxN(request.getAppVersion(), 128);
-                if (appVersion != null){
-                    localUser.setAppVersion(appVersion);
-                }
-
-                // Update last activity date.
-                localUser.setDateLastAuthCheck(Calendar.getInstance());
-                localUser.setLastAuthCheckIp(auth.getIp(this.request));
-
-                try {
-                    // Turn password.
-                    final String turnPasswd = localUser.getTurnPasswd();
-                    if (turnPasswd == null || turnPasswd.length() == 0) {
-                        final String turnPasswdGen = PasswordGenerator.genPassword(24, true);
-                        localUser.setTurnPasswd(turnPasswdGen);
-                        localUser.setTurnPasswdHa1b(MiscUtils.getHA1(PhoenixDataService.getSIP(localUser), localUser.getDomain(), turnPasswdGen));
-                    }
-
-                    // Base field - action/method of this message.
-                    jsonAuxObj.put(AUTH_TURN_PASSWD_KEY, localUser.getTurnPasswd());
-                    resp.setAuxJSON(jsonAuxObj.toString());
-
-                    // TODO: send AMQP message to the TURN server so it updates auth credentials.
-                } catch(Throwable th){
-                    log.error("Exception in authcheck", th);
                 }
 
                 em.persist(localUser);
