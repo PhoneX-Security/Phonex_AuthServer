@@ -799,7 +799,7 @@ public class PhoenixEndpoint {
         final List<CertificateWrapper> crtRet = response.getReturn();
 
         // maximum length?
-        if (request.getElement() == null || request.getElement().isEmpty() || request.getElement().size() > 1024){
+        if (request.getElement() == null || request.getElement().isEmpty() || request.getElement().size() > 4096){
             throw new IllegalArgumentException(String.format("Invalid size of request: %d", MiscUtils.collectionSize(request.getElement())));
         }
 
@@ -989,7 +989,7 @@ public class PhoenixEndpoint {
             final List<CertificateWrapper> crtRet = response.getReturn();
 
             // maximum length?
-            if (request.getElement() == null || request.getElement().isEmpty() || request.getElement().size() > 768) {
+            if (request.getElement() == null || request.getElement().isEmpty() || request.getElement().size() > 4096) {
                 throw new IllegalArgumentException(String.format("Invalid size of request: %d", MiscUtils.collectionSize(request.getElement())));
             }
 
