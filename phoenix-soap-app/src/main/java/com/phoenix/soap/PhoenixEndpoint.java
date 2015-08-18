@@ -1859,6 +1859,8 @@ public class PhoenixEndpoint {
             if (reqVersionInt != null){
                 reqVersion = reqVersionInt.intValue();
             }
+
+            final String auxJsonReq = request.getAuxJSON();
             
             // Date conversion can throw exception
             resp.setAccountExpires(getXMLDate(new Date()));
@@ -1936,6 +1938,25 @@ public class PhoenixEndpoint {
                 final JSONObject jsonObj = dataService.eventLogToJson(logs, localUser);
                 jsonAuxObj.put("evtlog", jsonObj);
             }
+
+            // Update app_version?
+            if (!StringUtils.isEmpty(auxJsonReq)){
+                try {
+                    JSONObject auxReq = new JSONObject(auxJsonReq);
+                    if (auxReq.has("app_version")){
+                        final JSONObject appVersion = auxReq.getJSONObject("app_version");
+                        final String appVersionString = appVersion.toString();
+                        localUser.setAppVersion(appVersionString);
+                    }
+                } catch(Exception e){
+                    log.warn("Could not parse auxJson, app_version", e);
+                }
+            }
+
+            logAction(sip, "accountInfoV1", null);
+            localUser.setDateLastActivity(Calendar.getInstance());
+            localUser.setLastActionIp(auth.getIp(this.request));
+            em.persist(localUser);
 
             // Support contacts.
             dataService.setSupportContacts(localUser, jsonAuxObj);
