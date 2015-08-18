@@ -11,6 +11,7 @@
     <class>com.phoenix.db.PhoenixGroup</class>
     <class>com.phoenix.db.DHKeys</class>
     <class>com.phoenix.db.LicenseNotifications</class>
+    <class>com.phoenix.db.PairingRequest</class>
     <class>com.phoenix.db.DbProperty</class>
     <class>com.phoenix.db.StoredFiles</class>
     <class>com.phoenix.db.TrialEventLog</class>

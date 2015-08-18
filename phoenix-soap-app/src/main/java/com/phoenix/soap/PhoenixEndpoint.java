@@ -5,10 +5,7 @@
 package com.phoenix.soap;
 
 import com.phoenix.db.*;
-import com.phoenix.db.extra.ContactlistObjType;
-import com.phoenix.db.extra.ContactlistStatus;
-import com.phoenix.db.extra.WhitelistObjType;
-import com.phoenix.db.extra.WhitelistStatus;
+import com.phoenix.db.extra.*;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.db.tools.DBObjectLoader;
 import com.phoenix.service.*;
@@ -3040,6 +3037,386 @@ public class PhoenixEndpoint {
         } catch(Exception e){
             response.setErrCode(-2);
             log.error("Exception trialEventSave()", e);
+        }
+
+        return response;
+    }
+
+    /**
+     * Request to fetch pairing requests from the database according to the specified criteria.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "pairingRequestFetchRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public PairingRequestFetchResponse pairingRequestFetch(@RequestPayload PairingRequestFetchRequest request, MessageContext context) throws CertificateException {
+        Subscriber caller = this.authUserFromCert(context, this.request);
+        String callerSip = PhoenixDataService.getSIP(caller);
+        log.info("Remote user connected (pairingRequestFetch): " + callerSip);
+
+        // Construct response
+        PairingRequestFetchResponse response = new PairingRequestFetchResponse();
+        response.setErrCode(0);
+
+        PairingRequestList reqList = new PairingRequestList();
+        response.setRequestList(reqList);
+
+        try {
+            //
+            // Fetch record according to the search criteria.
+            //
+            final String reqFrom = request.getFrom();
+            final Long reqTstamp = request.getTstamp();
+            final boolean fetchMy = request.isFetchMyRequests();
+            StringBuilder query = new StringBuilder();
+            TypedQuery<PairingRequest> dbQuery;
+            HashMap<String, Object> params = new HashMap<String, Object>();
+
+            if (fetchMy) {
+                // Load my pairing requests to someone.
+                query.append("SELECT pr FROM pairingRequest pr WHERE fromUser=:ownerName");
+                params.put("ownerName", callerSip);
+
+                if (reqTstamp != null) {
+                    query.append(" AND tstamp > :tstamp");
+                    params.put("tstamp", new Date(reqTstamp));
+                }
+
+                dbQuery = em.createQuery(query.toString(), PairingRequest.class);
+                dataService.setQueryParameters(dbQuery, params);
+
+            } else {
+                // Load pairing request for me.
+                query.append("SELECT pr FROM pairingRequest pr WHERE toUser=:owner");
+                params.put("owner", callerSip);
+
+                if (reqTstamp != null) {
+                    query.append(" AND tstamp > :tstamp");
+                    params.put("tstamp", new Date(reqTstamp));
+                }
+                if (reqFrom != null) {
+                    query.append(" AND fromUser=:fromUser");
+                    params.put("fromUser", reqFrom);
+                }
+
+                dbQuery = em.createQuery(query.toString(), PairingRequest.class);
+                dataService.setQueryParameters(dbQuery, params);
+            }
+
+            // Process DB response.
+            List<PairingRequest> resultList = dbQuery.getResultList();
+            for (PairingRequest pr : resultList) {
+                final PairingRequestElement elem = ConversionUtils.pairingRequestDbToElement(pr);
+
+                // Elem post processing for security info?
+                // For now, even fetching my requests to others will show resolution, resolution timestamp & so on.
+                reqList.getElements().add(elem);
+            }
+
+            response.setErrCode(0);
+            logAction(callerSip, "pairingRequestFetch", null);
+
+        } catch(Exception e){
+            log.error("Exception in fetching pairing requests", e);
+            response.setErrCode(-2);
+        }
+
+        return response;
+    }
+
+    /**
+     * Request to store a new pairing requests to the database.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "pairingRequestInsertRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public PairingRequestInsertResponse pairingRequestInsert(@RequestPayload PairingRequestInsertRequest request, MessageContext context) throws CertificateException {
+        final String callerSip = this.authRemoteUserFromCert(context, this.request);
+        log.info("Remote user connected (pairingRequestInsert): " + callerSip);
+
+        // Construct response
+        final PairingRequestInsertResponse response = new PairingRequestInsertResponse();
+        response.setErrCode(0);
+
+        try {
+            // Check sanity of the request.
+            final String toUser = request.getTo();
+            if (StringUtils.isEmpty(request.getFromResource()) || StringUtils.isEmpty(toUser)) {
+                response.setErrCode(-2);
+                return response;
+            }
+
+            // Get subscriber record for toUser. If it is not a local user, caller is calling the wrong server.
+            final Subscriber toUserSubs = this.dataService.getLocalUser(toUser);
+            if (toUserSubs == null){
+                response.setErrCode(-3);
+                return response;
+            }
+
+            //
+            // Check if not already in contact list. If yes, block insertion.
+            //
+            final Subscriber caller = this.dataService.getLocalUser(callerSip);
+            final RemoteUser callerRemote = caller != null ? null : this.dataService.getRemoteUser(callerSip);
+            boolean alreadyInContactList = false;
+            if (caller != null){
+                alreadyInContactList = dataService.getContactlistForSubscriber(toUserSubs, caller) != null;
+            } else if (callerRemote != null){
+                alreadyInContactList = dataService.getContactListForSubscriber(toUserSubs, callerRemote) != null;
+            }
+
+            // Already in contact list -> no need to insert a new request.
+            if (alreadyInContactList){
+                response.setErrCode(-10);
+                return response;
+            }
+
+            //
+            // Fetch previous pairing request.
+            // User might be deleted from the contact list. In this case, there should be no pairing request stored in the database
+            // and caller might be able to ask for adding again.
+            // On the other hand, there might be blocking resolution stored, which blocks user from further requests.
+            //
+            final String prevRequestQuerySql = "SELECT pr FROM pairingRequest pr " +
+                    " WHERE fromUser=:fromUser AND toUser=:toUser " +
+                    " ORDER BY tstamp DESC ";
+
+            TypedQuery<PairingRequest> prevRequestQuery = em.createQuery(prevRequestQuerySql, PairingRequest.class);
+            prevRequestQuery.setParameter("fromUser", callerSip)
+                    .setParameter("toUser", request.getTo())
+                    .setMaxResults(1);
+
+            PairingRequest prevReq = prevRequestQuery.getSingleResult();
+
+            // If the previous pairing request is blocked, block further requests.
+            if (prevReq != null){
+                final PairingRequestResolution resolution = prevReq.getResolution();
+                if (resolution == PairingRequestResolution.BLOCKED){
+                    response.setErrCode(-12);
+                    return response;
+                }
+
+                // If resolution is accepted, the contact should be already in the contact list of the callee.
+                if (resolution == PairingRequestResolution.ACCEPTED){
+                    response.setErrCode(-13);
+                    return response;
+                }
+
+                // If resolution is none, it was still not handled, do nothing.
+                // It might be in the processing right now, no modification.
+                if (resolution == PairingRequestResolution.NONE){
+                    response.setErrCode(-14);
+                    return response;
+                }
+
+                // If resolution is denied, remove old request and place a new one. Same with reverted case
+                if (resolution == PairingRequestResolution.DENIED || resolution == PairingRequestResolution.REVERTED){
+                    this.dataService.remove(prevReq, false);
+                }
+            }
+
+            // Create a new pairing request and insert it to the database.
+            final Date tstamp = new Date();
+            PairingRequest newPr = new PairingRequest();
+            newPr.setToUser(request.getTo());
+            newPr.setTstamp(tstamp);
+            newPr.setFromUser(callerSip);
+            newPr.setFromUserResource(request.getFromResource());
+            newPr.setFromUserAux(StringUtils.isEmpty(request.getFromAux()) ? null : request.getFromAux());
+            newPr.setRequestAux(StringUtils.isEmpty(request.getRequestAux()) ? null : request.getRequestAux());
+            newPr.setRequestMessage(StringUtils.isEmpty(request.getRequestMessage()) ? null : request.getRequestMessage());
+            newPr.setResolution(PairingRequestResolution.NONE);
+            em.persist(newPr);
+
+            // Broadcast new push message, pairing request records were changed.
+            try {
+                amqpListener.pushPairingRequestCheck(toUser, tstamp.getTime());
+            } catch(Exception ex){
+                log.error("Error in pushing pairing request check event", ex);
+            }
+
+            response.setErrCode(0);
+            logAction(callerSip, "pairingRequestInsert", null);
+
+        } catch(Exception e){
+            log.error("Exception in inserting pairing request", e);
+            response.setErrCode(-1);
+        }
+
+        return response;
+    }
+
+    /**
+     * Request to store a new pairing requests to the database.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "pairingRequestUpdateRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public PairingRequestUpdateResponse pairingRequestUpdate(@RequestPayload PairingRequestUpdateRequest request, MessageContext context) throws CertificateException {
+        final String callerSip = this.authRemoteUserFromCert(context, this.request);
+        log.info("Remote user connected (pairingRequestInsert): " + callerSip);
+
+        // Construct response
+        final PairingRequestUpdateResponse response = new PairingRequestUpdateResponse();
+        response.setErrCode(0);
+
+        final PairingRequestUpdateResult resCodes = new PairingRequestUpdateResult();
+        response.setErrCodes(resCodes);
+
+        try {
+            final PairingRequestUpdateList updList = request.getUpdateList();
+            if (updList == null || MiscUtils.collectionSize(updList.getUpdates()) == 0){
+                return response;
+            }
+
+            // Is caller local user?
+            final Subscriber caller = this.dataService.getLocalUser(callerSip);
+            final boolean isCallerLocal = caller != null;
+
+            final List<PairingRequestUpdateElement> updates = updList.getUpdates();
+            for(PairingRequestUpdateElement elem : updates){
+                ArrayList<String> criteria = new ArrayList<String>();
+                HashMap<String, Object> params = new HashMap<String, Object>();
+                boolean isCallerOwner = true;
+
+                // Security check, if both fromUser != null and owner != null, at least one of those have to equal callerSip
+                // So caller cannot modify foreign pairing requests.
+                if (!StringUtils.isEmpty(elem.getFromUser()) && !callerSip.equals(elem.getFromUser())
+                        && !StringUtils.isEmpty(elem.getOwner()) && !callerSip.equals(elem.getOwner()))
+                {
+                    resCodes.getCode().add(-2); // Security violation.
+                    continue;
+                }
+
+                // If id is null, fromUser is null and owner is null, not asking to delete older than, criteria is not sufficient.
+                if (elem.getId() == null && elem.getFromUser() == null && elem.getOwner() == null && elem.getDeleteOlderThan() == null){
+                    resCodes.getCode().add(-3); // Criteria is not sufficient.
+                    continue;
+                }
+
+                // Security measure, if both to / from is null, add criteria so caller manages his own list.
+                if (elem.getFromUser() == null && elem.getOwner() == null){
+                    criteria.add("toUser=:toUser");
+                    params.put("toUser", callerSip);
+
+                } else if (elem.getOwner() != null && elem.getFromUser() == null){
+                    // Deleting my request - only in case resolution is none.
+                    criteria.add("toUser=:toUser");
+                    criteria.add("fromUser=:fromUser");
+                    criteria.add("(resolution=:resolution1 OR resolution:=resolution2)");
+                    params.put("toUser", elem.getOwner());
+                    params.put("fromUser", callerSip);
+                    params.put("resolution1", PairingRequestResolution.NONE);
+                    params.put("resolution2", PairingRequestResolution.REVERTED);
+                    isCallerOwner = false;
+
+                } else if (elem.getFromUser() != null) {
+                    criteria.add("toUser=:toUser");
+                    criteria.add("fromUser=:fromUser");
+                    params.put("toUser", callerSip);
+                    params.put("fromUser", elem.getFromUser());
+                }
+
+                // If request for deletion by time, do it right now, no more specification is needed.
+                if (elem.getDeleteOlderThan() != null){
+                    criteria.add("tstamp <= :tstamp");
+                    params.put("tstamp", elem.getDeleteOlderThan());
+
+                    Query delQuery = this.em.createQuery(dataService.buildQueryString("DELETE FROM pairingRequest pr WHERE ", criteria, ""));
+                    dataService.setQueryParameters(delQuery, params);
+                    int updRes = delQuery.executeUpdate();
+                    resCodes.getCode().add(updRes);
+                    continue;
+                }
+
+                // May be identified by it's ID.
+                if (elem.getId() != null){
+                    criteria.add("id=:id");
+                    params.put("id", elem.getId());
+                }
+
+                // If deletion request, wait no more.
+                if (elem.isDeleteRecord()){
+                    Query delQuery = this.em.createQuery(dataService.buildQueryString("DELETE FROM pairingRequest pr WHERE ", criteria, ""));
+                    dataService.setQueryParameters(delQuery, params);
+                    int updRes = delQuery.executeUpdate();
+                    resCodes.getCode().add(updRes);
+                    continue;
+                }
+
+                // If caller is not local, here ends his possibilities.
+                if (!isCallerLocal || !isCallerOwner){
+                    resCodes.getCode().add(-4); // Operation not allowed.
+                    continue;
+                }
+
+                // If here, we want to update the record, caller is owner of such record.
+                // Update is done in the following way: load entity according to criteria, make changes, persist.
+                final String requestQuerySql = "SELECT pr FROM pairingRequest pr WHERE";
+                TypedQuery<PairingRequest> requestQuery = em.createQuery(
+                        dataService.buildQueryString(requestQuerySql, criteria, "ORDER BY tstamp DESC"), PairingRequest.class);
+                dataService.setQueryParameters(requestQuery, params);
+                requestQuery.setMaxResults(1);
+
+                PairingRequest pr = requestQuery.getSingleResult();
+                if (pr == null){
+                    resCodes.getCode().add(-5); // Not found.
+                    continue;
+                }
+
+                // Make changes and persist.
+                if (!StringUtils.isEmpty(elem.getFromUserAux())){
+                    pr.setFromUserAux(elem.getFromUserAux());
+                }
+                if (!StringUtils.isEmpty(elem.getRequestMessage())){
+                    pr.setRequestMessage(elem.getRequestMessage());
+                }
+                if (!StringUtils.isEmpty(elem.getRequestAux())){
+                    pr.setRequestAux(elem.getRequestAux());
+                }
+                if (elem.getResolution() != null){
+                    pr.setResolution(ConversionUtils.getDbResolutionFromRequest(elem.getResolution()));
+                }
+                if (!StringUtils.isEmpty(elem.getResolutionResource())){
+                    pr.setResolutionResource(elem.getResolutionResource());
+                }
+                if (elem.getResolutionTstamp() != null){
+                    pr.setResolutionTstamp(new Date(elem.getResolutionTstamp()));
+                }
+                if (!StringUtils.isEmpty(elem.getResolutionMessage())){
+                    pr.setResolutionMessage(elem.getResolutionMessage());
+                }
+                if (!StringUtils.isEmpty(elem.getResolutionAux())){
+                    pr.setResolutionAux(elem.getResolutionAux());
+                }
+
+                em.persist(pr);
+                resCodes.getCode().add(0);
+            }
+
+            // No push notification happens here. If we update our list, we know about it.
+            // Deletion is not pushed.
+
+            response.setErrCode(0);
+            logAction(callerSip, "pairingRequestUpdate", null);
+
+        } catch(Exception e){
+            log.error("Exception in updating pairing requests", e);
+            response.setErrCode(-1);
         }
 
         return response;

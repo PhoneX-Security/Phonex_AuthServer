@@ -281,6 +281,28 @@ public class PhoenixDataService {
         List<Contactlist> resultList = query.getResultList();
         return resultList.isEmpty() ? null : resultList.get(0);
     }
+
+    /**
+     * Specialized method to just extract contactlist for one owner and one target subscriber,
+     * if exists, otherwise returns null. Target represents remote contact list entry, not stored on this server.
+     * @param owner
+     * @param target
+     * @return
+     */
+    public Contactlist getContactListForSubscriber(Subscriber owner, RemoteUser remoteUser){
+        if (owner==null || remoteUser==null){
+            throw new IllegalArgumentException("Some of argument is NULL, what is forbidden");
+        }
+
+        // now loading whitelist entries from database for owner, for intern user destination
+        String queryGet = "SELECT cl FROM contactlist cl "
+                + " WHERE cl.owner=:owner AND cl.obj.extern_user=:target";
+        TypedQuery<Contactlist> query = em.createQuery(queryGet, Contactlist.class);
+        query.setParameter("owner", owner);
+        query.setParameter("target", remoteUser);
+        List<Contactlist> resultList = query.getResultList();
+        return resultList.isEmpty() ? null : resultList.get(0);
+    }
     
     /**
      * Loads all subscribers in internal contact list.
@@ -300,7 +322,47 @@ public class PhoenixDataService {
         List<Contactlist> resultList = query.getResultList();
         return resultList;
     }
-    
+
+    /**
+     * Sets parameters in the map to the query.
+     * @param query
+     */
+    public void setQueryParameters(Query query, Map<String, Object> params){
+        if (params == null || params.isEmpty()){
+            return;
+        }
+
+        for (Map.Entry<String, Object> entry : params.entrySet()) {
+            query.setParameter(entry.getKey(), entry.getValue());
+        }
+    }
+
+    /**
+     * Builds final query string.
+     * queryBase + glue + join(" AND ", criteria).
+     * @param queryBase
+     * @param criteria
+     * @param suffix
+     * @return
+     */
+    public String buildQueryString(String queryBase, Collection<String> criteria, String suffix){
+        StringBuilder sb = new StringBuilder(queryBase);
+        sb.append(" ");
+
+        final int critSize = criteria.size();
+        int curCrit = 0;
+        for(String crit : criteria){
+            sb.append(crit);
+            curCrit+=1;
+            if (curCrit < critSize){
+                sb.append(" AND ");
+            }
+        }
+
+        sb.append(" ").append(suffix);
+        return sb.toString();
+    }
+
     /**
      * Fetches internal user from contact list and returns mapping subscriber id -> subscriber.
      * @param clist

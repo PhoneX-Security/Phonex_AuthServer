@@ -329,6 +329,20 @@ public class AMQPListener extends BackgroundThreadService {
         log.info("Push message sent: " + jsonPushString);
     }
 
+    /**
+     * Send push message for a pairing request check.
+     *
+     * @param user
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushPairingRequestCheck(String user, long tstamp)  throws JSONException, IOException {
+        JSONObject jsonPush = this.buildPairingRequestCheckMsg(user, tstamp);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
     public JSONObject buildClistSyncNotification(String user) throws JSONException {
         final long tstamp = System.currentTimeMillis();
         final ClistSyncEventMessage part = new ClistSyncEventMessage(tstamp);
@@ -386,6 +400,14 @@ public class AMQPListener extends BackgroundThreadService {
     public JSONObject buildContactCertUpdateMsg(String user) throws JSONException {
         final long tstamp = System.currentTimeMillis();
         final ContactCertUpdateEventMessage part = new ContactCertUpdateEventMessage(tstamp);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
+
+        return msg.getJson();
+    }
+
+    public JSONObject buildPairingRequestCheckMsg(String user, long tstamp) throws JSONException {
+        final PairingRequestCheckEventMessage part = new PairingRequestCheckEventMessage(tstamp);
         final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
         msg.addPart(part);
 
