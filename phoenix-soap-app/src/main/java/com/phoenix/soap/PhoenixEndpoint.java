@@ -1735,7 +1735,7 @@ public class PhoenixEndpoint {
             }
 
             // Store app version provided by the user so we have statistics of update and for debugging.
-            String appVersion = StringUtils.takeMaxN(request.getAppVersion(), 128);
+            String appVersion = StringUtils.takeMaxN(request.getAppVersion(), 1024);
             if (appVersion != null){
                 localUser.setAppVersion(appVersion);
             }
