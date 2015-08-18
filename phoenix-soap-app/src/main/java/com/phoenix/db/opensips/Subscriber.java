@@ -86,13 +86,14 @@ public class Subscriber implements java.io.Serializable {
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateLastActivity = null;
         // License type for the user. 
-        @Column(name = "license_type", nullable = true, length = 64)
+        @Column(name = "license_type", nullable = true, length = 128)
         private String licenseType;
-        @Column(name = "app_version", nullable = true, length = 128)
+        @Lob
+        @Column(name = "app_version", nullable = true, columnDefinition="TEXT")
         private String appVersion;
-        @Column(name = "last_action_ip", nullable = true, length = 128)
+        @Column(name = "last_action_ip", nullable = true, length = 64)
         private String lastActionIp;
-        @Column(name = "last_authcheck_ip", nullable = true, length = 128)
+        @Column(name = "last_authcheck_ip", nullable = true, length = 64)
         private String lastAuthCheckIp;
 
 	public Subscriber() {
