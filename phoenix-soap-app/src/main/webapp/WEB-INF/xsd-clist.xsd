@@ -7,7 +7,36 @@
 
     <xs:include schemaLocation="xsd-base.xsd"/>
 
+    <xs:simpleType name="whitelistAction">
+        <xs:annotation>
+            <xs:documentation>
+                White list action type - inside whitelist change request
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="remove"/>
+            <xs:enumeration value="enable"/>
+            <xs:enumeration value="disable"/>
+            <xs:enumeration value="nothing"/>
+        </xs:restriction>
+    </xs:simpleType>
 
+    <xs:simpleType name="contactlistAction">
+        <xs:annotation>
+            <xs:documentation>
+                Action performed on contact list item
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="update"/>
+            <xs:enumeration value="remove"/>
+            <xs:enumeration value="enable"/>
+            <xs:enumeration value="disable"/>
+            <xs:enumeration value="nothing"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <xs:complexType name="contactlistReturn">
         <xs:annotation>
@@ -95,9 +124,7 @@
     </xs:simpleType>
 
     <!--
-
        Request & responses
-
     -->
 
     <xs:element name="whitelistRequest">
@@ -161,42 +188,6 @@
         </xs:complexType>
     </xs:element>
 
-    <xs:element name="contactlistChangeRequest">
-        <xs:annotation>
-            <xs:documentation>
-                Contactlist change request - add/remove multiple contactlist entries
-            </xs:documentation>
-        </xs:annotation>
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element name="contactlistChangeRequestElement"
-                            type="hr:contactlistChangeRequestElement"
-                            minOccurs="1"
-                            maxOccurs="unbounded"/>
-            </xs:sequence>
-        </xs:complexType>
-        <xs:unique name="uniqueAlias">
-            <xs:selector xpath="contactlistChangeRequestElement"/>
-            <xs:field xpath="@user"/>
-        </xs:unique>
-    </xs:element>
-
-    <xs:element name="contactlistChangeResponse">
-        <xs:annotation>
-            <xs:documentation>
-                Contactlist change request response
-            </xs:documentation>
-        </xs:annotation>
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element name="return"
-                            type="hr:contactlistReturn"
-                            minOccurs="1"
-                            maxOccurs="unbounded"/>
-            </xs:sequence>
-        </xs:complexType>
-    </xs:element>
-
     <xs:element name="contactlistGetRequest">
         <xs:annotation>
             <xs:documentation>
@@ -233,6 +224,131 @@
         </xs:unique>
     </xs:element>
 
+    <xs:element name="contactlistChangeRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist change request - add/remove multiple contactlist entries
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="contactlistChangeRequestElement"
+                            type="hr:contactlistChangeRequestElement"
+                            minOccurs="1"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="uniqueAlias">
+            <xs:selector xpath="contactlistChangeRequestElement"/>
+            <xs:field xpath="@user"/>
+        </xs:unique>
+    </xs:element>
 
+    <xs:element name="contactlistChangeResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist change request response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return"
+                            type="hr:contactlistReturn"
+                            minOccurs="1"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!--
+      V2 contact list change requests & responses
+    -->
+    <xs:complexType name="clistChangeRequestElementV2">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist request element, inside contactlist change request message.
+
+                Since Whitelist is subset of contactlist, with this request user
+                can change whitelist settings also.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userIdentifier"/>
+            <xs:element name="action" type="hr:contactlistAction"/>
+
+            <xs:element name="displayName" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="whitelistAction" type="hr:whitelistAction" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="managePairingRequests" type="xs:boolean" default="true" minOccurs ="0" maxOccurs="1"/>
+
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="clistChangeRequestListV2">
+        <xs:sequence>
+            <xs:element name="changes" type="hr:clistChangeRequestElementV2" minOccurs ="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="contactlistChangeResultV2">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist request response type - integer
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="resultCode" type="xs:int"/>
+            <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="user" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="clistChangeRequestResultV2">
+        <xs:sequence>
+            <xs:element name="results" type="hr:contactlistChangeResultV2" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="contactlistChangeV2Request">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist change request - add/remove multiple contactlist entries
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="changeList" type="hr:clistChangeRequestListV2"/>
+                <xs:element name="managePairingRequests" type="xs:boolean" default="true"/>
+                <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="contactlistChangeV2Response">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist change request response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="results" type="hr:clistChangeRequestResultV2"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
 
 </xs:schema>
