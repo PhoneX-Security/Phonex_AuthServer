@@ -44,6 +44,7 @@ public class Contactlist implements Serializable {
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     @Column(name = "dateCreated", nullable = true, columnDefinition = "DATETIME")
     private Date dateCreated;
+
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     @Column(name = "dateLastEdit", nullable = true, columnDefinition = "DATETIME")
     private Date dateLastEdit;
@@ -59,6 +60,10 @@ public class Contactlist implements Serializable {
     
     @Column(nullable = true, columnDefinition = "VARCHAR(255)")
     private String displayName;
+
+    @Lob
+    @Column(nullable = true, columnDefinition = "TEXT")
+    private String auxData;
        
     public Long getId() {
         return id;
@@ -147,7 +152,15 @@ public class Contactlist implements Serializable {
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
-  
+
+    public String getAuxData() {
+        return auxData;
+    }
+
+    public void setAuxData(String auxData) {
+        this.auxData = auxData;
+    }
+
     @Override
     public int hashCode() {
         int hash = 3;
@@ -188,6 +201,19 @@ public class Contactlist implements Serializable {
 
     @Override
     public String toString() {
-        return "Contactlist{" + "id=" + id + ", owner=" + owner + ", objType=" + objType + ", obj=" + obj + ", entryState=" + entryState + ", dateCreated=" + dateCreated + ", dateLastEdit=" + dateLastEdit + ", inWhitelist=" + inWhitelist + ", inBlacklist=" + inBlacklist + ", hideInContactList=" + hideInContactList + ", displayName=" + displayName + '}';
+        return "Contactlist{" +
+                "id=" + id +
+                ", owner=" + owner +
+                ", objType=" + objType +
+                ", obj=" + obj +
+                ", entryState=" + entryState +
+                ", dateCreated=" + dateCreated +
+                ", dateLastEdit=" + dateLastEdit +
+                ", inWhitelist=" + inWhitelist +
+                ", inBlacklist=" + inBlacklist +
+                ", hideInContactList=" + hideInContactList +
+                ", displayName='" + displayName + '\'' +
+                ", auxData='" + auxData + '\'' +
+                '}';
     }
 }
