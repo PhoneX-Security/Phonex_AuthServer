@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://phoenix.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://phoenix.com/hr/schemas">
+
+    <xs:simpleType name="alias">
+        <xs:annotation>
+            <xs:documentation>
+                User alias type
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+            <xs:maxLength value="64"/>
+            <xs:pattern value="[a-zA-Z][a-zA-Z0-9\-\._@]*"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="groupID">
+        <xs:annotation>
+            <xs:documentation>
+                Simple group ID type - unsigned int
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:unsignedInt"/>
+    </xs:simpleType>
+
+    <xs:simpleType name="group">
+        <xs:annotation>
+            <xs:documentation>
+                Group ID - can have subgroups.
+                Example: company.managers.high
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[^\.][a-zA-Z0-9_\-\.]+"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:complexType name="groupRecord">
+        <xs:annotation>
+            <xs:documentation>
+                Group record (in contactlist element for example).
+                This group is intended to be loaded from database.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="groupId" type="hr:groupID" minOccurs="1" maxOccurs="1"/>
+            <xs:element name="groupName" type="hr:group" minOccurs="1" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:simpleType name="enabledDisabled">
+        <xs:annotation>
+            <xs:documentation>
+                Enabled or disabled state
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="enabled"/>
+            <xs:enumeration value="disabled"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="trueFalse">
+        <xs:annotation>
+            <xs:documentation>
+                Boolean
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="trueFalseNA">
+        <xs:annotation>
+            <xs:documentation>
+                Boolean with null
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+            <xs:enumeration value="na"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="whitelistAction">
+        <xs:annotation>
+            <xs:documentation>
+                White list action type - inside whitelist change request
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="remove"/>
+            <xs:enumeration value="enable"/>
+            <xs:enumeration value="disable"/>
+            <xs:enumeration value="nothing"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="contactlistAction">
+        <xs:annotation>
+            <xs:documentation>
+                Action performed on contact list item
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="update"/>
+            <xs:enumeration value="remove"/>
+            <xs:enumeration value="enable"/>
+            <xs:enumeration value="disable"/>
+            <xs:enumeration value="nothing"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="userSIP">
+        <xs:annotation>
+            <xs:documentation>
+                User's SIP address type
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[^@]+@[^\.]+\..+"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="userID">
+        <xs:annotation>
+            <xs:documentation>
+                Simple user ID type - unsigned int
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:unsignedInt"/>
+    </xs:simpleType>
+
+    <xs:simpleType name="userPresenceStatus">
+        <xs:annotation>
+            <xs:documentation>
+                User presence type - presence in contact list
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="online"/>
+            <xs:enumeration value="offline"/>
+            <xs:enumeration value="away"/>
+            <xs:enumeration value="dnd"/>
+            <xs:enumeration value="invisible"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="userWhitelistStatus">
+        <xs:annotation>
+            <xs:documentation>
+                User presence in whitelist type
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="in"/>
+            <xs:enumeration value="notin"/>
+            <xs:enumeration value="disabled"/>
+            <xs:enumeration value="noclue"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="binaryPayload">
+        <xs:annotation>
+            <xs:documentation>
+                Binary Base64 encoded payload
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:base64Binary"/>
+    </xs:simpleType>
+
+    <xs:complexType name="aliasList">
+        <xs:annotation>
+            <xs:documentation>
+                List of aliases
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="alias" type="hr:alias" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="sipList">
+        <xs:annotation>
+            <xs:documentation>
+                List of SIP addresses
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="userIdentifier">
+        <xs:annotation>
+            <xs:documentation>
+                User identifier for requests.
+                If ID is present, it means that user is INTERNAL only
+                if SIP ID is present, it means that user can be INTERNAL/EXTERNAL
+            </xs:documentation>
+        </xs:annotation>
+        <xs:choice>
+            <xs:element name="userSIP" type="hr:userSIP"/>
+            <xs:element name="userID" type="hr:userID"/>
+        </xs:choice>
+    </xs:complexType>
+
+    <xs:complexType name="groupIdentifier">
+        <xs:annotation>
+            <xs:documentation>
+                Group identifier for request - can be group id or group name
+            </xs:documentation>
+        </xs:annotation>
+        <xs:choice>
+            <xs:element name="groupID" type="hr:groupID"/>
+            <xs:element name="groupName" type="hr:group"/>
+        </xs:choice>
+    </xs:complexType>
+
+    <xs:simpleType name="certificateStatus">
+        <xs:annotation>
+            <xs:documentation>
+                State available for certificate response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ok"/>
+            <xs:enumeration value="invalid"/>
+            <xs:enumeration value="revoked"/>
+            <xs:enumeration value="forbidden"/>
+            <xs:enumeration value="missing"/>
+            <xs:enumeration value="nouser"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+</xs:schema>

@@ -34,11 +34,11 @@
     <sws:dynamic-wsdl id="phoenix" portTypeName="PhoenixPort" 
                       locationUri="http://localhost:8084/phoenix/phoenixService/phoenix.wsdl"
                       targetNamespace="http://phoenix.com/hr/definitions">
-        <sws:xsd location="/WEB-INF/hr.xsd"/>
+        <sws:xsd location="/WEB-INF/xsd-root.xsd"/>
     </sws:dynamic-wsdl>
     
     <bean id="schema" class="org.springframework.xml.xsd.SimpleXsdSchema">
-        <property name="xsd" value="/WEB-INF/hr.xsd" />
+        <property name="xsd" value="/WEB-INF/xsd-root.xsd" />
     </bean>
     
     <bean id="payloadMapping" class="org.springframework.ws.server.endpoint.mapping.PayloadRootAnnotationMethodEndpointMapping" />

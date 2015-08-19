@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://phoenix.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://phoenix.com/hr/schemas">
+
+    <xs:include schemaLocation="xsd-base.xsd"/>
+
+    <xs:element name="pairingRequestFetchRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="tstamp" type="xs:long" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="from" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="fetchMyRequests" type="xs:boolean" default="false"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:simpleType name="pairingRequestResolutionEnum">
+        <xs:annotation>
+            <xs:documentation>
+                Pairing request resolution
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="none"/>
+            <xs:enumeration value="accepted"/>
+            <xs:enumeration value="denied"/>
+            <xs:enumeration value="blocked"/>
+            <xs:enumeration value="reverted"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:complexType name="pairingRequestElement">
+        <xs:annotation>
+            <xs:documentation>
+                One element in pairing request database
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="id" type="xs:long"/>
+            <xs:element name="owner" type="hr:userSIP"/>
+            <xs:element name="tstamp" type="xs:long"/>
+            <xs:element name="fromUser" type="hr:userSIP"/>
+            <xs:element name="fromUserResource" type="xs:string"/>
+
+            <xs:element name="fromUserAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="requestMessage" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="requestAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="resolution" type="hr:pairingRequestResolutionEnum"/>
+            <xs:element name="resolutionResource" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="resolutionTstamp" type="xs:long" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="resolutionMessage" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="resolutionAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="pairingRequestList">
+        <xs:sequence>
+            <xs:element name="elements" type="hr:pairingRequestElement" minOccurs ="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="pairingRequestFetchResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="requestList" type="hr:pairingRequestList"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="pairingRequestInsertRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="to" type="xs:string"/>
+                <xs:element name="fromResource" type="xs:string"/>
+                <xs:element name="fromAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="requestMessage" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="requestAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="pairingRequestInsertResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:complexType name="pairingRequestUpdateElement">
+        <xs:sequence>
+            <xs:element name="deleteRecord" type="xs:boolean" default="false"/>
+            <xs:element name="deleteOlderThan" type="xs:long" minOccurs ="0" maxOccurs="1"/>
+
+            <xs:element name="id" type="xs:long" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="owner" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="tstamp" type="xs:long" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="fromUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="fromUserResource" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+
+            <xs:element name="fromUserAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="requestMessage" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="requestAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="resolution" type="hr:pairingRequestResolutionEnum"/>
+            <xs:element name="resolutionResource" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="resolutionTstamp" type="xs:long" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="resolutionMessage" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="resolutionAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="pairingRequestUpdateList">
+        <xs:sequence>
+            <xs:element name="updates" type="hr:pairingRequestUpdateElement" minOccurs ="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="pairingRequestUpdateRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="updateList" type="hr:pairingRequestUpdateList"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:complexType name="pairingRequestUpdateResult">
+        <xs:sequence>
+            <xs:element name="code" type="xs:int" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="pairingRequestUpdateResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="errCodes" type="hr:pairingRequestUpdateResult"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

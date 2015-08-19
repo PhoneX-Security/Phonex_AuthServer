@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://phoenix.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://phoenix.com/hr/schemas">
+
+    <xs:include schemaLocation="xsd-base.xsd"/>
+
+
+
+    <xs:complexType name="contactlistReturn">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist request response type - integer
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="targetUser" type="hr:userSIP"/>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="resultCode" type="xs:int"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="contactlistChangeRequestElement">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist request element, inside contactlist change request message.
+
+                Since Whitelist is subset of contactlist, with this request user
+                can change whitelist settings also.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="targetUser" type="hr:userSIP"/>
+            <xs:element name="user" type="hr:userIdentifier"/>
+            <xs:element name="action" type="hr:contactlistAction"/>
+            <xs:element name="whitelistAction" type="hr:whitelistAction"/>
+            <xs:element name="displayName" type="xs:string" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="contactListElement">
+        <xs:annotation>
+            <xs:documentation>
+                One element in contactlist response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="owner" type="hr:userSIP"/>
+            <xs:element name="userid" type="hr:userID"/>
+            <xs:element name="alias" type="hr:alias"/>
+            <xs:element name="usersip" type="hr:userSIP"/>
+            <xs:element name="presenceStatus" type="hr:userPresenceStatus"/>
+            <xs:element name="contactlistStatus" type="hr:enabledDisabled"/>
+            <xs:element name="whitelistStatus" type="hr:userWhitelistStatus"/>
+            <xs:element name="hideInContactList" type="xs:boolean"/>
+            <xs:element name="displayName" type="xs:string" />
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="whitelistRequestElement">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist request element, inside whitelist request message
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="targetUser" type="hr:userSIP"/>
+            <xs:element name="user" type="hr:userIdentifier"/>
+            <xs:element name="action" type="hr:whitelistAction"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="whitelistElement">
+        <xs:annotation>
+            <xs:documentation>
+                One element in whitelist response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="userid" type="hr:userID"/>
+            <xs:element name="usersip" type="hr:userSIP"/>
+            <xs:element name="whitelistStatus" type="hr:userWhitelistStatus"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:simpleType name="whitelistReturn">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist request response type - integer
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:int"/>
+    </xs:simpleType>
+
+    <!--
+
+       Request & responses
+
+    -->
+
+    <xs:element name="whitelistRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist change request - add/remove whitelist multiple entries
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="whitelistrequestElement"
+                            type="hr:whitelistRequestElement"
+                            minOccurs="1"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="whitelistrequestElement">
+            <xs:selector xpath="whitelistrequestElement"/>
+            <xs:field xpath="@user"/>
+        </xs:unique>
+    </xs:element>
+
+    <xs:element name="whitelistResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist change request response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return"
+                            type="hr:whitelistReturn"
+                            minOccurs="1"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="whitelistGetRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Fetches whole whitelist
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType/>
+    </xs:element>
+
+    <xs:element name="whitelistGetResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Whitelist response - contains full whitelist
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return"
+                            type="hr:whitelistElement"
+                            minOccurs="0"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="contactlistChangeRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist change request - add/remove multiple contactlist entries
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="contactlistChangeRequestElement"
+                            type="hr:contactlistChangeRequestElement"
+                            minOccurs="1"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="uniqueAlias">
+            <xs:selector xpath="contactlistChangeRequestElement"/>
+            <xs:field xpath="@user"/>
+        </xs:unique>
+    </xs:element>
+
+    <xs:element name="contactlistChangeResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Contactlist change request response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return"
+                            type="hr:contactlistReturn"
+                            minOccurs="1"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="contactlistGetRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Simple get contactlist request, can request whole contact list
+                or only portion of it specifying list of aliases to retrieve
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="users" type="hr:userIdentifier" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="uniqueAliasClistSchema">
+            <xs:selector xpath="user"/>
+            <xs:field xpath="@user"/>
+        </xs:unique>
+    </xs:element>
+
+    <xs:element name="contactlistGetResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Contact list get response
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="contactlistEntry" type="hr:contactListElement" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="contactlistEntry">
+            <xs:selector xpath="contactlistEntry"/>
+            <xs:field xpath="@user"/>
+        </xs:unique>
+    </xs:element>
+
+
+
+</xs:schema>

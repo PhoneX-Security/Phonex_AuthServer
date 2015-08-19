@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://phoenix.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://phoenix.com/hr/schemas">
+
+    <xs:include schemaLocation="xsd-base.xsd"/>
+
+    <xs:element name="getCertificateRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Get certificate request for given users
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="element" type="hr:certificateRequestElement" minOccurs="1" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="uniqueCertUlistSchema">
+            <xs:selector xpath="user"/>
+            <xs:field xpath="@user"/>
+        </xs:unique>
+    </xs:element>
+
+    <xs:complexType name="certificateRequestElement">
+        <xs:annotation>
+            <xs:documentation>
+                One element in certificate request. Contains user to retrieve
+                certificate for.
+
+                User can also provide hash for certificate that owns and assumes
+                it is valid hash for certificate. In this case we are not returning
+                binary certificate, we are just confirming its validity if it is true.
+                If provided certificate is invalid, INVALID is returned and if user
+                has some new certificate valid, it is returned.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="certificateHash" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="certificateWrapper">
+        <xs:annotation>
+            <xs:documentation>
+                One certificate for particular user
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="user" type="hr:userSIP"/>
+            <xs:element name="certificate" type="hr:binaryPayload"/>
+            <xs:element name="status" type="hr:certificateStatus"/>
+            <xs:element name="providedCertStatus" type="hr:certificateStatus"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="getCertificateResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Response contains X.509 certificates
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="return"
+                            type="hr:certificateWrapper"
+                            minOccurs="0"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="signCertificateRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Request for signing certificate by server CA - be very carefull!
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="usrToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="CSR" type="hr:binaryPayload"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="signCertificateResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Response contains X.509 certificates
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="certificate"
+                            type="hr:certificateWrapper"
+                            minOccurs="1"
+                            maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="signCertificateV2Request">
+        <xs:annotation>
+            <xs:documentation>
+                Request for signing certificate by server CA - be very carefull!
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="usrToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="CSR" type="hr:binaryPayload"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="signCertificateV2Response">
+        <xs:annotation>
+            <xs:documentation>
+                Response contains X.509 certificates
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="certificate"
+                            type="hr:certificateWrapper"
+                            minOccurs="1"
+                            maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

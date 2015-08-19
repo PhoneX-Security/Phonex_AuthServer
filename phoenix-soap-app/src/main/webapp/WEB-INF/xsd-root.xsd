@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+~ Copyright 2007 the original author or authors.
+~
+~ Licensed under the Apache License, Version 2.0 (the "License");
+~ you may not use this file except in compliance with the License.
+~ You may obtain a copy of the License at
+~
+~      http://www.apache.org/licenses/LICENSE-2.0
+~
+~ Unless required by applicable law or agreed to in writing, software
+~ distributed under the License is distributed on an "AS IS" BASIS,
+~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+~ See the License for the specific language governing permissions and
+~ limitations under the License.
+-->
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://phoenix.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://phoenix.com/hr/schemas">
+
+    <!-- Include basic types -->
+    <xs:include schemaLocation="xsd-base.xsd"/>
+
+    <!-- Authentication related typed & elements -->
+    <xs:include schemaLocation="xsd-auth.xsd"/>
+
+    <!-- Certificate fetch & sign request types & elements -->
+    <xs:include schemaLocation="xsd-certs.xsd" />
+
+    <!-- Contact list related types & elements -->
+    <xs:include schemaLocation="xsd-clist.xsd"/>
+
+    <!-- File transfer related types & elements -->
+    <xs:include schemaLocation="xsd-filetransfer.xsd"/>
+
+    <!-- Pairing request related types & elements -->
+    <xs:include schemaLocation="xsd-pairing.xsd"/>
+
+    <!-- Trial events recording related types & elements -->
+    <xs:include schemaLocation="xsd-trial.xsd"/>
+
+    <!-- Misc types & elements -->
+    <xs:element name="accountInfoV1Request">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="accountInfoV1Response">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 3
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
+                <xs:element name="storedFilesNum" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="licenseType" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountIssued" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstAuthCheckDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="lastAuthCheckDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstLoginDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstUserAddDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountLastActivity" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountLastPassChange" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+
+</xs:schema>

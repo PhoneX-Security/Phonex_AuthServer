@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://phoenix.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://phoenix.com/hr/schemas">
+
+    <xs:include schemaLocation="xsd-base.xsd"/>
+
+    <xs:element name="getOneTimeTokenRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Request for signing certificate by server CA - be very carefull!
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="userToken" type="xs:string"/>
+                <xs:element name="type" type="xs:int"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="getOneTimeTokenResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Request for signing certificate by server CA - be very carefull!
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="userToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="notValidAfter" type="xs:dateTime"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="passwordChangeRequest">
+        <xs:annotation>
+            <xs:documentation>
+                Request to change password to provided value.
+                User can also change password for different user - see targetUser field.
+                Password is encrypted like CSR is, but in base64,
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="usrToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="newHA1" type="hr:binaryPayload"/>
+                <xs:element name="newHA1B" type="hr:binaryPayload"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="passwordChangeResponse">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for password change request
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="result" type="xs:int"/>
+                <xs:element name="reason" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="passwordChangeV2Request">
+        <xs:annotation>
+            <xs:documentation>
+                Request to change password to provided value.
+                User can also change password for different user - see targetUser field.
+                Password is encrypted like CSR is, but in base64,
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user" type="hr:userSIP"/>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="usrToken" type="xs:string"/>
+                <xs:element name="serverToken" type="xs:string"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="newHA1" type="hr:binaryPayload"/>
+                <xs:element name="newHA1B" type="hr:binaryPayload"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="passwordChangeV2Response">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for password change request
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="result" type="xs:int"/>
+                <xs:element name="reason" type="xs:string"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:complexType name="authCheckRequestBodyV2">
+        <xs:sequence>
+            <xs:element name="targetUser" type="hr:userSIP"/>
+            <xs:element name="authHash" type="xs:string"/>
+            <xs:element name="unregisterIfOK" type="hr:trueFalse"/>
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="authCheckRequestV2">
+        <xs:annotation>
+            <xs:documentation>
+                Check user authentication with password and additionally with certificate
+                Version 2
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="unregisterIfOK" type="hr:trueFalse"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="authCheckV2Request">
+        <xs:annotation>
+            <xs:documentation>
+                Check user authentication with password and additionally with certificate
+                Version 2
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="unregisterIfOK" type="hr:trueFalse"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:complexType name="AuthCheckResponseBodyV1">
+        <xs:sequence>
+            <xs:element name="authHashValid" type="hr:trueFalse"/>
+            <xs:element name="certValid" type="hr:trueFalseNA"/>
+            <xs:element name="certStatus" type="hr:certificateStatus"/>
+            <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="AuthCheckResponseBodyV2">
+        <xs:complexContent>
+            <xs:extension base="hr:AuthCheckResponseBodyV1">
+                <xs:sequence>
+                    <xs:element name="errCode" type="xs:int"/>
+                    <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                    <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                    <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
+                    <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                    <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                </xs:sequence>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <xs:element name="authCheckV2aResponse" >
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 2a
+            </xs:documentation>
+        </xs:annotation>
+
+        <xs:complexType >
+            <xs:complexContent >
+                <xs:extension base="hr:AuthCheckResponseBodyV2"/>
+            </xs:complexContent>
+        </xs:complexType >
+    </xs:element>
+
+    <xs:element name="authCheckResponseV2">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 2
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="authHashValid" type="hr:trueFalse"/>
+                <xs:element name="certValid" type="hr:trueFalseNA"/>
+                <xs:element name="certStatus" type="hr:certificateStatus"/>
+                <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
+
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="authCheckV2Response">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 2
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="authHashValid" type="hr:trueFalse"/>
+                <xs:element name="certValid" type="hr:trueFalseNA"/>
+                <xs:element name="certStatus" type="hr:certificateStatus"/>
+                <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
+
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="authCheckV3Request">
+        <xs:annotation>
+            <xs:documentation>
+                Check user authentication with password and additionally with certificate
+                Version 3
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="authHash" type="xs:string"/>
+                <xs:element name="unregisterIfOK" type="hr:trueFalse"/>
+                <xs:element name="resourceId" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="appVersion" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="capabilities" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="authCheckV3Response">
+        <xs:annotation>
+            <xs:documentation>
+                Simple response for auth check procedure
+                Version 3
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="authHashValid" type="hr:trueFalse"/>
+                <xs:element name="certValid" type="hr:trueFalseNA"/>
+                <xs:element name="certStatus" type="hr:certificateStatus"/>
+                <xs:element name="forcePasswordChange" type="hr:trueFalse"/>
+
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="storedFilesNum" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="serverTime" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="licenseType" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountIssued" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountExpires" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstAuthCheckDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="lastAuthCheckDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstLoginDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="firstUserAddDate" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountLastActivity" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountLastPassChange" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="accountDisabled" type="xs:boolean" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>
