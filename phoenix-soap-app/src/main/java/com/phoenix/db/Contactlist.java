@@ -12,7 +12,7 @@ import java.util.Date;
 import javax.persistence.*;
 
 /**
- * User's contact list
+ * User's contact list entry
  * @author ph4r05
  */
 @Entity(name = "contactlist")
@@ -30,6 +30,7 @@ public class Contactlist implements Serializable {
     // type of object
     @Enumerated(EnumType.STRING)
     private ContactlistObjType objType;
+
     // object in contact list - can be another subscriber
     @Column(nullable = false)
     @Embedded
@@ -57,12 +58,16 @@ public class Contactlist implements Serializable {
     
     @Column(nullable = false, columnDefinition = "TINYINT(1)")
     private boolean hideInContactList=false;
+
+    @ManyToOne
+    @JoinColumn(name="group_id", nullable=true)
+    private ContactGroup primaryGroup;
     
     @Column(nullable = true, columnDefinition = "VARCHAR(255)")
     private String displayName;
 
     @Lob
-    @Column(nullable = true, columnDefinition = "TEXT")
+    @Column(name = "aux_data", nullable = true, columnDefinition = "TEXT")
     private String auxData;
        
     public Long getId() {
@@ -159,6 +164,14 @@ public class Contactlist implements Serializable {
 
     public void setAuxData(String auxData) {
         this.auxData = auxData;
+    }
+
+    public ContactGroup getPrimaryGroup() {
+        return primaryGroup;
+    }
+
+    public void setPrimaryGroup(ContactGroup primaryGroup) {
+        this.primaryGroup = primaryGroup;
     }
 
     @Override

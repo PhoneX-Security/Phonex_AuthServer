@@ -32,6 +32,9 @@
     <!-- Contact list related types & elements -->
     <xs:include schemaLocation="xsd-clist.xsd"/>
 
+    <!-- Contact groups related types & elements -->
+    <xs:include schemaLocation="xsd-groups.xsd"/>
+
     <!-- File transfer related types & elements -->
     <xs:include schemaLocation="xsd-filetransfer.xsd"/>
 

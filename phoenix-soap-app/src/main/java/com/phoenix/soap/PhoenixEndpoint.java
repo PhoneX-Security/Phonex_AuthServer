@@ -511,15 +511,15 @@ public class PhoenixEndpoint {
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public ContactlistChangeResponse contactlistChangeRequest(@RequestPayload ContactlistChangeRequest request, MessageContext context) throws CertificateException {
-        Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        final Subscriber owner = this.authUserFromCert(context, this.request);
+        final String ownerSip = PhoenixDataService.getSIP(owner);
         log.info("Remote user connected (contactlistChangeRequest) : " + ownerSip);
         
         // construct response, then add results iteratively
-        ContactlistChangeResponse response = new ContactlistChangeResponse();
+        final ContactlistChangeResponse response = new ContactlistChangeResponse();
         
         // analyze request
-        List<ContactlistChangeRequestElement> elems = request.getContactlistChangeRequestElement();
+        final List<ContactlistChangeRequestElement> elems = request.getContactlistChangeRequestElement();
         if (elems==null || elems.isEmpty()){
             log.info("elems is empty");
             ContactlistReturn ret = new ContactlistReturn();
@@ -543,17 +543,17 @@ public class PhoenixEndpoint {
             // request for different subscriber.
             for(ContactlistChangeRequestElement elem : elems){
                 if (elem==null) continue;
-                log.info("elem2string: " + elem.toString());
-                log.info("user: " + elem.getUser());
-                log.info("action: " + elem.getAction());
-                log.info("ActionRequest: on [" + elem.getUser() + "] do: [" + elem.getAction().value() + "]");
+                log.info("contactlistChangeV2Request: elem2string: " + elem.toString()
+                        + ", user: " + elem.getUser()
+                        + ", action: " + elem.getAction()
+                        + ", ActionRequest: on [" + elem.getUser() + "] do: [" + elem.getAction().value() + "]");
 
                 // At first obtain user object we are talking about.
                 // Now assume only local user, we will have procedure for extern and groups also
                 // in future (I hope so:)).
                 Subscriber s = null;
-                String sip = elem.getUser().getUserSIP();
-                Long userID = elem.getUser().getUserID();
+                final String sip = elem.getUser().getUserSIP();
+                final Long userID = elem.getUser().getUserID();
                 if (sip!=null && !sip.isEmpty()){
                     s = dataService.getLocalUser(sip);
                 } else if (userID!=null && userID>0){
@@ -562,7 +562,7 @@ public class PhoenixEndpoint {
                     throw new RuntimeException("Both user identifiers are null");
                 }
                 
-                ContactlistReturn ret = new ContactlistReturn();
+                final ContactlistReturn ret = new ContactlistReturn();
                 ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
                 ret.setTargetUser(elem.getTargetUser());
                 ret.setUser(PhoenixDataService.getSIP(s));
@@ -583,7 +583,7 @@ public class PhoenixEndpoint {
                 }
                 
                 Subscriber targetOwner = owner;
-                if (ownerSip.equals(targetUser)==false){
+                if (!ownerSip.equals(targetUser)){
                     log.warn("Changing contactlist for somebody else is not permitted");
                     response.getReturn().add(ret);
                     
@@ -592,7 +592,7 @@ public class PhoenixEndpoint {
                 }
                 
                 // users whose contact list was changed - updating presence rules afterwards
-                if (changedUsers.containsKey(targetUser)==false){
+                if (!changedUsers.containsKey(targetUser)){
                     changedUsers.put(targetUser, targetOwner);
                 }
 
@@ -633,13 +633,7 @@ public class PhoenixEndpoint {
                                 newDispName = StringUtils.takeMaxN(newDispName, 128);
                             }
 
-//                            if (newDispName.isEmpty()==false && newDispName.matches(DISPLAY_NAME_REGEX)==false){
-//                                ret.setResultCode(CLIST_CHANGE_ERROR_INVALID_NAME);
-//                                response.getReturn().add(ret);
-//                                log.info("Display name regex fail: [" + newDispName + "]");
-//                                continue;
-//                            }
-                            
+                            cl.setDateLastEdit(new Date());
                             cl.setDisplayName(newDispName);
                             this.dataService.persist(cl, true);
                             ret.setResultCode(1);
@@ -680,17 +674,11 @@ public class PhoenixEndpoint {
                         
                         // add action
                         if (action == ContactlistAction.ADD){
+                            final WhitelistAction waction = elem.getWhitelistAction();
                             String newDispName = elem.getDisplayName();
                             if (newDispName != null && !newDispName.isEmpty()){
                                 newDispName = StringUtils.takeMaxN(newDispName, 128);
                             }
-
-//                            if (!newDispName.isEmpty() && !newDispName.matches(DISPLAY_NAME_REGEX)){
-//                                ret.setResultCode(CLIST_CHANGE_ERROR_INVALID_NAME);
-//                                response.getReturn().add(ret);
-//                                log.info("Display name regex fail: [" + newDispName + "]");
-//                                continue;
-//                            }
 
                             cl = new Contactlist();
                             cl.setDateCreated(new Date());
@@ -698,22 +686,14 @@ public class PhoenixEndpoint {
                             cl.setOwner(owner);
                             cl.setObjType(ContactlistObjType.INTERNAL_USER);
                             cl.setObj(new ContactlistDstObj(s));
-                            cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
+                            cl.setEntryState(ContactlistStatus.ENABLED);
                             cl.setDisplayName(newDispName);
-                            
-                            // whitelist state
-                            WhitelistAction waction = elem.getWhitelistAction();
-                            if (waction == WhitelistAction.ENABLE || waction == WhitelistAction.ADD){
-                                cl.setInWhitelist(true);
-                            } else {
-                                cl.setInWhitelist(false);
-                            }
-                            
+                            cl.setInWhitelist(waction == WhitelistAction.ENABLE || waction == WhitelistAction.ADD);
                             this.dataService.persist(cl, true);
                             ret.setResultCode(1);
                             response.getReturn().add(ret);
                         } else {
-                            ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
+                            ret.setResultCode(CLIST_CHANGE_ERROR_NO_USER);
                             response.getReturn().add(ret);
                         }
                     }
@@ -739,10 +719,338 @@ public class PhoenixEndpoint {
             }
             
         } catch(Exception e){
-            log.info("Exception ocurred", e);
+            log.info("Exception occurred", e);
             return null;
         }
        
+        return response;
+    }
+
+    /**
+     * Contactlist get request V2 - returns contact list.
+     * If request contains some particular users, only subset of this users from
+     * contactlist is returned. Otherwise whole contact list is returned.
+     *
+     * V2 is a simplified version for contact list fetch.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws java.security.cert.CertificateException
+     */
+    @PayloadRoot(localPart = "contactlistGetV2Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    public ClistGetV2Response contactlistGetV2Request(@RequestPayload ClistGetV2Request request, MessageContext context) throws CertificateException {
+        final Subscriber owner = this.authUserFromCert(context, this.request);
+        final String ownerSip = PhoenixDataService.getSIP(owner);
+        log.info("Remote user connected (contactlistGetV2Request): " + ownerSip);
+
+        ClistGetV2Response response = new ClistGetV2Response();
+
+        // subscriber list
+        List<Subscriber> subs = new LinkedList<Subscriber>();
+        Map<Integer, Contactlist> clistEntries = new HashMap<Integer, Contactlist>();
+        String targetUser = request.getTargetUser();
+        if (StringUtils.isEmpty(targetUser)){
+            targetUser=ownerSip;
+        }
+
+        // Contactlist for someone else is not supported.
+        if (!ownerSip.equals(targetUser)){
+            log.warn("Obtaining contact list for different person is not allowed");
+            throw new RuntimeException("Not implemented yet");
+        }
+
+        // Analyze request - extract user identifiers to load from contact list get request..
+        // For now the list with specified users to load is not supported. Whole contactlist is returned.
+        log.info("ClistGetV2Request: Alias is empty, requestor: " + ownerSip);
+        String getContactListQuery;
+
+        // standard query to CL, for given user, now only internal user
+        getContactListQuery = "SELECT s, cl FROM contactlist cl "
+                + "LEFT OUTER JOIN cl.obj.intern_user s "
+                + "WHERE cl.objType=:objtype AND cl.owner=:owner "
+                + "ORDER BY s.domain, s.username";
+        TypedQuery<Object[]> query = em.createQuery(getContactListQuery, Object[].class);
+        query.setParameter("objtype", ContactlistObjType.INTERNAL_USER);
+        query.setParameter("owner", owner);
+
+        List<Object[]> resultList = query.getResultList();
+        for(Object[] o : resultList){
+            final Subscriber t = (Subscriber) o[0];
+            final Contactlist cl = (Contactlist) o[1];
+            final String userSIP = PhoenixDataService.getSIP(t);
+
+            CListElementV2 elem = new CListElementV2();
+            elem.setAlias(t.getUsername());
+            elem.setContactlistStatus(EnabledDisabled.ENABLED);
+            elem.setPresenceStatus(UserPresenceStatus.ONLINE);
+            elem.setUserid(t.getId());
+            elem.setUsersip(userSIP);
+            elem.setWhitelistStatus(UserWhitelistStatus.NOCLUE);
+            elem.setAuxData(StringUtils.isEmpty(cl.getAuxData()) ? null : cl.getAuxData());
+            if (cl != null){
+                elem.setWhitelistStatus(cl.isInWhitelist() ? UserWhitelistStatus.IN : UserWhitelistStatus.NOTIN);
+                elem.setDisplayName(cl.getDisplayName());
+            }
+
+            response.getContacts().add(elem);
+        }
+
+        logAction(ownerSip, "clistGetV2", null);
+        response.setErrCode(0);
+        return response;
+    }
+
+    /**
+     * Contact list change request V2. Extended version, with pairing request integration.
+     * @param request
+     * @param context
+     * @return
+     * @throws java.security.cert.CertificateException
+     */
+    @PayloadRoot(localPart = "clistChangeV2Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public ClistChangeV2Response clistChangeV2Request(@RequestPayload ClistChangeV2Request request, MessageContext context) throws CertificateException {
+        final Subscriber owner = this.authUserFromCert(context, this.request);
+        final String ownerSip = PhoenixDataService.getSIP(owner);
+        log.info("Remote user connected (contactlistChangeV2Request) : " + ownerSip);
+
+        // construct response, then add results iteratively
+        ClistChangeV2Response response = new ClistChangeV2Response();
+
+        // analyze request
+        List<ClistChangeRequestElementV2> elems = request.getChanges();
+        if (MiscUtils.collectionIsEmpty(elems)){
+            response.setErrCode(CLIST_CHANGE_ERROR_EMPTY_REQUEST_LIST);
+            return response;
+        }
+
+        // iterating over request, algorithm:
+        // 1. select targeted subscriber
+        // 2. create/modify/delete contact list accordingly
+        log.info("contactlistChangeV2Request: Elems is not null; size: " + elems.size() + ", elems2string: " + elems.toString());
+        try {
+            // Store users whose contact list was modified. For them will be later
+            // regenerated XML policy file for presence.
+            Map<String, Subscriber> changedUsers = new HashMap<String, Subscriber>();
+
+            // Iterate over all change request elements in the request. Every can contain
+            // request for different subscriber.
+            for(ClistChangeRequestElementV2 elem : elems){
+                if (elem==null) continue;
+                log.info("contactlistChangeV2Request: elem2string: " + elem.toString()
+                        + ", user: " + elem.getUser()
+                        + ", action: " + elem.getAction()
+                        + ", ActionRequest: on [" + elem.getUser() + "] do: [" + elem.getAction().value() + "]");
+
+                // At first obtain user object we are talking about.
+                // Now assume only local user, we will have procedure for extern and groups also
+                // in future (I hope so:)).
+                Subscriber s = null;
+                final String sip = elem.getUser().getUserSIP();
+                final Long userID = elem.getUser().getUserID();
+                if (sip!=null && !sip.isEmpty()){
+                    s = dataService.getLocalUser(sip);
+                } else if (userID!=null && userID>0){
+                    s = dataService.getLocalUser(userID);
+                } else {
+                    throw new RuntimeException("Both user identifiers are null");
+                }
+
+                ClistChangeResultV2 ret = new ClistChangeResultV2();
+                ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
+                ret.setUser(PhoenixDataService.getSIP(s));
+
+                // Null subscriber is not implemented yet. Remote contacts are not supported yet.
+                if (s==null){
+                    response.getResults().add(ret);
+                    continue;
+                }
+
+                // pairing request condition
+                final boolean doPairing = request.isManagePairingRequests() && (elem.isManagePairingRequests() == null || elem.isManagePairingRequests());
+
+                // Changing contact list for somebody else is not implemented.
+                final String targetUser = StringUtils.isEmpty(elem.getTargetUser()) ? ownerSip : elem.getTargetUser();
+                final Subscriber targetOwner = owner;
+                if (!ownerSip.equals(targetUser)){
+                    log.warn("Changing contactlist for somebody else is not permitted");
+                    response.getResults().add(ret);
+                    continue;
+                }
+
+                // users whose contact list was changed - updating presence rules afterwards
+                if (!changedUsers.containsKey(targetUser)){
+                    changedUsers.put(targetUser, targetOwner);
+                }
+
+                // is there already some contact list item?
+                Contactlist cl = this.dataService.getContactlistForSubscriber(targetOwner, s);
+                final ContactlistAction action = elem.getAction();
+                try {
+                    if (cl!=null){
+                        // contact list entry is empty -> record does not exist
+                        if (action == ContactlistAction.REMOVE){
+                            this.dataService.remove(cl, true);
+                            ret.setResultCode(1);
+                            response.getResults().add(ret);
+
+                            // Pairing fix, if desired.
+                            if (doPairing) {
+                                pairingMgr.onUserXRemovedYFromContactlist(targetOwner, s);
+                            }
+
+                            continue;
+                        }
+
+                        // enable/disable?
+                        if (action==ContactlistAction.DISABLE || action==ContactlistAction.ENABLE){
+                            cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
+                            this.dataService.persist(cl, true);
+                            ret.setResultCode(1);
+                            response.getResults().add(ret);
+                        }
+
+                        // add action
+                        if (action==ContactlistAction.ADD){
+                            // makes no sense, already in
+                            ret.setResultCode(CLIST_CHANGE_ERROR_ALREADY_ADDED);
+                            response.getResults().add(ret);
+                            log.info("Wanted to add already existing user");
+                            continue;
+                        }
+
+                        // update - displayName
+                        if (action==ContactlistAction.UPDATE){
+                            // Display name update, may be null, not updating maybe.
+                            if (elem.getDisplayName() != null){
+                                final String newDispName = StringUtils.takeMaxN(elem.getDisplayName(), 128);
+                                cl.setDisplayName(newDispName);
+                            }
+
+                            // Aux data.
+                            if (elem.getAuxData() != null){
+                                final String newAuxData = StringUtils.takeMaxN(elem.getDisplayName(), 4096);
+                                cl.setAuxData(newAuxData);
+                            }
+
+                            // Primary group
+                            if (elem.getPrimaryGroup() != null){
+                                final ContactGroup primaryGroup = dataService.getContactGroup(elem.getPrimaryGroup());
+                                cl.setPrimaryGroup(primaryGroup);
+                            }
+
+                            // TODO: multiple groups?
+                            // ...
+
+                            cl.setDateLastEdit(new Date());
+                            this.dataService.persist(cl, true);
+                            ret.setResultCode(1);
+                            response.getResults().add(ret);
+                        }
+
+                        // whitelist action
+                        WhitelistAction waction = elem.getWhitelistAction();
+                        if (waction!=null && waction!=WhitelistAction.NOTHING){
+                            // operate on whitelist here
+                            boolean normalReq = false;
+                            if (waction==WhitelistAction.DISABLE || waction==WhitelistAction.REMOVE){
+                                // disabling from whitelist
+                                cl.setInWhitelist(false);
+                                normalReq = true;
+                            } else if (waction==WhitelistAction.ENABLE || waction==WhitelistAction.ADD) {
+                                // enabling in whitelist
+                                cl.setInWhitelist(true);
+                                normalReq = true;
+                            }
+
+                            // request makes sense
+                            if (normalReq){
+                                this.dataService.persist(cl, true);
+                                ret.setResultCode(1);
+                                response.getResults().add(ret);
+                                continue;
+                            }
+                        }
+                    } else {
+                        // contact list entry is empty -> record does not exist
+                        if (action == ContactlistAction.REMOVE){
+                            ret.setResultCode(CLIST_CHANGE_ERROR_NO_USER);
+                            response.getResults().add(ret);
+                            log.info("Wanted to delete non-existing whitelist record");
+                            continue;
+                        }
+
+                        // add action
+                        if (action == ContactlistAction.ADD){
+                            String newDispName = elem.getDisplayName();
+                            if (!StringUtils.isEmpty(newDispName)){
+                                newDispName = StringUtils.takeMaxN(newDispName, 128);
+                            }
+
+                            final WhitelistAction waction = elem.getWhitelistAction();
+                            cl = new Contactlist();
+                            cl.setDateCreated(new Date());
+                            cl.setDateLastEdit(new Date());
+                            cl.setOwner(owner);
+                            cl.setObjType(ContactlistObjType.INTERNAL_USER);
+                            cl.setObj(new ContactlistDstObj(s));
+                            cl.setEntryState(ContactlistStatus.ENABLED);
+                            cl.setDisplayName(newDispName);
+                            cl.setInBlacklist(false);
+                            cl.setAuxData(elem.getAuxData());
+                            cl.setInWhitelist(waction == WhitelistAction.ENABLE || waction == WhitelistAction.ADD);
+
+                            this.dataService.persist(cl, true);
+                            ret.setResultCode(1);
+                            response.getResults().add(ret);
+
+                            // Primary group.
+                            if (elem.getPrimaryGroup() != null){
+                                final ContactGroup primaryGroup = dataService.getContactGroup(elem.getPrimaryGroup());
+                                cl.setPrimaryGroup(primaryGroup);
+                            }
+
+                            // Pairing fix, if desired.
+                            if (doPairing) {
+                                pairingMgr.onUserXAddedYToContactlist(targetOwner, s);
+                            }
+
+                        } else {
+                            ret.setResultCode(CLIST_CHANGE_ERROR_NO_USER);
+                            response.getResults().add(ret);
+                        }
+                    }
+                } catch(Exception e){
+                    log.info("Manipulation with contactlist failed", e);
+                    ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
+                    response.getResults().add(ret);
+                }
+            }
+
+            //
+            // Now is time to re-generate presence view policies and trigger server update
+            // and roster synchronization.
+            //
+            for(Entry<String, Subscriber> entry : changedUsers.entrySet()){
+                // regenerating policy for given contact
+                try {
+                    Subscriber tuser = entry.getValue();
+                    this.dataService.resyncRoster(tuser);
+                } catch(Exception ex){
+                    log.error("Exception during presence rules generation for: " + entry.getValue(), ex);
+                }
+            }
+
+            // TODO: in multi device setting consider broadcasting newClist push event to another connected devices.
+
+        } catch(Exception e){
+            log.info("Exception ocurred", e);
+            return null;
+        }
+
         return response;
     }
 

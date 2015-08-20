@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://phoenix.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://phoenix.com/hr/schemas">
+
+    <xs:include schemaLocation="xsd-base.xsd"/>
+
+    <xs:simpleType name="cgroupAction">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="add"/>
+            <xs:enumeration value="update"/>
+            <xs:enumeration value="remove"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:complexType name="cgroup">
+        <xs:sequence>
+            <xs:element name="id" type="xs:long"/>
+            <xs:element name="groupKey" type="xs:string"/>
+            <xs:element name="groupType" type="xs:string"/>
+            <xs:element name="owner" type="hr:userSIP"/>
+            <xs:element name="groupName" type="xs:string"/>
+            <xs:element name="auxData" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="cgroupGetRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="cgroupGetResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="contacts" type="hr:cgroup" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!--
+      Contact group change requests & responses
+    -->
+    <xs:complexType name="cgroupChangeRequestElement">
+        <xs:sequence>
+            <xs:element name="action" type="hr:cgroupAction"/>
+
+            <xs:element name="id" type="xs:long" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="groupKey" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="groupType" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="owner" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="groupName" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxData" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="cgroupChangeResult">
+        <xs:sequence>
+            <xs:element name="resultCode" type="xs:int"/>
+            <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="user" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="cgroupChangeRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="changes" type="hr:cgroupChangeRequestElement" minOccurs ="0" maxOccurs="unbounded"/>
+                <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
+
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="cgroupChangeResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="results" type="hr:cgroupChangeResult" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

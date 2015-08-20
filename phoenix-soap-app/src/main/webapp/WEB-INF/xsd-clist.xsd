@@ -280,6 +280,7 @@
             <xs:element name="hideInContactList" type="xs:boolean"/>
             <xs:element name="displayName" type="xs:string" />
             <xs:element name="auxData" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="primaryGroup" type="xs:long" minOccurs ="0" maxOccurs="1"/>
 
             <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
@@ -318,6 +319,7 @@
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
 
+                <xs:element name="errCode" type="xs:int"/>
                 <xs:element name="contacts" type="hr:cListElementV2" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
         </xs:complexType>
@@ -342,6 +344,7 @@
             <xs:element name="displayName" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="auxData" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="whitelistAction" type="hr:whitelistAction" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="primaryGroup" type="xs:int" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="managePairingRequests" type="xs:boolean" default="true" minOccurs ="0" maxOccurs="1"/>
 

@@ -6,6 +6,7 @@
     <class>com.phoenix.db.CAcertsSigned</class>
     <class>com.phoenix.db.SubscriberCertificate</class>
     <class>com.phoenix.db.Contactlist</class>
+    <class>com.phoenix.db.ContactGroup</class>
     <class>com.phoenix.db.Whitelist</class>
     <class>com.phoenix.db.RemoteUser</class>
     <class>com.phoenix.db.PhoenixGroup</class>

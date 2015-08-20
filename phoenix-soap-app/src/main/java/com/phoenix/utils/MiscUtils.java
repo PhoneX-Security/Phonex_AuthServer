@@ -15,6 +15,28 @@ public class MiscUtils {
         return c.size();
     }
 
+    public static boolean collectionIsEmpty(Collection<?> c){
+        return c==null || c.isEmpty();
+    }
+
+    public static String join(Collection<String> c, String glue){
+        if (collectionIsEmpty(c)) return "";
+
+        final StringBuilder sb = new StringBuilder();
+        final int cSize = collectionSize(c);
+        int ctr = 0;
+        for(String cStr : c){
+            sb.append(cStr);
+
+            ctr += 1;
+            if (ctr < cSize){
+                sb.append(glue);
+            }
+        }
+
+        return sb.toString();
+    }
+
     public static String generateMD5Hash(byte[] data) throws NoSuchAlgorithmException {
         java.security.MessageDigest sha = java.security.MessageDigest.getInstance("MD5");
 
