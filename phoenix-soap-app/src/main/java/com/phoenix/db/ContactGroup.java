@@ -28,7 +28,7 @@ public class ContactGroup implements Serializable {
     private String groupType;
 
     @ManyToOne
-    @JoinColumn(name="subscriber_id", nullable=false)
+    @JoinColumn(name="subscriber_id", nullable=true)
     private Subscriber owner;
 
     // auditing information about creating and last change
