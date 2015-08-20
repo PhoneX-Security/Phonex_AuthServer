@@ -30,7 +30,7 @@ public class PairingRequest {
     @Column(name = "from_user", nullable = false, length = 255)
     private String fromUser;
 
-    @Column(name = "from_user_resource", nullable = false, length = 64)
+    @Column(name = "from_user_resource", nullable = true, length = 64)
     private String fromUserResource;
 
     @Lob

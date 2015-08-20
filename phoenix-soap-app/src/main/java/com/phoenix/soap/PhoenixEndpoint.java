@@ -100,6 +100,9 @@ public class PhoenixEndpoint {
 
     @Autowired
     private AMQPListener amqpListener;
+
+    @Autowired
+    private UserPairingManager pairingMgr;
     
     // owner SIP obtained from certificate
     private String owner_sip;
@@ -3470,89 +3473,15 @@ public class PhoenixEndpoint {
                 return response;
             }
 
-            //
-            // Check if not already in contact list. If yes, block insertion.
-            //
-            final Subscriber caller = this.dataService.getLocalUser(callerSip);
-            final RemoteUser callerRemote = caller != null ? null : this.dataService.getRemoteUser(callerSip);
-            boolean alreadyInContactList = false;
-            if (caller != null){
-                alreadyInContactList = dataService.getContactlistForSubscriber(toUserSubs, caller) != null;
-            } else if (callerRemote != null){
-                alreadyInContactList = dataService.getContactListForSubscriber(toUserSubs, callerRemote) != null;
-            }
-
-            // Already in contact list -> no need to insert a new request.
-            if (alreadyInContactList){
-                response.setErrCode(-10);
-                return response;
-            }
-
-            //
-            // Fetch previous pairing request.
-            // User might be deleted from the contact list. In this case, there should be no pairing request stored in the database
-            // and caller might be able to ask for adding again.
-            // On the other hand, there might be blocking resolution stored, which blocks user from further requests.
-            //
-            final String prevRequestQuerySql = "SELECT pr FROM pairingRequest pr " +
-                    " WHERE fromUser=:fromUser AND toUser=:toUser " +
-                    " ORDER BY tstamp DESC ";
-
-            TypedQuery<PairingRequest> prevRequestQuery = em.createQuery(prevRequestQuerySql, PairingRequest.class);
-            prevRequestQuery.setParameter("fromUser", callerSip)
-                    .setParameter("toUser", request.getTo())
-                    .setMaxResults(1);
-
-            PairingRequest prevReq = prevRequestQuery.getSingleResult();
-
-            // If the previous pairing request is blocked, block further requests.
-            if (prevReq != null){
-                final PairingRequestResolution resolution = prevReq.getResolution();
-                if (resolution == PairingRequestResolution.BLOCKED){
-                    response.setErrCode(-12);
-                    return response;
-                }
-
-                // If resolution is accepted, the contact should be already in the contact list of the callee.
-                if (resolution == PairingRequestResolution.ACCEPTED){
-                    response.setErrCode(-13);
-                    return response;
-                }
-
-                // If resolution is none, it was still not handled, do nothing.
-                // It might be in the processing right now, no modification.
-                if (resolution == PairingRequestResolution.NONE){
-                    response.setErrCode(-14);
-                    return response;
-                }
-
-                // If resolution is denied, remove old request and place a new one. Same with reverted case
-                if (resolution == PairingRequestResolution.DENIED || resolution == PairingRequestResolution.REVERTED){
-                    this.dataService.remove(prevReq, false);
-                }
-            }
-
-            // Create a new pairing request and insert it to the database.
-            final Date tstamp = new Date();
+            // Insert a new request via pairing manager.
             PairingRequest newPr = new PairingRequest();
-            newPr.setToUser(request.getTo());
-            newPr.setTstamp(tstamp);
-            newPr.setFromUser(callerSip);
             newPr.setFromUserResource(request.getFromResource());
             newPr.setFromUserAux(StringUtils.isEmpty(request.getFromAux()) ? null : request.getFromAux());
             newPr.setRequestAux(StringUtils.isEmpty(request.getRequestAux()) ? null : request.getRequestAux());
             newPr.setRequestMessage(StringUtils.isEmpty(request.getRequestMessage()) ? null : request.getRequestMessage());
-            newPr.setResolution(PairingRequestResolution.NONE);
-            em.persist(newPr);
+            int insertRes = pairingMgr.insertPairingRequest(toUserSubs, callerSip, true, newPr);
 
-            // Broadcast new push message, pairing request records were changed.
-            try {
-                amqpListener.pushPairingRequestCheck(toUser, tstamp.getTime());
-            } catch(Exception ex){
-                log.error("Error in pushing pairing request check event", ex);
-            }
-
-            response.setErrCode(0);
+            response.setErrCode(insertRes);
             logAction(callerSip, "pairingRequestInsert", null);
 
         } catch(Exception e){
@@ -3587,7 +3516,7 @@ public class PhoenixEndpoint {
 
         try {
             final PairingRequestUpdateList updList = request.getUpdateList();
-            if (updList == null || MiscUtils.collectionSize(updList.getUpdates()) == 0){
+            if (updList == null || MiscUtils.collectionIsEmpty(updList.getUpdates())){
                 return response;
             }
 
@@ -3718,7 +3647,6 @@ public class PhoenixEndpoint {
 
             // No push notification happens here. If we update our list, we know about it.
             // Deletion is not pushed.
-
             response.setErrCode(0);
             logAction(callerSip, "pairingRequestUpdate", null);
 

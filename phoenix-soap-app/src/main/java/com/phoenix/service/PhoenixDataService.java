@@ -11,6 +11,7 @@ import com.phoenix.service.executor.JobFinishedListener;
 import com.phoenix.service.executor.JobRunnable;
 import com.phoenix.service.pres.TransferRosterItem;
 import com.phoenix.utils.JiveGlobals;
+import com.phoenix.utils.MiscUtils;
 import org.bouncycastle.util.encoders.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.hibernate.Session;
@@ -32,6 +33,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaQuery;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -96,7 +98,7 @@ public class PhoenixDataService {
      */
     public static String getSIP(Subscriber s){
         if (s==null) return "";
-        return (new StringBuilder().append(s.getUsername()).append("@").append(s.getDomain()).toString());
+        return (s.getUsername() + "@" + s.getDomain());
     }
     
     /**
@@ -162,6 +164,33 @@ public class PhoenixDataService {
             return em.find(Subscriber.class, id.intValue());
         } catch(Exception ex){
             log.info("Problem occurred during loading user from database", ex);
+            return null;
+        }
+    }
+
+    /**
+     * Gets contact group by its primary key
+     * @param id
+     * @return
+     */
+    public ContactGroup getContactGroup(Integer id){
+        return id == null ? null : getContactGroup(id.longValue());
+    }
+
+    /**
+     * Gets contact group by its primary key
+     * @param id
+     * @return
+     */
+    public ContactGroup getContactGroup(Long id){
+        try {
+            if (id==null){
+                return null;
+            }
+
+            return em.find(ContactGroup.class, id);
+        } catch(Exception ex){
+            log.info("Problem occurred during loading contact group from database", ex);
             return null;
         }
     }
@@ -259,7 +288,26 @@ public class PhoenixDataService {
     public Whitelist getWhitelistForSubscriber(Subscriber owner, RemoteUser target){
         return this.getWhitelistForSubscriber(owner, new WhitelistDstObj(target));
     }
-    
+
+    /**
+     * Specialized method to just extract contactlist for one owner and one target (local/remote),
+     * if exists, otherwise returns null.
+     * @param owner
+     * @param target
+     * @return
+     */
+    public Contactlist getContactlistForSubscriber(Subscriber owner, String target){
+        final Subscriber caller = getLocalUser(target);
+        final RemoteUser callerRemote = caller != null ? null : getRemoteUser(target);
+        if (caller != null){
+            return getContactlistForSubscriber(owner, caller);
+        } else if (callerRemote != null){
+            return getContactlistForSubscriber(owner, callerRemote);
+        }
+
+        return null;
+    }
+
     /**
      * Specialized method to just extract contactlist for one owner and one target subscriber,
      * if exists, otherwise returns null.
@@ -286,10 +334,10 @@ public class PhoenixDataService {
      * Specialized method to just extract contactlist for one owner and one target subscriber,
      * if exists, otherwise returns null. Target represents remote contact list entry, not stored on this server.
      * @param owner
-     * @param target
+     * @param remoteUser
      * @return
      */
-    public Contactlist getContactListForSubscriber(Subscriber owner, RemoteUser remoteUser){
+    public Contactlist getContactlistForSubscriber(Subscriber owner, RemoteUser remoteUser){
         if (owner==null || remoteUser==null){
             throw new IllegalArgumentException("Some of argument is NULL, what is forbidden");
         }
@@ -347,19 +395,10 @@ public class PhoenixDataService {
      */
     public String buildQueryString(String queryBase, Collection<String> criteria, String suffix){
         StringBuilder sb = new StringBuilder(queryBase);
-        sb.append(" ");
-
-        final int critSize = criteria.size();
-        int curCrit = 0;
-        for(String crit : criteria){
-            sb.append(crit);
-            curCrit+=1;
-            if (curCrit < critSize){
-                sb.append(" AND ");
-            }
-        }
-
-        sb.append(" ").append(suffix);
+        sb.append(" ( ");
+        sb.append(MiscUtils.join(criteria, " ) AND ( "));
+        sb.append(" ) ");
+        sb.append(suffix);
         return sb.toString();
     }
 
@@ -873,8 +912,8 @@ public class PhoenixDataService {
     }
     
     @Transactional(propagation = Propagation.REQUIRED)
-    public void update(Query q){
-        q.executeUpdate();
+    public int update(Query q){
+        return q.executeUpdate();
     }
     
     @Transactional
@@ -892,7 +931,19 @@ public class PhoenixDataService {
             this.em.flush();
         }
     }
-    
+
+    public Query createQuery(String s) {
+        return em.createQuery(s);
+    }
+
+    public <T> TypedQuery<T> createQuery(CriteriaQuery<T> criteriaQuery) {
+        return em.createQuery(criteriaQuery);
+    }
+
+    public <T> TypedQuery<T> createQuery(String s, Class<T> aClass) {
+        return em.createQuery(s, aClass);
+    }
+
     /**
      * To convert the InputStream to String we use the Reader.read(char[]
      * buffer) method. We iterate until the Reader return -1 which means
