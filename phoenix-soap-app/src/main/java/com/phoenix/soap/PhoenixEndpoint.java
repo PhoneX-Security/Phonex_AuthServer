@@ -3389,11 +3389,11 @@ public class PhoenixEndpoint {
 
             if (fetchMy) {
                 // Load my pairing requests to someone.
-                query.append("SELECT pr FROM pairingRequest pr WHERE fromUser=:ownerName");
+                query.append("SELECT pr FROM pairingRequest pr WHERE pr.fromUser=:ownerName");
                 params.put("ownerName", callerSip);
 
                 if (reqTstamp != null) {
-                    query.append(" AND tstamp > :tstamp");
+                    query.append(" AND pr.tstamp > :tstamp");
                     params.put("tstamp", new Date(reqTstamp));
                 }
 
@@ -3402,15 +3402,15 @@ public class PhoenixEndpoint {
 
             } else {
                 // Load pairing request for me.
-                query.append("SELECT pr FROM pairingRequest pr WHERE toUser=:owner");
+                query.append("SELECT pr FROM pairingRequest pr WHERE pr.toUser=:owner");
                 params.put("owner", callerSip);
 
                 if (reqTstamp != null) {
-                    query.append(" AND tstamp > :tstamp");
+                    query.append(" AND pr.tstamp > :tstamp");
                     params.put("tstamp", new Date(reqTstamp));
                 }
                 if (reqFrom != null) {
-                    query.append(" AND fromUser=:fromUser");
+                    query.append(" AND pr.fromUser=:fromUser");
                     params.put("fromUser", reqFrom);
                 }
 
@@ -3505,18 +3505,14 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public PairingRequestUpdateResponse pairingRequestUpdate(@RequestPayload PairingRequestUpdateRequest request, MessageContext context) throws CertificateException {
         final String callerSip = this.authRemoteUserFromCert(context, this.request);
-        log.info("Remote user connected (pairingRequestInsert): " + callerSip);
+        log.info("Remote user connected (pairingRequestUpdate): " + callerSip);
 
         // Construct response
         final PairingRequestUpdateResponse response = new PairingRequestUpdateResponse();
         response.setErrCode(0);
 
-        final PairingRequestUpdateResult resCodes = new PairingRequestUpdateResult();
-        response.setErrCodes(resCodes);
-
         try {
-            final PairingRequestUpdateList updList = request.getUpdateList();
-            if (updList == null || MiscUtils.collectionIsEmpty(updList.getUpdates())){
+            if (MiscUtils.collectionIsEmpty(request.getUpdates())){
                 return response;
             }
 
@@ -3524,7 +3520,7 @@ public class PhoenixEndpoint {
             final Subscriber caller = this.dataService.getLocalUser(callerSip);
             final boolean isCallerLocal = caller != null;
 
-            final List<PairingRequestUpdateElement> updates = updList.getUpdates();
+            final List<PairingRequestUpdateElement> updates = request.getUpdates();
             for(PairingRequestUpdateElement elem : updates){
                 ArrayList<String> criteria = new ArrayList<String>();
                 HashMap<String, Object> params = new HashMap<String, Object>();
@@ -3535,26 +3531,26 @@ public class PhoenixEndpoint {
                 if (!StringUtils.isEmpty(elem.getFromUser()) && !callerSip.equals(elem.getFromUser())
                         && !StringUtils.isEmpty(elem.getOwner()) && !callerSip.equals(elem.getOwner()))
                 {
-                    resCodes.getCode().add(-2); // Security violation.
+                    response.getErrCodes().add(-2); // Security violation.
                     continue;
                 }
 
                 // If id is null, fromUser is null and owner is null, not asking to delete older than, criteria is not sufficient.
                 if (elem.getId() == null && elem.getFromUser() == null && elem.getOwner() == null && elem.getDeleteOlderThan() == null){
-                    resCodes.getCode().add(-3); // Criteria is not sufficient.
+                    response.getErrCodes().add(-3); // Criteria is not sufficient.
                     continue;
                 }
 
                 // Security measure, if both to / from is null, add criteria so caller manages his own list.
                 if (elem.getFromUser() == null && elem.getOwner() == null){
-                    criteria.add("toUser=:toUser");
+                    criteria.add("pr.toUser=:toUser");
                     params.put("toUser", callerSip);
 
                 } else if (elem.getOwner() != null && elem.getFromUser() == null){
                     // Deleting my request - only in case resolution is none.
-                    criteria.add("toUser=:toUser");
-                    criteria.add("fromUser=:fromUser");
-                    criteria.add("(resolution=:resolution1 OR resolution:=resolution2)");
+                    criteria.add("pr.toUser=:toUser");
+                    criteria.add("pr.fromUser=:fromUser");
+                    criteria.add("(pr.resolution=:resolution1 OR pr.resolution:=resolution2)");
                     params.put("toUser", elem.getOwner());
                     params.put("fromUser", callerSip);
                     params.put("resolution1", PairingRequestResolution.NONE);
@@ -3562,27 +3558,27 @@ public class PhoenixEndpoint {
                     isCallerOwner = false;
 
                 } else if (elem.getFromUser() != null) {
-                    criteria.add("toUser=:toUser");
-                    criteria.add("fromUser=:fromUser");
+                    criteria.add("pr.toUser=:toUser");
+                    criteria.add("pr.fromUser=:fromUser");
                     params.put("toUser", callerSip);
                     params.put("fromUser", elem.getFromUser());
                 }
 
                 // If request for deletion by time, do it right now, no more specification is needed.
                 if (elem.getDeleteOlderThan() != null){
-                    criteria.add("tstamp <= :tstamp");
+                    criteria.add("pr.tstamp <= :tstamp");
                     params.put("tstamp", elem.getDeleteOlderThan());
 
                     Query delQuery = this.em.createQuery(dataService.buildQueryString("DELETE FROM pairingRequest pr WHERE ", criteria, ""));
                     dataService.setQueryParameters(delQuery, params);
                     int updRes = delQuery.executeUpdate();
-                    resCodes.getCode().add(updRes);
+                    response.getErrCodes().add(updRes);
                     continue;
                 }
 
                 // May be identified by it's ID.
                 if (elem.getId() != null){
-                    criteria.add("id=:id");
+                    criteria.add("pr.id=:id");
                     params.put("id", elem.getId());
                 }
 
@@ -3591,13 +3587,13 @@ public class PhoenixEndpoint {
                     Query delQuery = this.em.createQuery(dataService.buildQueryString("DELETE FROM pairingRequest pr WHERE ", criteria, ""));
                     dataService.setQueryParameters(delQuery, params);
                     int updRes = delQuery.executeUpdate();
-                    resCodes.getCode().add(updRes);
+                    response.getErrCodes().add(updRes);
                     continue;
                 }
 
                 // If caller is not local, here ends his possibilities.
                 if (!isCallerLocal || !isCallerOwner){
-                    resCodes.getCode().add(-4); // Operation not allowed.
+                    response.getErrCodes().add(-4); // Operation not allowed.
                     continue;
                 }
 
@@ -3611,7 +3607,7 @@ public class PhoenixEndpoint {
 
                 PairingRequest pr = requestQuery.getSingleResult();
                 if (pr == null){
-                    resCodes.getCode().add(-5); // Not found.
+                    response.getErrCodes().add(-5); // Not found.
                     continue;
                 }
 
@@ -3642,7 +3638,7 @@ public class PhoenixEndpoint {
                 }
 
                 em.persist(pr);
-                resCodes.getCode().add(0);
+                response.getErrCodes().add(0);
             }
 
             // No push notification happens here. If we update our list, we know about it.

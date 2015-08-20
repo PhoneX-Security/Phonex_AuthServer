@@ -126,16 +126,10 @@
         </xs:sequence>
     </xs:complexType>
 
-    <xs:complexType name="pairingRequestUpdateList">
-        <xs:sequence>
-            <xs:element name="updates" type="hr:pairingRequestUpdateElement" minOccurs ="0" maxOccurs="unbounded"/>
-        </xs:sequence>
-    </xs:complexType>
-
     <xs:element name="pairingRequestUpdateRequest">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="updateList" type="hr:pairingRequestUpdateList"/>
+                <xs:element name="updates" type="hr:pairingRequestUpdateElement" minOccurs ="0" maxOccurs="unbounded"/>
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
@@ -143,17 +137,11 @@
         </xs:complexType>
     </xs:element>
 
-    <xs:complexType name="pairingRequestUpdateResult">
-        <xs:sequence>
-            <xs:element name="code" type="xs:int" minOccurs="0" maxOccurs="unbounded"/>
-        </xs:sequence>
-    </xs:complexType>
-
     <xs:element name="pairingRequestUpdateResponse">
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="errCode" type="xs:int"/>
-                <xs:element name="errCodes" type="hr:pairingRequestUpdateResult"/>
+                <xs:element name="errCodes" type="xs:int" minOccurs="0" maxOccurs="unbounded"/>
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
