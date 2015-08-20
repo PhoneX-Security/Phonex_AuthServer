@@ -1,7 +1,10 @@
 package com.phoenix.utils;
 
+import com.phoenix.db.ContactGroup;
 import com.phoenix.db.PairingRequest;
 import com.phoenix.db.extra.PairingRequestResolution;
+import com.phoenix.service.PhoenixDataService;
+import com.phoenix.soap.beans.Cgroup;
 import com.phoenix.soap.beans.PairingRequestElement;
 import com.phoenix.soap.beans.PairingRequestResolutionEnum;
 import org.slf4j.Logger;
@@ -68,5 +71,25 @@ public class ConversionUtils {
             case REVERTED: return PairingRequestResolution.REVERTED;
             default:       return null;
         }
+    }
+
+    /**
+     * Converts database representation of the contact group to the response representation.
+     * @param cgroup
+     * @return
+     */
+    public static Cgroup dbCgroupToResponse(ContactGroup cgroup){
+        if (cgroup == null){
+            return null;
+        }
+
+        final Cgroup cg = new Cgroup();
+        cg.setId(cgroup.getId());
+        cg.setOwner(cgroup.getOwner() == null ? "" : PhoenixDataService.getSIP(cgroup.getOwner()));
+        cg.setGroupKey(cgroup.getGroupKey());
+        cg.setGroupType(cgroup.getGroupType());
+        cg.setGroupName(cgroup.getGroupName());
+        cg.setAuxData(cgroup.getAuxData());
+        return cg;
     }
 }

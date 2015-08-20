@@ -3655,6 +3655,199 @@ public class PhoenixEndpoint {
     }
 
     /**
+     * Request to fetch all groups for given user + specified by ID.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "cgroupGetRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public CgroupGetResponse cgroupFetch(@RequestPayload CgroupGetRequest request, MessageContext context) throws CertificateException {
+        Subscriber caller = this.authUserFromCert(context, this.request);
+        String callerSip = PhoenixDataService.getSIP(caller);
+        log.info("Remote user connected (cgroupFetch): " + callerSip);
+
+        // Construct response
+        CgroupGetResponse response = new CgroupGetResponse();
+        response.setErrCode(0);
+
+        try {
+            //
+            // Fetch record according to the search criteria.
+            //
+            TypedQuery<ContactGroup> dbQuery;
+            final StringBuilder query = new StringBuilder();
+            final Map<String, Object> params = new HashMap<String, Object>();
+
+            query.append("SELECT cg FROM contactGroup cg WHERE cg.owner=:owner");
+            params.put("ownerName", caller);
+
+            final List<Long> ids = request.getIds();
+            if (!MiscUtils.collectionIsEmpty(ids)){
+                query.append(" OR id IN :ids");
+                params.put("ids", new ArrayList<Long>(ids));
+            }
+
+            dbQuery = em.createQuery(query.toString(), ContactGroup.class);
+            dataService.setQueryParameters(dbQuery, params);
+
+            // Process DB response.
+            List<ContactGroup> resultList = dbQuery.getResultList();
+            for (ContactGroup cg : resultList) {
+                response.getGroups().add(ConversionUtils.dbCgroupToResponse(cg));
+            }
+
+            response.setErrCode(0);
+            logAction(callerSip, "cgroupFetch", null);
+
+        } catch(Exception e){
+            log.error("Exception in fetching pairing contact groups", e);
+            response.setErrCode(-2);
+        }
+
+        return response;
+    }
+
+    /**
+     * Request to store a new pairing requests to the database.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "cgroupChangeRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public CgroupUpdateResponse cgroupUpdate(@RequestPayload CgroupUpdateRequest request, MessageContext context) throws CertificateException {
+        final Subscriber owner = this.authUserFromCert(context, this.request);
+        final String ownerSip = PhoenixDataService.getSIP(owner);
+        log.info("Remote user connected (cgroupUpdate): " + ownerSip);
+
+        // Construct response
+        final CgroupUpdateResponse response = new CgroupUpdateResponse();
+        response.setErrCode(0);
+
+        try {
+            final List<CgroupUpdateRequestElement> updList = request.getUpdates();
+            if (MiscUtils.collectionIsEmpty(updList)){
+                return response;
+            }
+
+            for(CgroupUpdateRequestElement elem : updList){
+                final Map<String, Object> params = new HashMap<String, Object>();
+                final ArrayList<String> criteria = new ArrayList<String>();
+                final CgroupAction action = elem.getAction();
+                final CgroupUpdateResult updRes = new CgroupUpdateResult();
+
+                // Add
+                if (action == CgroupAction.ADD){
+                    ContactGroup cg = new ContactGroup();
+                    cg.setOwner(owner);
+                    cg.setDateCreated(new Date());
+                    cg.setDateLastEdit(new Date());
+                    cg.setGroupKey(elem.getGroupKey() == null ? "" : elem.getGroupKey());
+                    cg.setGroupType(elem.getGroupType() == null ? "" : elem.getGroupType());
+                    cg.setGroupName(elem.getGroupName() == null ? "" : elem.getGroupName());
+                    cg.setAuxData(elem.getAuxData());
+                    em.persist(cg);
+
+                    updRes.setResultCode(0);
+                    response.getResults().add(updRes);
+                    continue;
+                }
+
+                // Criteria for removal / update -> only owners groups.
+                criteria.add("cg.owner=:owner");
+                params.put("owner", owner);
+
+                // ID if specified
+                if (elem.getId() != null){
+                    criteria.add("cg.id=:id");
+                    params.put("id", elem.getId());
+                }
+
+                // Deletion.
+                if (action == CgroupAction.REMOVE){
+                    Query delQuery = em.createQuery(dataService.buildQueryString("DELETE FROM contactGroup cg WHERE ", criteria, ""));
+                    dataService.setQueryParameters(delQuery, params);
+                    final int updateCode = delQuery.executeUpdate();
+
+                    updRes.setResultCode(updateCode);
+                    response.getResults().add(updRes);
+                    continue;
+                }
+
+                // Update left.
+                if (action != CgroupAction.UPDATE){
+                    updRes.setResultCode(-3);
+                    response.getResults().add(updRes);
+                    continue;
+                }
+
+                // Can update only if ID was specified.
+                // No other addresing criteria is allowed at the moment.
+                if (elem.getId() == null){
+                    updRes.setResultCode(-4);
+                    response.getResults().add(updRes);
+                    continue;
+                }
+
+                // If here, we want to update the record, caller is owner of such record.
+                // Update is done in the following way: load entity according to criteria, make changes, persist.
+                final String requestQuerySql = "SELECT cg FROM contactGroup cg WHERE";
+                TypedQuery<ContactGroup> requestQuery = em.createQuery(
+                        dataService.buildQueryString(requestQuerySql, criteria, ""), ContactGroup.class);
+                dataService.setQueryParameters(requestQuery, params);
+                requestQuery.setMaxResults(1);
+
+                ContactGroup cg = requestQuery.getSingleResult();
+                if (cg == null){
+                    updRes.setResultCode(-5); // Not found
+                    response.getResults().add(updRes);
+                    continue;
+                }
+
+                // Make changes and persist.
+                cg.setDateLastEdit(new Date());
+
+                if (elem.getGroupType()!= null){
+                    cg.setGroupType(elem.getGroupType());
+                }
+                if (elem.getGroupKey()!=null){
+                    cg.setGroupKey(elem.getGroupKey());
+                }
+                if (elem.getGroupName()!=null){
+                    cg.setGroupName(elem.getGroupName());
+                }
+                if (elem.getAuxData()!=null){
+                    cg.setAuxData(elem.getAuxData());
+                }
+
+                em.persist(cg);
+
+                updRes.setResultCode(0);
+                response.getResults().add(updRes);
+            }
+
+            // No push notification happens here. If we update our list, we know about it.
+            // Deletion is not pushed.
+            response.setErrCode(0);
+            logAction(ownerSip, "cgroupUpdate", null);
+
+        } catch(Exception e){
+            log.error("Exception in updating contact group", e);
+            response.setErrCode(-1);
+        }
+
+        return response;
+    }
+
+
+    /**
      * Stores information about some action to the usage logs.
      * @param user
      * @param action
