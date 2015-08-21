@@ -79,9 +79,8 @@ public class UserPairingManager {
      * @param yUser
      */
     public void onUserXRemovedYFromContactlist(Subscriber xOwner, Subscriber yUser){
-        // TODO: Remove X request from the Y pairing request table, Y is local.
-        remotePairingRequest(yUser, PhoenixDataService.getSIP(xOwner), true);
-
+        // Remove X request from the Y pairing request table, Y is local.
+        removePairingRequest(yUser, PhoenixDataService.getSIP(xOwner), true);
     }
 
     /**
@@ -105,6 +104,7 @@ public class UserPairingManager {
      *    b) insert a new pairing request of X to Y pairing database.
      *       If local/remote, insertion if already in contact list returns failure.
      *       If user is remote, no action is performed for now.
+     *    c) delete all denied && blocked pairing requests of Y to X.
      *
      * @param xOwner
      * @param yUser
@@ -132,6 +132,14 @@ public class UserPairingManager {
         // Insert a new pairing request of X to Y pairing database, if does not exist already. Check.
         // If blocked, insert nothing.
         insertPairingRequest(xOwner, yUser, true, null);
+
+        // delete all denied && blocked pairing requests of Y to X.
+        ArrayList<String> criteria = new ArrayList<String>(1);
+        Map<String, Object> params = new HashMap<String, Object>();
+        criteria.add("pr.resolution=:resblock OR pr.resolution=:resdenied");
+        params.put("resblock", PairingRequestResolution.BLOCKED);
+        params.put("resdenied", PairingRequestResolution.DENIED);
+        removePairingRequest(xOwner, PhoenixDataService.getSIP(yUser), criteria, params);
     }
 
     /**
@@ -369,8 +377,30 @@ public class UserPairingManager {
      * @param onlyWithNoneResolution if true, only pairing requests with resolution = none are going to be deleted.
      * @return
      */
+    public int removePairingRequest(Subscriber xOwner, String fromUser, boolean onlyWithNoneResolution){
+        if (!onlyWithNoneResolution){
+            return removePairingRequest(xOwner, fromUser, null, null);
+        }
+
+        ArrayList<String> criteria = new ArrayList<String>();
+        Map<String, Object> params = new HashMap<String, Object>();
+
+        criteria.add("pr.resolution=:resnone");
+        params.put("resnone", PairingRequestResolution.NONE);
+        return removePairingRequest(xOwner, fromUser, criteria, params);
+    }
+
+    /**
+     * Removes pairing request from xOwners pairing request table from fromUser.
+     * @param xOwner
+     * @param fromUser
+     * @param criteria
+     * @param auxParams
+     *
+     * @return
+     */
     @Transactional
-    public int remotePairingRequest(Subscriber xOwner, String fromUser, boolean onlyWithNoneResolution){
+    public int removePairingRequest(Subscriber xOwner, String fromUser, Collection<String> criteria, Map<String, Object> auxParams){
         final String ownerSip = PhoenixDataService.getSIP(xOwner);
         final Map<String, Object> params = new HashMap<String, Object>();
 
@@ -380,9 +410,10 @@ public class UserPairingManager {
 
         String delQuery = "DELETE FROM pairingRequest pr WHERE pr.toUser=:toUser AND pr.fromUser=:fromUser";
 
-        if (onlyWithNoneResolution){
-            delQuery = delQuery + " AND resolution=:resnone";
-            params.put("resnone", PairingRequestResolution.NONE);
+        // Criteria & auxParams.
+        if (criteria != null && !criteria.isEmpty()){
+            delQuery = delQuery + " AND (( " + MiscUtils.join(criteria, " ) AND ( ") + " ))";
+            params.putAll(auxParams);
         }
 
         // Join updates together.
