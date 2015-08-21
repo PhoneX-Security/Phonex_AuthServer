@@ -4,6 +4,7 @@ import com.phoenix.db.ContactGroup;
 import com.phoenix.db.PairingRequest;
 import com.phoenix.db.extra.PairingRequestResolution;
 import com.phoenix.service.PhoenixDataService;
+import com.phoenix.soap.PhoenixEndpoint;
 import com.phoenix.soap.beans.Cgroup;
 import com.phoenix.soap.beans.PairingRequestElement;
 import com.phoenix.soap.beans.PairingRequestResolutionEnum;
@@ -26,6 +27,7 @@ public class ConversionUtils {
         elem.setId(pr.getId());
         elem.setOwner(pr.getToUser());
         elem.setTstamp(pr.getTstamp().getTime());
+        elem.setDateLastChange(null);
 
         elem.setFromUser(pr.getFromUser());
         elem.setFromUserResource(pr.getFromUserResource());
@@ -90,6 +92,15 @@ public class ConversionUtils {
         cg.setGroupType(cgroup.getGroupType());
         cg.setGroupName(cgroup.getGroupName());
         cg.setAuxData(cgroup.getAuxData());
+
+        // Last modifications.
+        if (cgroup.getDateLastEdit() != null) {
+            try {
+                cg.setDateLastChange(PhoenixEndpoint.getXMLDate(cgroup.getDateLastEdit()));
+            } catch(Exception e){
+                log.error("Exception in data conversion", e);
+            }
+        }
         return cg;
     }
 }

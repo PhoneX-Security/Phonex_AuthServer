@@ -22,6 +22,7 @@
             <xs:element name="groupType" type="xs:string"/>
             <xs:element name="owner" type="hr:userSIP"/>
             <xs:element name="groupName" type="xs:string"/>
+            <xs:element name="dateLastChange" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="auxData" type="xs:string" minOccurs ="0" maxOccurs="1"/>
 
             <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>

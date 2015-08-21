@@ -48,6 +48,7 @@
             <xs:element name="fromUser" type="hr:userSIP"/>
             <xs:element name="fromUserResource" type="xs:string"/>
 
+            <xs:element name="dateLastChange" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="fromUserAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="requestMessage" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="requestAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>

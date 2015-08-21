@@ -279,6 +279,7 @@
             <xs:element name="whitelistStatus" type="hr:userWhitelistStatus"/>
             <xs:element name="hideInContactList" type="xs:boolean"/>
             <xs:element name="displayName" type="xs:string" />
+            <xs:element name="dateLastChange" type="xs:dateTime" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="auxData" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="primaryGroup" type="xs:long" minOccurs ="0" maxOccurs="1"/>
 

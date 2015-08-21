@@ -796,6 +796,14 @@ public class PhoenixEndpoint {
                 elem.setWhitelistStatus(cl.isInWhitelist() ? UserWhitelistStatus.IN : UserWhitelistStatus.NOTIN);
                 elem.setDisplayName(cl.getDisplayName());
             }
+            
+            if (cl.getDateLastEdit() != null){
+                try {
+                    elem.setDateLastChange(getXMLDate(cl.getDateLastEdit()));
+                } catch(Exception e){
+                    log.error("Exception in data conversion", e);
+                }
+            }
 
             response.getContacts().add(elem);
         }
