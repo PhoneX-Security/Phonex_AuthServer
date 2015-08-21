@@ -56,6 +56,10 @@
             <xs:element name="resolutionTstamp" type="xs:long" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="resolutionMessage" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="resolutionAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
         </xs:sequence>
     </xs:complexType>
 
@@ -123,6 +127,10 @@
             <xs:element name="resolutionTstamp" type="xs:long" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="resolutionMessage" type="xs:string" minOccurs ="0" maxOccurs="1"/>
             <xs:element name="resolutionAux" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+
+            <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+            <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
         </xs:sequence>
     </xs:complexType>
 
