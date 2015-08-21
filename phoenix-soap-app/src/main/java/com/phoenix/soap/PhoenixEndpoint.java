@@ -1699,7 +1699,7 @@ public class PhoenixEndpoint {
             }
 
             // AUXJson - trial event logs.
-            if (localUser.getExpires().before(Calendar.getInstance())){
+            if (localUser.getExpires() != null && localUser.getExpires().before(Calendar.getInstance())){
                 final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
                 final JSONObject jsonObj = dataService.eventLogToJson(logs, localUser);
                 jsonAuxObj.put("evtlog", jsonObj);
@@ -1933,7 +1933,7 @@ public class PhoenixEndpoint {
             }
 
             // AUXJson - trial event logs.
-            if (localUser.getExpires().before(Calendar.getInstance())){
+            if (localUser.getExpires() != null && localUser.getExpires().before(Calendar.getInstance())){
                 final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
                 final JSONObject jsonObj = dataService.eventLogToJson(logs, localUser);
                 jsonAuxObj.put("evtlog", jsonObj);
