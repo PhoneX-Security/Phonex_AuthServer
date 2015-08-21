@@ -2006,6 +2006,18 @@ public class PhoenixEndpoint {
                 resp.setForcePasswordChange(TrueFalse.TRUE);
             }
 
+            // Type of the testing account. Alpha / beta.
+            if (!StringUtils.isEmpty(localUser.getTestingType())){
+                jsonAuxObj.put("testingType", localUser.getTestingType());
+                resp.setAuxJSON(jsonAuxObj.toString());
+            }
+
+            // AuxData
+            if (!StringUtils.isEmpty(localUser.getAuxData())){
+                jsonAuxObj.put("auxData", localUser.getAuxData());
+                resp.setAuxJSON(jsonAuxObj.toString());
+            }
+
             // AUXJson - trial event logs.
             if (localUser.getExpires() != null && localUser.getExpires().before(Calendar.getInstance())){
                 final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
@@ -2236,8 +2248,20 @@ public class PhoenixEndpoint {
             
             // Force password change?
             Boolean passwdChange = localUser.getForcePasswordChange();
-            if (passwdChange!=null && passwdChange==true){
+            if (passwdChange!=null && passwdChange){
                 resp.setForcePasswordChange(TrueFalse.TRUE);
+            }
+
+            // Type of the testing account. Alpha / beta.
+            if (!StringUtils.isEmpty(localUser.getTestingType())){
+                jsonAuxObj.put("testingType", localUser.getTestingType());
+                resp.setAuxJSON(jsonAuxObj.toString());
+            }
+
+            // AuxData
+            if (!StringUtils.isEmpty(localUser.getAuxData())){
+                jsonAuxObj.put("auxData", localUser.getAuxData());
+                resp.setAuxJSON(jsonAuxObj.toString());
             }
 
             // AUXJson - trial event logs.
