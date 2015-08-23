@@ -2600,6 +2600,7 @@ public class PhoenixEndpoint {
             }
             
             errCode=1;
+            logAction(ownerSip, "ftAddDHKeys", null);
             
         } catch(Exception e){
             log.error("Exception in AddDHKeys", e);
@@ -2714,7 +2715,8 @@ public class PhoenixEndpoint {
                 
                 result = 1;
             }
-            
+
+            logAction(ownerSip, "ftRemoveDHKeys", null);
             response.setErrCode(result);
             return response;
             
@@ -2841,7 +2843,8 @@ public class PhoenixEndpoint {
                 
                 response.setStats(statsArr);
             }
-            
+
+            logAction(ownerSip, "ftGetStoredDHKeysInfo", null);
             result = 1;
         } catch(Exception e){
             log.error("Exception in obtaining DH keys info", e);
@@ -2907,7 +2910,8 @@ public class PhoenixEndpoint {
             response.setSEncBlock(e.getsAncBlock());
             response.setSig1(e.getSig1());
             response.setErrCode(1);
-            
+
+            logAction(caller, "ftGetDHKey", null);
             return response;
         } catch(Exception e){
             log.error("Exception in obtaining DH keys info", e);
@@ -2980,7 +2984,8 @@ public class PhoenixEndpoint {
             } catch(Exception ex){
                 log.error("Error in pushing dh key used event", ex);
             }
-            
+
+            logAction(caller, "ftGetDHKeyPart2", null);
             return response;
         } catch(Exception e){
             log.error("Exception in obtaining DH keys info", e);
@@ -3077,7 +3082,8 @@ public class PhoenixEndpoint {
             // Get all new nonces - notify user about new files
             List<String> nc = fmanager.getStoredFilesNonces(owner);
             pmanager.notifyNewFiles(ownerSip, nc);
-            
+
+            logAction(ownerSip, "ftDeleteFiles", null);
             response.setErrCode(0);
             return response;
             
@@ -3173,7 +3179,8 @@ public class PhoenixEndpoint {
                 sf2send.setKey(sf.getDhpublic());
                 storedFiles.add(sf2send);
             }
-            
+
+            logAction(ownerSip, "ftGetStoredFiles", null);
             return response;
         } catch(Exception e){
             response.setErrCode(-1);
@@ -3216,6 +3223,7 @@ public class PhoenixEndpoint {
             te.setEtype(request.getEtype());
             em.persist(te);
 
+            logAction(ownerSip, "trialEventSave", null);
             return response;
         } catch(Exception e){
             response.setErrCode(-2);
@@ -3251,6 +3259,7 @@ public class PhoenixEndpoint {
             final JSONObject jsonObj = dataService.eventLogToJson(logs, owner);
             response.setRespJSON(jsonObj.toString());
 
+            logAction(ownerSip, "trialEventGet", null);
             return response;
         } catch(Exception e){
             response.setErrCode(-2);
