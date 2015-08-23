@@ -359,7 +359,8 @@ public class PhoenixEndpoint {
                 }
             }
         }
-        
+
+        logAction(ownerSip, "whitelistRequest", null);
         return response;
     }
 
@@ -393,7 +394,8 @@ public class PhoenixEndpoint {
             
             response.getReturn().add(wle);
         }
-        
+
+        logAction(ownerSip, "whitelistGetRequest", null);
         return response;
     }
     
@@ -541,6 +543,7 @@ public class PhoenixEndpoint {
              */ 
             
             response.getContactlistEntry().add(elem);
+            logAction(ownerSip, "contactlistGetRequest", null);
         }
         
         return response;
@@ -773,6 +776,8 @@ public class PhoenixEndpoint {
                     log.error("Exception during presence rules generation for: " + entry.getValue(), ex);
                 }
             }
+
+            logAction(ownerSip, "contactlistChangeRequest", null);
             
         } catch(Exception e){
             log.info("Exception occurred", e);
