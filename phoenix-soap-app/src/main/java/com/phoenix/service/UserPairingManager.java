@@ -429,6 +429,22 @@ public class UserPairingManager {
         return -1;
     }
 
+    public PhoenixDataService getDataService() {
+        return dataService;
+    }
+
+    public void setDataService(PhoenixDataService dataService) {
+        this.dataService = dataService;
+    }
+
+    public AMQPListener getAmqpListener() {
+        return amqpListener;
+    }
+
+    public void setAmqpListener(AMQPListener amqpListener) {
+        this.amqpListener = amqpListener;
+    }
+
     /**
      * Optional holder for specifying resolution details for the pairing request.
      */
