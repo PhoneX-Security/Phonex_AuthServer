@@ -263,7 +263,7 @@
     <!--
       V2 contact list fetch request & responses
     -->
-    <xs:complexType name="cListElementV2">
+    <xs:complexType name="clistElementV2">
         <xs:annotation>
             <xs:documentation>
                 One element in contactlist response
@@ -321,7 +321,7 @@
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
 
                 <xs:element name="errCode" type="xs:int"/>
-                <xs:element name="contacts" type="hr:cListElementV2" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="contacts" type="hr:clistElementV2" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>

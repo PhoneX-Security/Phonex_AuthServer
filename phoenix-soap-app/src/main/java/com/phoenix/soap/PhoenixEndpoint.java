@@ -825,7 +825,7 @@ public class PhoenixEndpoint {
             final Contactlist cl = (Contactlist) o[1];
             final String userSIP = PhoenixDataService.getSIP(t);
 
-            CListElementV2 elem = new CListElementV2();
+            ClistElementV2 elem = new ClistElementV2();
             elem.setAlias(t.getUsername());
             elem.setContactlistStatus(EnabledDisabled.ENABLED);
             elem.setPresenceStatus(UserPresenceStatus.ONLINE);
