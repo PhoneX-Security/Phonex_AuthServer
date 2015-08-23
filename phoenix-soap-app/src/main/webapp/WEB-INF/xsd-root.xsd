@@ -44,6 +44,9 @@
     <!-- Trial events recording related types & elements -->
     <xs:include schemaLocation="xsd-trial.xsd"/>
 
+    <!-- Push interaction related types & elements -->
+    <xs:include schemaLocation="xsd-push.xsd"/>
+
     <!-- Misc types & elements -->
     <xs:element name="accountInfoV1Request">
         <xs:complexType>

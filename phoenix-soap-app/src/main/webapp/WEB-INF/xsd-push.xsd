@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:hr="http://phoenix.com/hr/schemas"
+           elementFormDefault="qualified"
+           targetNamespace="http://phoenix.com/hr/schemas">
+
+    <xs:include schemaLocation="xsd-base.xsd"/>
+
+    <xs:element name="pushRequestRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="reqJSON" type="xs:string"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="pushRequestResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="responseJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="pushAckRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="reqJSON" type="xs:string"/>
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="pushAckResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="responseJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>
