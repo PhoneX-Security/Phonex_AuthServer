@@ -429,6 +429,12 @@
             <artifactId>amqp-client</artifactId>
             <version>3.4.4</version>
         </dependency>
+        <!-- JAXB toString generator -->
+        <dependency>
+            <groupId>org.jvnet.jaxb2_commons</groupId>
+            <artifactId>jaxb2-basics-runtime</artifactId>
+            <version>0.6.4</version>
+        </dependency>
 
     </dependencies>
 
@@ -476,6 +482,8 @@
                 </dependencies>
             </plugin>
             
+            <!-- OLD way of generating JAXB entities, without toString() method.
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>jaxb2-maven-plugin</artifactId>
@@ -492,7 +500,44 @@
                     <packageName>com.phoenix.soap.beans</packageName>
                 </configuration>
             </plugin>
-            
+            -->
+
+            <!-- JAXB plugin, with toString method -->
+            <plugin>
+                <groupId>org.jvnet.jaxb2.maven2</groupId>
+                <artifactId>maven-jaxb2-plugin</artifactId>
+                <version>0.8.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <schemaDirectory>
+                        ${project.basedir}/src/main/webapp/WEB-INF
+                    </schemaDirectory>
+                    <generateDirectory>
+                        ${project.basedir}/target/generated-sources/jaxb
+                    </generateDirectory>
+                    <extension>true</extension>
+                    <generatePackage>com.phoenix.soap.beans</generatePackage>
+                    <removeOldOutput>true</removeOldOutput>
+                    <verbose>true</verbose>
+                    <args>
+                        <arg>-XtoString</arg>
+                    </args>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.jvnet.jaxb2_commons</groupId>
+                            <artifactId>jaxb2-basics</artifactId>
+                            <version>0.6.4</version>
+                        </plugin>
+                    </plugins>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -594,7 +639,7 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>              
+            </plugin>
         </plugins>
     </build>
 </project>
