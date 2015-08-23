@@ -24,7 +24,7 @@ public class ContactGroup implements Serializable {
     private String groupKey;
 
     // Textual group type, may be used by application / system.
-    @Column(nullable = false, columnDefinition = "VARCHAR(32) DEFAULT `NONE`")
+    @Column(nullable = false, columnDefinition = "VARCHAR(32) DEFAULT 'NONE'")
     private String groupType;
 
     @ManyToOne
