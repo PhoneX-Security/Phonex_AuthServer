@@ -1834,6 +1834,7 @@ public class PhoenixEndpoint {
 
             // Invalid login here. You shall not pass!
             if (!authHash_valid){
+                logAction(sip, "authCheck3.fail", null);
                 return resp;
             }
             
@@ -1877,6 +1878,7 @@ public class PhoenixEndpoint {
             // If user was deleted, login was not successful.
             if (localUser.isDeleted()){
                 resp.setErrCode(405);
+                logAction(sip, "authCheck3.deleted", null);
                 return resp;
             }
             
@@ -2004,6 +2006,7 @@ public class PhoenixEndpoint {
                 log.info("Certificate was not valid: ", e);
                 resp.setCertValid(TrueFalseNA.FALSE);
                 resp.setCertStatus(CertificateStatus.INVALID);
+                logAction(sip, "authCheck3.crtfail", null);
                 return resp;
             }
             
