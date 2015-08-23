@@ -130,7 +130,48 @@ public class PhoenixEndpoint {
         
         return c1971;
     }
-    
+
+
+    /**
+     * Converts Date to XMLGregorianCalendar used in SOAP responses.
+     *
+     * @param d
+     * @return
+     * @throws DatatypeConfigurationException
+     */
+    public static XMLGregorianCalendar getXMLDate(Date d) throws DatatypeConfigurationException{
+        GregorianCalendar c = new GregorianCalendar();
+        c.setTime(d);
+        return DatatypeFactory.newInstance().newXMLGregorianCalendar(c);
+    }
+
+    /**
+     * Converts XML:GregorianCalendar to Date.
+     * @param c
+     * @return
+     */
+    public static Date getDate(XMLGregorianCalendar c){
+        if(c == null) {
+            return null;
+        }
+        return c.toGregorianCalendar().getTime();
+    }
+
+    /**
+     * Serializes list of nonces.
+     * @param lst
+     * @return
+     */
+    public static String serializeList(List<String> lst){
+        StringBuilder sb = new StringBuilder();
+        for(int i=0, cn=lst.size(); i < cn; i++){
+            sb.append(lst.get(i));
+            sb.append("|");
+        }
+
+        return sb.toString();
+    }
+
     /**
      * Authenticate user from its certificate, returns subscriber data.
      * @param context
@@ -208,7 +249,7 @@ public class PhoenixEndpoint {
             throw new CertificateException("You are not authorized, go away!");
         }
     }
-            
+
     /**
      * Whitelist manipulation request - with this is user changing its white list
      * @param request
@@ -796,7 +837,7 @@ public class PhoenixEndpoint {
                 elem.setWhitelistStatus(cl.isInWhitelist() ? UserWhitelistStatus.IN : UserWhitelistStatus.NOTIN);
                 elem.setDisplayName(cl.getDisplayName());
             }
-            
+
             if (cl.getDateLastEdit() != null){
                 try {
                     elem.setDateLastChange(getXMLDate(cl.getDateLastEdit()));
@@ -1747,47 +1788,7 @@ public class PhoenixEndpoint {
          
         return response;
     }
-    
-    /**
-     * Converts Date to XMLGregorianCalendar used in SOAP responses. 
-     * 
-     * @param d
-     * @return
-     * @throws DatatypeConfigurationException 
-     */
-    public static XMLGregorianCalendar getXMLDate(Date d) throws DatatypeConfigurationException{
-        GregorianCalendar c = new GregorianCalendar();
-        c.setTime(d);
-        return DatatypeFactory.newInstance().newXMLGregorianCalendar(c);
-    }
-    
-    /**
-     * Converts XML:GregorianCalendar to Date.
-     * @param c
-     * @return 
-     */
-    public static Date getDate(XMLGregorianCalendar c){
-        if(c == null) {
-            return null;
-        }
-        return c.toGregorianCalendar().getTime();
-    }
-    
-    /**
-     * Serializes list of nonces.
-     * @param lst
-     * @return 
-     */
-    public static String serializeList(List<String> lst){
-        StringBuilder sb = new StringBuilder();
-        for(int i=0, cn=lst.size(); i < cn; i++){
-            sb.append(lst.get(i));
-            sb.append("|");
-        }
-        
-        return sb.toString();
-    }
-    
+
     /**
      * Testing authentication.
      * 
@@ -3877,7 +3878,6 @@ public class PhoenixEndpoint {
 
         return response;
     }
-
 
     /**
      * Stores information about some action to the usage logs.
