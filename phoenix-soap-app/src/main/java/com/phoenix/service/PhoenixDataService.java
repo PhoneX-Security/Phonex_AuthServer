@@ -51,7 +51,8 @@ import java.util.concurrent.Future;
 @Repository
 public class PhoenixDataService {
     private static final Logger log = LoggerFactory.getLogger(PhoenixDataService.class);
-    private static final String PROP_DEBUG_ROSTER="phonex.svc.rostersync.debug";
+    public static final String PROP_DEBUG_ROSTER="phonex.svc.rostersync.debug";
+    public static final String PROP_CLIST_CHANGE_V1_IMPLICIT_PAIRING="phonex.svc.clistchangev1.implicitPairing";
 
     /**
      * <p>No subscription is established.</p>

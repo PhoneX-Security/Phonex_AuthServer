@@ -103,6 +103,9 @@ public class PhoenixEndpoint {
 
     @Autowired
     private UserPairingManager pairingMgr;
+
+    @Autowired
+    private JiveGlobals jiveGlobals;
     
     // owner SIP obtained from certificate
     private String owner_sip;
@@ -130,7 +133,6 @@ public class PhoenixEndpoint {
         
         return c1971;
     }
-
 
     /**
      * Converts Date to XMLGregorianCalendar used in SOAP responses.
@@ -572,12 +574,14 @@ public class PhoenixEndpoint {
             response.getReturn().add(ret);
             return response;
         }
-        
+
+        // Implicit pairing?
+        final boolean doPairing = jiveGlobals.getBooleanProperty(PhoenixDataService.PROP_CLIST_CHANGE_V1_IMPLICIT_PAIRING, true);
+
         // iterating over request, algorithm:
         // 1. select targeted subscriber
         // 2. create/modify/delete contact list accordingly
-        log.info("elems is not null; size: " + elems.size());
-        log.info("elems2string: " + elems.toString());
+        log.info("contactlistChangeRequest: elems is not null; size: " + elems.size() + ", elements: " + elems.toString());
         try {
             // Store users whose contact list was modified. For them will be later 
             // regenerated XML policy file for presence.
@@ -587,7 +591,7 @@ public class PhoenixEndpoint {
             // request for different subscriber.
             for(ContactlistChangeRequestElement elem : elems){
                 if (elem==null) continue;
-                log.info("contactlistChangeV2Request: elem2string: " + elem.toString()
+                log.info("contactlistChangeRequest: elem2string: " + elem.toString()
                         + ", user: " + elem.getUser()
                         + ", action: " + elem.getAction()
                         + ", ActionRequest: on [" + elem.getUser() + "] do: [" + elem.getAction().value() + "]");
@@ -650,6 +654,10 @@ public class PhoenixEndpoint {
                             this.dataService.remove(cl, true);
                             ret.setResultCode(1);
                             response.getReturn().add(ret);
+
+                            if (doPairing) {
+                                pairingMgr.onUserXRemovedYFromContactlist(targetOwner, s);
+                            }
                             continue;
                         }
 
@@ -736,6 +744,10 @@ public class PhoenixEndpoint {
                             this.dataService.persist(cl, true);
                             ret.setResultCode(1);
                             response.getReturn().add(ret);
+
+                            if (doPairing) {
+                                pairingMgr.onUserXAddedYToContactlist(targetOwner, s);
+                            }
                         } else {
                             ret.setResultCode(CLIST_CHANGE_ERROR_NO_USER);
                             response.getReturn().add(ret);
@@ -3853,5 +3865,21 @@ public class PhoenixEndpoint {
 
     public void setAmqpListener(AMQPListener amqpListener) {
         this.amqpListener = amqpListener;
+    }
+
+    public JiveGlobals getJiveGlobals() {
+        return jiveGlobals;
+    }
+
+    public void setJiveGlobals(JiveGlobals jiveGlobals) {
+        this.jiveGlobals = jiveGlobals;
+    }
+
+    public UserPairingManager getPairingMgr() {
+        return pairingMgr;
+    }
+
+    public void setPairingMgr(UserPairingManager pairingMgr) {
+        this.pairingMgr = pairingMgr;
     }
 }
