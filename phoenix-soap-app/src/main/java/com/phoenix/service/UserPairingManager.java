@@ -192,7 +192,7 @@ public class UserPairingManager {
         // Update parameters.
         // Resolution is for sure.
         updates.add("pr.resolution=:resolution");
-        params.put("resolution", details);
+        params.put("resolution", details.getResolution());
 
         // Timestamp?
         Date tstamp = details.getResolutionTstamp() != null ? details.getResolutionTstamp() : new Date();
