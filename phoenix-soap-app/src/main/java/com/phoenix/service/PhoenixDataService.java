@@ -142,7 +142,8 @@ public class PhoenixDataService {
             String querySIP2ID = "SELECT u FROM remoteUser u WHERE sip = :sip";
             TypedQuery<RemoteUser> query = em.createQuery(querySIP2ID, RemoteUser.class);
             query.setParameter("sip", sip);
-            return query.getSingleResult();
+            List<RemoteUser> resultList = query.getResultList();
+            return resultList.isEmpty() ? null : resultList.get(0);
             
         } catch(Exception ex){
             log.info("Problem occurred during loading user from database", ex);
@@ -930,6 +931,15 @@ public class PhoenixDataService {
         if (flush){
             this.em.flush();
         }
+    }
+
+    public <T> T tryGetSingleResult(TypedQuery<T> query){
+        final List<T> resultList = query.getResultList();
+        if (resultList == null || resultList.isEmpty()){
+            return null;
+        }
+
+        return resultList.get(0);
     }
 
     public Query createQuery(String s) {

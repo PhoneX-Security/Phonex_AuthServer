@@ -3538,7 +3538,7 @@ public class PhoenixEndpoint {
                 dataService.setQueryParameters(requestQuery, params);
                 requestQuery.setMaxResults(1);
 
-                PairingRequest pr = requestQuery.getSingleResult();
+                PairingRequest pr = dataService.tryGetSingleResult(requestQuery);
                 if (pr == null){
                     response.getErrCodes().add(-5); // Not found.
                     continue;
@@ -3737,7 +3737,7 @@ public class PhoenixEndpoint {
                 dataService.setQueryParameters(requestQuery, params);
                 requestQuery.setMaxResults(1);
 
-                ContactGroup cg = requestQuery.getSingleResult();
+                ContactGroup cg = dataService.tryGetSingleResult(requestQuery);
                 if (cg == null){
                     updRes.setResultCode(-5); // Not found
                     response.getResults().add(updRes);

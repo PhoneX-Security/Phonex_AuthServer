@@ -325,7 +325,7 @@ public class UserPairingManager {
                 .setParameter("toUser", toUser)
                 .setMaxResults(1);
 
-        PairingRequest prevReq = prevRequestQuery.getSingleResult();
+        PairingRequest prevReq = dataService.tryGetSingleResult(prevRequestQuery);
 
         // If the previous pairing request is blocked, block further requests.
         if (prevReq != null){

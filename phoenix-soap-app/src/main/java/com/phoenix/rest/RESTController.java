@@ -303,7 +303,7 @@ public class RESTController {
                     .setParameter("nonc", nonce2)
                     .setMaxResults(1);
             
-            DHKeys key = query.getSingleResult();
+            DHKeys key = dataService.tryGetSingleResult(query);
             if (key==null){
                 ret.setErrorCode(-2);
                 ret.setMessage("No such key");
