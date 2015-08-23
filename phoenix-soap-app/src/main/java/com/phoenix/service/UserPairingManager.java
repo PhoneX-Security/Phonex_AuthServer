@@ -131,7 +131,7 @@ public class UserPairingManager {
 
         // Insert a new pairing request of X to Y pairing database, if does not exist already. Check.
         // If blocked, insert nothing.
-        insertPairingRequest(xOwner, yUser, true, null);
+        insertPairingRequest(yUser, xOwner, true, null);
 
         // delete all denied && blocked pairing requests of Y to X.
         ArrayList<String> criteria = new ArrayList<String>(1);
@@ -268,6 +268,9 @@ public class UserPairingManager {
      */
     public int insertPairingRequest(Subscriber xOwner, Subscriber fromUserSub, boolean bcastPush, PairingRequest aux){
         if (isInContactList(xOwner, fromUserSub)){
+            log.info(String.format("Pairing request wont be added, already in contactlist owner %s, target %s",
+                    PhoenixDataService.getSIP(xOwner), PhoenixDataService.getSIP(fromUserSub)));
+
             return INSERT_PAIRING_ALREADY_IN_CONTACTS;
         }
 
@@ -285,6 +288,9 @@ public class UserPairingManager {
     @Transactional
     public int insertPairingRequest(Subscriber xOwner, String fromUser, boolean bcastPush, PairingRequest aux){
         if (isInContactList(xOwner, fromUser)){
+            log.info(String.format("Pairing request wont be added, already in contactlist owner %s, target %s",
+                    PhoenixDataService.getSIP(xOwner), fromUser));
+
             return INSERT_PAIRING_ALREADY_IN_CONTACTS;
         }
 
@@ -361,6 +367,7 @@ public class UserPairingManager {
         // Resolution is by default NONE. Cannot be overriden.
         newPr.setResolution(PairingRequestResolution.NONE);
         dataService.persist(newPr);
+        log.info(String.format("Pairing request inserted toUser: %s, fromUser: %s", toUser, fromUser));
 
         // Broadcast new push message, pairing request records were changed.
         if (bcastPush) {
@@ -420,7 +427,10 @@ public class UserPairingManager {
         try {
             final Query query = dataService.createQuery(delQuery);
             dataService.setQueryParameters(query, params);
-            return dataService.update(query);
+            int del = dataService.update(query);
+            log.info(String.format("Pairing request removed: %d", del));
+
+            return del;
 
         } catch(Exception e){
             log.error("Cannot accept pairing request, exception.", e);
