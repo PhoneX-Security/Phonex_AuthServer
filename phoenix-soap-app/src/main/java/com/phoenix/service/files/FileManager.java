@@ -148,7 +148,18 @@ public class FileManager {
     public File createTempFile(String prefix, String suffix) throws IOException{
         return File.createTempFile(prefix, suffix, tempFile);
     }
-    
+
+    /**
+     * Creates a temporary file for error log upload.
+     * @param user
+     * @param tstamp
+     * @return
+     * @throws IOException
+     */
+    public File createTempLogFile(String user, long tstamp) throws IOException {
+        return File.createTempFile("logtmp_"+sanitizeStringForPath(user)+"_"+tstamp, ".tmp", tempFile);
+    }
+
     /**
      * Creates a random file in temporary directory.
      * Counting with file naming convention.
@@ -173,7 +184,52 @@ public class FileManager {
     public File getPermFile(String nonce2, String type){
         return new File(fileFile + File.separator + generateFileName(nonce2, type) + ".dat");
     }
-    
+
+    /**
+     * Generate log file name.
+     * @param user
+     * @param tstamp
+     * @return
+     */
+    public String generateLogFileName(String user, long tstamp){
+        return "log_"+sanitizeStringForPath(user)+"_"+tstamp + ".zip";
+    }
+
+    /**
+     * Returns log file object initialized to the permanent file storage
+     * pointing on particular file defined by user name and timestamp.
+     *
+     * @param user
+     * @param tstamp
+     * @return
+     */
+    public File getPermLogFile(String user, long tstamp){
+        return new File(fileFile + File.separator + generateLogFileName(user, tstamp));
+    }
+
+    /**
+     * Returns log file object initialized to the permanent file storage.
+     *
+     * @param fname
+     * @return
+     */
+    public File getPermLogFile(String fname){
+        return new File(fileFile + File.separator + fname);
+    }
+
+    /**
+     * Removes invalid characters so string can be used as a file name.
+     * @param input
+     * @return
+     */
+    public String sanitizeStringForPath(String input){
+        if (input == null){
+            return null;
+        }
+
+        return input.replaceAll("[^a-zA-Z0-9\\._]+", "_");
+    }
+
     /**
      * Generates basic file name defined by its nonce2 identifier and type.
      * Basic security test is performed on input parameters in order to 

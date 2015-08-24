@@ -8,6 +8,7 @@ package com.phoenix.rest;
 
 import com.google.protobuf.Message;
 import com.phoenix.db.DHKeys;
+import com.phoenix.db.PhxErrorReport;
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.rest.json.TestReturn;
@@ -37,6 +38,8 @@ import javax.persistence.TypedQuery;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.phoenix.utils.StringUtils;
 import net.phonex.soap.protobuff.ServerProtoBuff;
 import org.apache.commons.io.IOUtils;
 import org.bouncycastle.util.encoders.Base64;
@@ -218,11 +221,126 @@ public class RESTController {
         Message msg = builder.build();
         return returnProtoBuff(msg);
     }
-    
+
+    /**
+     * Procedure for log file upload from device.
+     *
+     * @param version
+     * @param resource
+     * @param appVersion
+     * @param message
+     * @param auxJSON
+     * @param logfile
+     * @return
+     * @throws IOException
+     * @throws java.security.cert.CertificateException
+     */
+    @RequestMapping(value = "/rest/logupload", method=RequestMethod.POST, produces=MediaType.TEXT_PLAIN_VALUE)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public  @ResponseBody String processLogUpload(
+            @RequestParam("version") int version,
+            @RequestParam("resource") String resource,
+            @RequestParam("appVersion") String appVersion,
+            @RequestParam("message") String message,
+            @RequestParam("auxJSON") String auxJSON,
+            @RequestParam("logfile") MultipartFile logfile,
+            HttpServletRequest request,
+            HttpServletResponse response) throws IOException, CertificateException {
+
+        // Some SSL check at first
+        final Subscriber caller = this.authUserFromCert(request);
+        final String callerSip = PhoenixDataService.getSIP(caller);
+        final long uploadTstamp = System.currentTimeMillis();
+        log.info("Remote user connected (processLogUpload): " + callerSip);
+
+        // Prepare JSON response body
+        final LogUploadResponse resp = new LogUploadResponse();
+        resp.setStatusCode(-1);
+
+        boolean hasLogFile = logfile != null && !logfile.isEmpty() && logfile.getSize() > 0;
+        try {
+            // File size limit, if the file is too big, file has to be rejected.
+            if (hasLogFile && logfile.getSize() > 1024*1024*250){
+                log.info("Cannot upload new log files for user ["+callerSip+"], files too big: " + logfile.getSize());
+                resp.setStatusCode(-10);
+                return resp.toJSONString();
+            }
+
+            // Read uploaded file & write to persistent storage - drive.
+            final InputStream logInputStream = hasLogFile ? logfile.getInputStream() : null;
+            File tempLog = null;
+            File permLog = null;
+            try {
+                // Process uploaded log file, if there is any.
+                final String fname = fmanager.generateLogFileName(callerSip, uploadTstamp);
+                if (hasLogFile) {
+                    tempLog = fmanager.createTempLogFile(callerSip, uploadTstamp);
+                    final FileOutputStream fosMeta = new FileOutputStream(tempLog);
+
+                    // Use buffering provided by Apache Commons IO
+                    IOUtils.copy(logInputStream, fosMeta);
+                    fosMeta.close();
+
+                    // Check real file size after upload.
+                    if (tempLog.length() > 1024 * 1024 * 250) {
+                        log.info("Cannot upload new files for user [" + callerSip + "], files too big: " + tempLog.length());
+
+                        tempLog.delete();
+                        resp.setStatusCode(-10);
+                        return resp.toJSONString();
+                    }
+
+                    // Files are uploaded, DHPub key is correctly used in database.
+                    // 1. Move files from temporary to permanent location
+                    permLog = fmanager.getPermLogFile(fname);
+                    FileManager.moveBycopy(tempLog, permLog);
+                    tempLog = null;
+                }
+
+                // 3. Create a new StoredFile record
+                Calendar cal = Calendar.getInstance();
+                cal.add(Calendar.MONTH, 2);
+
+                final PhxErrorReport er = new PhxErrorReport();
+                er.setDateCreated(new Date(uploadTstamp));
+                er.setDateExpiration(cal.getTime());
+                er.setOwner(caller);
+                er.setAppVersion(StringUtils.takeMaxN(appVersion, 4096));
+                er.setUserMessage(StringUtils.takeMaxN(message, 8192));
+                er.setUserResource(StringUtils.takeMaxN(resource, 128));
+                er.setUserName(callerSip);
+                er.setAuxData(StringUtils.takeMaxN(auxJSON, 4096));
+                if (hasLogFile){
+                    er.setFilename(fname);
+                    er.setFileSize(permLog.length());
+                }
+
+                dataService.persist(er, true);
+
+                resp.setStatusCode(-10);
+                return resp.toJSONString();
+
+            } catch(Exception e){
+                log.error("Problem with moving log files to permanent storage and finalization.", e);
+                if (permLog!=null) permLog.delete();
+
+                resp.setStatusCode(-8);
+                return resp.toJSONString();
+            } finally {
+                if (tempLog!=null) tempLog.delete();
+            }
+        } catch(Exception e){
+            log.error("Exception in uploading log files to storage.", e);
+
+            resp.setStatusCode(-1);
+            return resp.tryToJSONString();
+        }
+    }
+
     /**
      * Main file upload processing method, using POST HTTP method.
      * File sending is implemented in this way.
-     * 
+     *
      * @param version
      * @param nonce2    nonce2 obtained from getKey protocol
      * @param user      sender
@@ -233,9 +351,9 @@ public class RESTController {
      * @param packfile
      * @param request
      * @param response
-     * @return 
-     * @throws IOException 
-     * @throws java.security.cert.CertificateException 
+     * @return
+     * @throws IOException
+     * @throws java.security.cert.CertificateException
      */
     @RequestMapping(value = "/rest/upload", method=RequestMethod.POST, produces=MediaType.TEXT_PLAIN_VALUE)// produces=MediaType.APPLICATION_JSON_VALUE)
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
@@ -248,29 +366,29 @@ public class RESTController {
             @RequestParam("hashmeta") String hashmeta,
             @RequestParam("hashpack") String hashpack,
             @RequestParam("metafile") MultipartFile metafile,
-            @RequestParam("packfile") MultipartFile packfile, 
+            @RequestParam("packfile") MultipartFile packfile,
             HttpServletRequest request,
             HttpServletResponse response) throws IOException, CertificateException {
-        
-        checkInputStringPathValidity(user, 44);        
+
+        checkInputStringPathValidity(user, 44);
         checkInputStringBase64Validity(nonce2, 44);
         checkInputStringBase64Validity(hashmeta, 300);
-        checkInputStringBase64Validity(hashpack, 300);        
-        
+        checkInputStringBase64Validity(hashpack, 300);
+
         // Some SSL check at first
         String caller = this.authRemoteUserFromCert(request);
         log.info("Remote user connected (processUpload): " + caller);
-        
+
         // Prepare JSON response body
-        //final UploadReturnV1 ret = new UploadReturnV1();  
+        //final UploadReturnV1 ret = new UploadReturnV1();
         ServerProtoBuff.RESTUploadPost.Builder ret = ServerProtoBuff.RESTUploadPost.newBuilder();
         ret.setVersion(1);
         ret.setErrorCode(-1);
         ret.setNonce2(nonce2);
-        
+
         // Read DHpub value from Base64
         final byte[] dhpubByte = Base64.decode(dhpub.getBytes());
-        
+
         // Test nonce2 && user && caller validity in database
         try {
             // Has to obtain targer local user at first - needed for later query,
@@ -280,7 +398,7 @@ public class RESTController {
                 log.debug("processUpload: No such user: [" + user + "]");
                 return returnProtoBuff(ret);
             }
-            
+
             // Query to fetch DH key from database.
             // Corresponding DH key has to exist on the server side in order to
             // upload the file. It gives unique permission to upload the file.
@@ -302,24 +420,24 @@ public class RESTController {
                     .setParameter("n", new Date())
                     .setParameter("nonc", nonce2)
                     .setMaxResults(1);
-            
+
             DHKeys key = dataService.tryGetSingleResult(query);
             if (key==null){
                 ret.setErrorCode(-2);
                 ret.setMessage("No such key");
                 return returnProtoBuff(ret);
             }
-            
+
             // Get number of stored files, may be limited...
             List<StoredFiles> storedFilesFromUser = fmanager.getStoredFilesFromUser(owner, caller);
             if (storedFilesFromUser!=null && storedFilesFromUser.size() >= fmanager.getMaxFileCount(owner, user)){
                 log.info("Cannot upload new files for user ["+owner.getUsername()+"] from sender ["+caller+"], quota exceeded.");
-                
+
                 ret.setErrorCode(-8);
                 ret.setMessage("Quota exceeded");
                 return returnProtoBuff(ret);
             }
-            
+
             // File size limit, if the file is too big, file has to be rejected.
             if (metafile.getSize() > fmanager.getMaxFileSize(FileManager.FTYPE_META, owner)
                     || packfile.getSize() > fmanager.getMaxFileSize(FileManager.FTYPE_PACK, owner)){
@@ -329,7 +447,7 @@ public class RESTController {
                 ret.setMessage("Files are too big");
                 return returnProtoBuff(ret);
             }
-            
+
             // Metadata input stream
             final InputStream metaInputStream = metafile.getInputStream();
             final InputStream packInputStream = packfile.getInputStream();
@@ -346,7 +464,7 @@ public class RESTController {
                 final FileOutputStream fosMeta = new FileOutputStream(tempMeta);
                 final FileOutputStream fosPack = new FileOutputStream(tempPack);
                 // Use buffering provided by Apache Commons IO
-		log.info(String.format("TempMetaFile[%s] TempPackFile[%s]", tempMeta.getAbsolutePath(), tempPack.getAbsolutePath()));
+		        log.info(String.format("TempMetaFile[%s] TempPackFile[%s]", tempMeta.getAbsolutePath(), tempPack.getAbsolutePath()));
 
                 IOUtils.copy(metaInputStream, fosMeta);
                 IOUtils.copy(packInputStream, fosPack);
@@ -360,13 +478,13 @@ public class RESTController {
 
                     tempMeta.delete();
                     tempPack.delete();
-                    
+
                     ret.setErrorCode(-10);
                     ret.setMessage("Files are too big");
                     return returnProtoBuff(ret);
                 }
-                
-                // If file saving to temporary file was successfull, mark DHkeys as 
+
+                // If file saving to temporary file was successfull, mark DHkeys as
                 // uploaded to disable nonce2 file upload again.
                 // Finally move uploaded files to final destinations.
                 final String rHashMeta = FileManager.sha256(tempMeta);
@@ -391,14 +509,14 @@ public class RESTController {
                 FileManager.moveBycopy(tempPack, permPack);
                 tempMeta=null;
                 tempPack=null;
-                
+
                 // 2. Store DHpub key info
                 key.setUploaded(true);
                 dataService.persist(key);
 
                 // 3. Create a new StoredFile record
-                Calendar cal = Calendar.getInstance(); 
-                cal.add(Calendar.MONTH, 1);
+                Calendar cal = Calendar.getInstance();
+                cal.add(Calendar.MONTH, 2);
 
                 StoredFiles sf = new StoredFiles();
                 sf.setCreated(new Date());
@@ -413,7 +531,7 @@ public class RESTController {
                 sf.setSizeMeta(permMeta.length());
                 sf.setSizePack(permPack.length());
                 dataService.persist(sf, true);
-                
+
                 // Get all new nonces - notify user about new files
                 String ownerSip = PhoenixDataService.getSIP(owner);
                 List<String> nc = fmanager.getStoredFilesNonces(owner);
@@ -422,12 +540,12 @@ public class RESTController {
                 ret.setErrorCode(0);
                 ret.setMessage("File stored successfully");
                 return returnProtoBuff(ret);
-            
+
             } catch(Exception e){
                 log.error("Problem with moving files to permanent storage and finalization.", e);
                 if (permMeta!=null) permMeta.delete();
                 if (permPack!=null) permPack.delete();
-                
+
                 ret.setMessage("Store problem");
                 return returnProtoBuff(ret);
             } finally {
@@ -436,13 +554,13 @@ public class RESTController {
             }
         } catch(Exception e){
             log.error("Exception in uploading files to storage.", e);
-            
+
             ret.setErrorCode(-1);
             ret.setMessage("Exception");
             return returnProtoBuff(ret);
         }
     }
-    
+
     /**
      * Main file download method for local user.
      * 
