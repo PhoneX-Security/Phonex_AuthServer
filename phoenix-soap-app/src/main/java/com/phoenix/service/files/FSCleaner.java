@@ -76,6 +76,7 @@ public class FSCleaner  extends BackgroundThreadService {
              
             fm.expireOldDHKeys();
             fm.expireRecords();
+            fm.expireLogRecords();
             fm.cleanupFS();
             
             log.info("FSCleaner ended");

@@ -7,6 +7,7 @@
 package com.phoenix.service.files;
 
 import com.phoenix.db.DHKeys;
+import com.phoenix.db.PhxErrorReport;
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.AMQPListener;
@@ -469,6 +470,39 @@ public class FileManager {
         deleteFilesList(sfList);
         ret += sfList.size();
         
+        return ret;
+    }
+
+    /**
+     * Deletes all records with expiration time before now().
+     * @return
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public int expireLogRecords(){
+        int ret = 0;
+
+        TypedQuery<PhxErrorReport> sfQuery = em.createQuery("SELECT er FROM phxErrorReport er WHERE er.dateExpiration<:now AND er.filename IS NOT NULL", PhxErrorReport.class);
+        sfQuery.setParameter("now", new Date());
+
+        List<PhxErrorReport> erList = sfQuery.getResultList();
+        if (erList == null || erList.isEmpty()){
+            return ret;
+        }
+
+        log.info("Expired log records=" + erList.size());
+        for(PhxErrorReport report : erList){
+            final String fname = report.getFilename();
+            final File permLogFile = getPermLogFile(fname);
+            if (permLogFile != null && permLogFile.exists()){
+                permLogFile.delete();
+            }
+
+            report.setFilename(null);
+            em.persist(report);
+        }
+
+        ret += erList.size();
+
         return ret;
     }
     

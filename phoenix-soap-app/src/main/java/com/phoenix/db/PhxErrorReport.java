@@ -47,8 +47,8 @@ public class PhxErrorReport implements Serializable {
     @Column(nullable = true, columnDefinition = "VARCHAR(255)")
     private String filename;
 
-    @Column(nullable = true)
-    private long fileSize;
+    @Column(nullable = false)
+    private long fileSize = 0;
 
     @Lob
     @Column(nullable = true, columnDefinition = "TEXT")
