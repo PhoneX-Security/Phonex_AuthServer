@@ -3298,15 +3298,15 @@ public class PhoenixEndpoint {
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public PairingRequestFetchResponse pairingRequestFetch(@RequestPayload PairingRequestFetchRequest request, MessageContext context) throws CertificateException {
-        Subscriber caller = this.authUserFromCert(context, this.request);
-        String callerSip = PhoenixDataService.getSIP(caller);
+        final Subscriber caller = this.authUserFromCert(context, this.request);
+        final String callerSip = PhoenixDataService.getSIP(caller);
         log.info("Remote user connected (pairingRequestFetch): " + callerSip);
 
         // Construct response
-        PairingRequestFetchResponse response = new PairingRequestFetchResponse();
+        final PairingRequestFetchResponse response = new PairingRequestFetchResponse();
         response.setErrCode(0);
 
-        PairingRequestList reqList = new PairingRequestList();
+        final PairingRequestList reqList = new PairingRequestList();
         response.setRequestList(reqList);
 
         try {
@@ -3316,9 +3316,9 @@ public class PhoenixEndpoint {
             final String reqFrom = request.getFrom();
             final Long reqTstamp = request.getTstamp();
             final boolean fetchMy = request.isFetchMyRequests();
-            StringBuilder query = new StringBuilder();
+            final StringBuilder query = new StringBuilder();
+            final Map<String, Object> params = new HashMap<String, Object>();
             TypedQuery<PairingRequest> dbQuery;
-            HashMap<String, Object> params = new HashMap<String, Object>();
 
             if (fetchMy) {
                 // Load my pairing requests to someone.
@@ -3342,7 +3342,7 @@ public class PhoenixEndpoint {
                     query.append(" AND pr.tstamp > :tstamp");
                     params.put("tstamp", new Date(reqTstamp));
                 }
-                if (reqFrom != null) {
+                if (!StringUtils.isEmpty(reqFrom)) {
                     query.append(" AND pr.fromUser=:fromUser");
                     params.put("fromUser", reqFrom);
                 }
@@ -3556,6 +3556,9 @@ public class PhoenixEndpoint {
                 }
                 if (elem.getResolution() != null){
                     pr.setResolution(ConversionUtils.getDbResolutionFromRequest(elem.getResolution()));
+                    if (elem.getResolutionTstamp() == null){
+                        pr.setResolutionTstamp(new Date());
+                    }
                 }
                 if (!StringUtils.isEmpty(elem.getResolutionResource())){
                     pr.setResolutionResource(elem.getResolutionResource());
@@ -3579,7 +3582,7 @@ public class PhoenixEndpoint {
             response.setErrCode(0);
             logAction(callerSip, "pairingRequestUpdate", null);
 
-        } catch(Exception e){
+        } catch(Exception e) {
             log.error("Exception in updating pairing requests", e);
             response.setErrCode(-1);
         }
