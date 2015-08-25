@@ -289,6 +289,12 @@
         </xs:sequence>
     </xs:complexType>
 
+    <xs:complexType name="clistElementListV2">
+        <xs:sequence>
+            <xs:element name="elements" type="hr:clistElementV2" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
     <xs:element name="clistGetV2Request">
         <xs:annotation>
             <xs:documentation>
@@ -321,7 +327,7 @@
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
 
                 <xs:element name="errCode" type="xs:int"/>
-                <xs:element name="contacts" type="hr:clistElementV2" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="contactList" type="hr:clistElementListV2"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -390,6 +396,12 @@
         </xs:complexType>
     </xs:element>
 
+    <xs:complexType name="clistChangeResultListV2">
+        <xs:sequence>
+            <xs:element name="results" type="hr:clistChangeResultV2" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
     <xs:element name="clistChangeV2Response">
         <xs:annotation>
             <xs:documentation>
@@ -399,7 +411,7 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="errCode" type="xs:int"/>
-                <xs:element name="results" type="hr:clistChangeResultV2" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="resultList" type="hr:clistChangeResultListV2"/>
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>

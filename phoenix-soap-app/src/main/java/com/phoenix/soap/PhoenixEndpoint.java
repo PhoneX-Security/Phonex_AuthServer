@@ -684,7 +684,7 @@ public class PhoenixEndpoint {
                         // update - displayName
                         if (action==ContactlistAction.UPDATE && elem.getDisplayName()!=null){
                             String newDispName = elem.getDisplayName();
-                            if (newDispName != null && !newDispName.isEmpty()){
+                            if (!StringUtils.isEmpty(newDispName)){
                                 newDispName = StringUtils.takeMaxN(newDispName, 128);
                             }
 
@@ -806,11 +806,11 @@ public class PhoenixEndpoint {
         final String ownerSip = PhoenixDataService.getSIP(owner);
         log.info("Remote user connected (contactlistGetV2Request): " + ownerSip);
 
-        ClistGetV2Response response = new ClistGetV2Response();
+        final ClistGetV2Response response = new ClistGetV2Response();
+        final ClistElementListV2 elist = new ClistElementListV2();
+        response.setContactList(elist);
 
         // subscriber list
-        List<Subscriber> subs = new LinkedList<Subscriber>();
-        Map<Integer, Contactlist> clistEntries = new HashMap<Integer, Contactlist>();
         String targetUser = request.getTargetUser();
         if (StringUtils.isEmpty(targetUser)){
             targetUser=ownerSip;
@@ -863,7 +863,7 @@ public class PhoenixEndpoint {
                 }
             }
 
-            response.getContacts().add(elem);
+            elist.getElements().add(elem);
         }
 
         logAction(ownerSip, "clistGetV2", null);
@@ -887,10 +887,12 @@ public class PhoenixEndpoint {
         log.info("Remote user connected (contactlistChangeV2Request) : " + ownerSip);
 
         // construct response, then add results iteratively
-        ClistChangeV2Response response = new ClistChangeV2Response();
+        final ClistChangeV2Response response = new ClistChangeV2Response();
+        final ClistChangeResultListV2 resList = new ClistChangeResultListV2();
+        response.setResultList(resList);
 
         // analyze request
-        List<ClistChangeRequestElementV2> elems = request.getChanges();
+        final List<ClistChangeRequestElementV2> elems = request.getChanges();
         if (MiscUtils.collectionIsEmpty(elems)){
             response.setErrCode(CLIST_CHANGE_ERROR_EMPTY_REQUEST_LIST);
             return response;
@@ -903,7 +905,7 @@ public class PhoenixEndpoint {
         try {
             // Store users whose contact list was modified. For them will be later
             // regenerated XML policy file for presence.
-            Map<String, Subscriber> changedUsers = new HashMap<String, Subscriber>();
+            final Map<String, Subscriber> changedUsers = new HashMap<String, Subscriber>();
 
             // Iterate over all change request elements in the request. Every can contain
             // request for different subscriber.
@@ -934,7 +936,7 @@ public class PhoenixEndpoint {
 
                 // Null subscriber is not implemented yet. Remote contacts are not supported yet.
                 if (s==null){
-                    response.getResults().add(ret);
+                    resList.getResults().add(ret);
                     continue;
                 }
 
@@ -946,7 +948,7 @@ public class PhoenixEndpoint {
                 final Subscriber targetOwner = owner;
                 if (!ownerSip.equals(targetUser)){
                     log.warn("Changing contactlist for somebody else is not permitted");
-                    response.getResults().add(ret);
+                    resList.getResults().add(ret);
                     continue;
                 }
 
@@ -964,7 +966,7 @@ public class PhoenixEndpoint {
                         if (action == ContactlistAction.REMOVE){
                             this.dataService.remove(cl, true);
                             ret.setResultCode(1);
-                            response.getResults().add(ret);
+                            resList.getResults().add(ret);
 
                             // Pairing fix, if desired.
                             if (doPairing) {
@@ -979,14 +981,14 @@ public class PhoenixEndpoint {
                             cl.setEntryState(action == ContactlistAction.DISABLE ? ContactlistStatus.DISABLED : ContactlistStatus.ENABLED);
                             this.dataService.persist(cl, true);
                             ret.setResultCode(1);
-                            response.getResults().add(ret);
+                            resList.getResults().add(ret);
                         }
 
                         // add action
                         if (action==ContactlistAction.ADD){
                             // makes no sense, already in
                             ret.setResultCode(CLIST_CHANGE_ERROR_ALREADY_ADDED);
-                            response.getResults().add(ret);
+                            resList.getResults().add(ret);
                             log.info("Wanted to add already existing user");
                             continue;
                         }
@@ -1017,7 +1019,7 @@ public class PhoenixEndpoint {
                             cl.setDateLastEdit(new Date());
                             this.dataService.persist(cl, true);
                             ret.setResultCode(1);
-                            response.getResults().add(ret);
+                            resList.getResults().add(ret);
                         }
 
                         // whitelist action
@@ -1039,7 +1041,7 @@ public class PhoenixEndpoint {
                             if (normalReq){
                                 this.dataService.persist(cl, true);
                                 ret.setResultCode(1);
-                                response.getResults().add(ret);
+                                resList.getResults().add(ret);
                                 continue;
                             }
                         }
@@ -1047,7 +1049,7 @@ public class PhoenixEndpoint {
                         // contact list entry is empty -> record does not exist
                         if (action == ContactlistAction.REMOVE){
                             ret.setResultCode(CLIST_CHANGE_ERROR_NO_USER);
-                            response.getResults().add(ret);
+                            resList.getResults().add(ret);
                             log.info("Wanted to delete non-existing whitelist record");
                             continue;
                         }
@@ -1074,7 +1076,7 @@ public class PhoenixEndpoint {
 
                             this.dataService.persist(cl, true);
                             ret.setResultCode(1);
-                            response.getResults().add(ret);
+                            resList.getResults().add(ret);
 
                             // Primary group.
                             if (elem.getPrimaryGroup() != null){
@@ -1089,13 +1091,13 @@ public class PhoenixEndpoint {
 
                         } else {
                             ret.setResultCode(CLIST_CHANGE_ERROR_NO_USER);
-                            response.getResults().add(ret);
+                            resList.getResults().add(ret);
                         }
                     }
                 } catch(Exception e){
                     log.info("Manipulation with contactlist failed", e);
                     ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
-                    response.getResults().add(ret);
+                    resList.getResults().add(ret);
                 }
             }
 
@@ -3442,10 +3444,12 @@ public class PhoenixEndpoint {
 
         // Construct response
         final PairingRequestUpdateResponse response = new PairingRequestUpdateResponse();
+        final PairingRequestUpdateResultList resList = new PairingRequestUpdateResultList();
+        response.setResultList(resList);
         response.setErrCode(0);
 
         try {
-            if (MiscUtils.collectionIsEmpty(request.getUpdates())){
+            if (request.getUpdateList() == null || MiscUtils.collectionIsEmpty(request.getUpdateList().getUpdates())){
                 return response;
             }
 
@@ -3453,7 +3457,7 @@ public class PhoenixEndpoint {
             final Subscriber caller = this.dataService.getLocalUser(callerSip);
             final boolean isCallerLocal = caller != null;
 
-            final List<PairingRequestUpdateElement> updates = request.getUpdates();
+            final List<PairingRequestUpdateElement> updates = request.getUpdateList().getUpdates();
             for(PairingRequestUpdateElement elem : updates){
                 ArrayList<String> criteria = new ArrayList<String>();
                 HashMap<String, Object> params = new HashMap<String, Object>();
@@ -3464,13 +3468,15 @@ public class PhoenixEndpoint {
                 if (!StringUtils.isEmpty(elem.getFromUser()) && !callerSip.equals(elem.getFromUser())
                         && !StringUtils.isEmpty(elem.getOwner()) && !callerSip.equals(elem.getOwner()))
                 {
-                    response.getErrCodes().add(-2); // Security violation.
+                    log.warn("pairingRequestUpdate: Security violation["+callerSip+"]: " + elem);
+                    resList.getErrCodes().add(-2); // Security violation.
                     continue;
                 }
 
                 // If id is null, fromUser is null and owner is null, not asking to delete older than, criteria is not sufficient.
                 if (elem.getId() == null && elem.getFromUser() == null && elem.getOwner() == null && elem.getDeleteOlderThan() == null){
-                    response.getErrCodes().add(-3); // Criteria is not sufficient.
+                    log.warn("pairingRequestUpdate: Criteria is not sufficient["+callerSip+"]: " + elem);
+                    resList.getErrCodes().add(-3); // Criteria is not sufficient.
                     continue;
                 }
 
@@ -3505,7 +3511,7 @@ public class PhoenixEndpoint {
                     Query delQuery = this.em.createQuery(dataService.buildQueryString("DELETE FROM pairingRequest pr WHERE ", criteria, ""));
                     dataService.setQueryParameters(delQuery, params);
                     int updRes = delQuery.executeUpdate();
-                    response.getErrCodes().add(updRes);
+                    resList.getErrCodes().add(updRes);
                     continue;
                 }
 
@@ -3520,13 +3526,14 @@ public class PhoenixEndpoint {
                     Query delQuery = this.em.createQuery(dataService.buildQueryString("DELETE FROM pairingRequest pr WHERE ", criteria, ""));
                     dataService.setQueryParameters(delQuery, params);
                     int updRes = delQuery.executeUpdate();
-                    response.getErrCodes().add(updRes);
+                    resList.getErrCodes().add(updRes);
                     continue;
                 }
 
                 // If caller is not local, here ends his possibilities.
                 if (!isCallerLocal || !isCallerOwner){
-                    response.getErrCodes().add(-4); // Operation not allowed.
+                    log.warn("pairingRequestUpdate: Operation not allowed["+callerSip+"]: " + elem);
+                    resList.getErrCodes().add(-4); // Operation not allowed.
                     continue;
                 }
 
@@ -3540,7 +3547,7 @@ public class PhoenixEndpoint {
 
                 PairingRequest pr = dataService.tryGetSingleResult(requestQuery);
                 if (pr == null){
-                    response.getErrCodes().add(-5); // Not found.
+                    resList.getErrCodes().add(-5); // Not found.
                     continue;
                 }
 
@@ -3574,7 +3581,7 @@ public class PhoenixEndpoint {
                 }
 
                 em.persist(pr);
-                response.getErrCodes().add(0);
+                resList.getErrCodes().add(0);
             }
 
             // No push notification happens here. If we update our list, we know about it.
@@ -3602,12 +3609,14 @@ public class PhoenixEndpoint {
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public CgroupGetResponse cgroupFetch(@RequestPayload CgroupGetRequest request, MessageContext context) throws CertificateException {
-        Subscriber caller = this.authUserFromCert(context, this.request);
-        String callerSip = PhoenixDataService.getSIP(caller);
+        final Subscriber caller = this.authUserFromCert(context, this.request);
+        final String callerSip = PhoenixDataService.getSIP(caller);
         log.info("Remote user connected (cgroupFetch): " + callerSip);
 
         // Construct response
-        CgroupGetResponse response = new CgroupGetResponse();
+        final CgroupGetResponse response = new CgroupGetResponse();
+        final CgroupList list = new CgroupList();
+        response.setGroupList(list);
         response.setErrCode(0);
 
         try {
@@ -3623,7 +3632,7 @@ public class PhoenixEndpoint {
 
             final List<Long> ids = request.getIds();
             if (!MiscUtils.collectionIsEmpty(ids)){
-                query.append(" OR id IN :ids");
+                query.append(" OR cg.id IN :ids");
                 params.put("ids", new ArrayList<Long>(ids));
             }
 
@@ -3633,7 +3642,7 @@ public class PhoenixEndpoint {
             // Process DB response.
             List<ContactGroup> resultList = dbQuery.getResultList();
             for (ContactGroup cg : resultList) {
-                response.getGroups().add(ConversionUtils.dbCgroupToResponse(cg));
+                list.getGroups().add(ConversionUtils.dbCgroupToResponse(cg));
             }
 
             response.setErrCode(0);
@@ -3665,22 +3674,28 @@ public class PhoenixEndpoint {
 
         // Construct response
         final CgroupUpdateResponse response = new CgroupUpdateResponse();
+        final CgroupUpdateResultList resultList = new CgroupUpdateResultList();
+        response.setResultList(resultList);
         response.setErrCode(0);
 
         try {
-            final List<CgroupUpdateRequestElement> updList = request.getUpdates();
-            if (MiscUtils.collectionIsEmpty(updList)){
+            if (request.getUpdatesList() == null) {
                 return response;
             }
 
-            for(CgroupUpdateRequestElement elem : updList){
+            final List<CgroupUpdateRequestElement> updList = request.getUpdatesList().getUpdates();
+            if (MiscUtils.collectionIsEmpty(updList)) {
+                return response;
+            }
+
+            for (CgroupUpdateRequestElement elem : updList) {
                 final Map<String, Object> params = new HashMap<String, Object>();
                 final ArrayList<String> criteria = new ArrayList<String>();
                 final CgroupAction action = elem.getAction();
                 final CgroupUpdateResult updRes = new CgroupUpdateResult();
 
                 // Add
-                if (action == CgroupAction.ADD){
+                if (action == CgroupAction.ADD) {
                     ContactGroup cg = new ContactGroup();
                     cg.setOwner(owner);
                     cg.setDateCreated(new Date());
@@ -3692,7 +3707,7 @@ public class PhoenixEndpoint {
                     em.persist(cg);
 
                     updRes.setResultCode(0);
-                    response.getResults().add(updRes);
+                    resultList.getResults().add(updRes);
                     continue;
                 }
 
@@ -3701,34 +3716,34 @@ public class PhoenixEndpoint {
                 params.put("owner", owner);
 
                 // ID if specified
-                if (elem.getId() != null){
+                if (elem.getId() != null) {
                     criteria.add("cg.id=:id");
                     params.put("id", elem.getId());
                 }
 
                 // Deletion.
-                if (action == CgroupAction.REMOVE){
-                    Query delQuery = em.createQuery(dataService.buildQueryString("DELETE FROM contactGroup cg WHERE ", criteria, ""));
+                if (action == CgroupAction.REMOVE) {
+                    final Query delQuery = em.createQuery(dataService.buildQueryString("DELETE FROM contactGroup cg WHERE ", criteria, ""));
                     dataService.setQueryParameters(delQuery, params);
                     final int updateCode = delQuery.executeUpdate();
 
                     updRes.setResultCode(updateCode);
-                    response.getResults().add(updRes);
+                    resultList.getResults().add(updRes);
                     continue;
                 }
 
                 // Update left.
-                if (action != CgroupAction.UPDATE){
+                if (action != CgroupAction.UPDATE) {
                     updRes.setResultCode(-3);
-                    response.getResults().add(updRes);
+                    resultList.getResults().add(updRes);
                     continue;
                 }
 
                 // Can update only if ID was specified.
                 // No other addresing criteria is allowed at the moment.
-                if (elem.getId() == null){
+                if (elem.getId() == null) {
                     updRes.setResultCode(-4);
-                    response.getResults().add(updRes);
+                    resultList.getResults().add(updRes);
                     continue;
                 }
 
@@ -3741,32 +3756,32 @@ public class PhoenixEndpoint {
                 requestQuery.setMaxResults(1);
 
                 ContactGroup cg = dataService.tryGetSingleResult(requestQuery);
-                if (cg == null){
+                if (cg == null) {
                     updRes.setResultCode(-5); // Not found
-                    response.getResults().add(updRes);
+                    resultList.getResults().add(updRes);
                     continue;
                 }
 
                 // Make changes and persist.
                 cg.setDateLastEdit(new Date());
 
-                if (elem.getGroupType()!= null){
+                if (elem.getGroupType() != null) {
                     cg.setGroupType(elem.getGroupType());
                 }
-                if (elem.getGroupKey()!=null){
+                if (elem.getGroupKey() != null) {
                     cg.setGroupKey(elem.getGroupKey());
                 }
-                if (elem.getGroupName()!=null){
+                if (elem.getGroupName() != null) {
                     cg.setGroupName(elem.getGroupName());
                 }
-                if (elem.getAuxData()!=null){
+                if (elem.getAuxData() != null) {
                     cg.setAuxData(elem.getAuxData());
                 }
 
                 em.persist(cg);
 
                 updRes.setResultCode(0);
-                response.getResults().add(updRes);
+                resultList.getResults().add(updRes);
             }
 
             // No push notification happens here. If we update our list, we know about it.
