@@ -997,13 +997,13 @@ public class PhoenixEndpoint {
                         // update - displayName
                         if (action==ContactlistAction.UPDATE){
                             // Display name update, may be null, not updating maybe.
-                            if (elem.getDisplayName() != null){
+                            if (!StringUtils.isEmpty(elem.getDisplayName())){
                                 final String newDispName = StringUtils.takeMaxN(elem.getDisplayName(), 128);
                                 cl.setDisplayName(newDispName);
                             }
 
                             // Aux data.
-                            if (elem.getAuxData() != null){
+                            if (!StringUtils.isEmpty(elem.getAuxData())){
                                 final String newAuxData = StringUtils.takeMaxN(elem.getDisplayName(), 4096);
                                 cl.setAuxData(newAuxData);
                             }
@@ -3475,18 +3475,22 @@ public class PhoenixEndpoint {
                 }
 
                 // If id is null, fromUser is null and owner is null, not asking to delete older than, criteria is not sufficient.
-                if (elem.getId() == null && elem.getFromUser() == null && elem.getOwner() == null && elem.getDeleteOlderThan() == null){
+                if (elem.getId() == null
+                        && StringUtils.isEmpty(elem.getFromUser())
+                        && StringUtils.isEmpty(elem.getOwner())
+                        && elem.getDeleteOlderThan() == null)
+                {
                     log.warn("pairingRequestUpdate: Criteria is not sufficient["+callerSip+"]: " + elem);
                     resList.getErrCodes().add(-3); // Criteria is not sufficient.
                     continue;
                 }
 
                 // Security measure, if both to / from is null, add criteria so caller manages his own list.
-                if (elem.getFromUser() == null && elem.getOwner() == null){
+                if (StringUtils.isEmpty(elem.getFromUser()) && StringUtils.isEmpty(elem.getOwner())){
                     criteria.add("pr.toUser=:toUser");
                     params.put("toUser", callerSip);
 
-                } else if (elem.getOwner() != null && elem.getFromUser() == null){
+                } else if (!StringUtils.isEmpty(elem.getOwner()) && StringUtils.isEmpty(elem.getFromUser())){
                     // Deleting my request - only in case resolution is none.
                     criteria.add("pr.toUser=:toUser");
                     criteria.add("pr.fromUser=:fromUser");
@@ -3497,7 +3501,7 @@ public class PhoenixEndpoint {
                     params.put("resolution2", PairingRequestResolution.REVERTED);
                     isCallerOwner = false;
 
-                } else if (elem.getFromUser() != null) {
+                } else if (!StringUtils.isEmpty(elem.getFromUser())) {
                     criteria.add("pr.toUser=:toUser");
                     criteria.add("pr.fromUser=:fromUser");
                     params.put("toUser", callerSip);
@@ -3540,9 +3544,9 @@ public class PhoenixEndpoint {
 
                 // If here, we want to update the record, caller is owner of such record.
                 // Update is done in the following way: load entity according to criteria, make changes, persist.
-                final String requestQuerySql = "SELECT pr FROM pairingRequest pr WHERE";
-                TypedQuery<PairingRequest> requestQuery = em.createQuery(
-                        dataService.buildQueryString(requestQuerySql, criteria, "ORDER BY tstamp DESC"), PairingRequest.class);
+                final String requestQuerySql = "SELECT pr FROM pairingRequest pr WHERE ";
+                final String reqQuery = dataService.buildQueryString(requestQuerySql, criteria, " ORDER BY tstamp DESC ");
+                TypedQuery<PairingRequest> requestQuery = em.createQuery(reqQuery, PairingRequest.class);
                 dataService.setQueryParameters(requestQuery, params);
                 requestQuery.setMaxResults(1);
 
@@ -3768,16 +3772,21 @@ public class PhoenixEndpoint {
                 // Make changes and persist.
                 cg.setDateLastEdit(new Date());
 
-                if (elem.getGroupType() != null) {
+                // TODO: fix when Android parser is working properly. Null field should indicate "do not update this field".
+                // TODO:   In this setting we cannot set given field to empty value. 
+                if (!StringUtils.isEmpty(elem.getGroupType())) {
                     cg.setGroupType(elem.getGroupType());
                 }
-                if (elem.getGroupKey() != null) {
+
+                if (!StringUtils.isEmpty(elem.getGroupKey())) {
                     cg.setGroupKey(elem.getGroupKey());
                 }
-                if (elem.getGroupName() != null) {
+
+                if (!StringUtils.isEmpty(elem.getGroupName())) {
                     cg.setGroupName(elem.getGroupName());
                 }
-                if (elem.getAuxData() != null) {
+
+                if (!StringUtils.isEmpty(elem.getAuxData())) {
                     cg.setAuxData(elem.getAuxData());
                 }
 
