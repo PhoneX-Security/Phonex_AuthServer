@@ -35,11 +35,17 @@
         </xs:sequence>
     </xs:complexType>
 
+    <xs:complexType name="cgroupIdList">
+        <xs:sequence>
+            <xs:element name="ids" type="xs:long" minOccurs ="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
     <xs:element name="cgroupGetRequest">
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
-                <xs:element name="ids" type="xs:long" minOccurs ="0" maxOccurs="unbounded"/>
+                <xs:element name="idList" type="hr:cgroupIdList" minOccurs ="0" maxOccurs="1"/>
 
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>

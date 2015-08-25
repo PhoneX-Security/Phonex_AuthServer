@@ -892,11 +892,12 @@ public class PhoenixEndpoint {
         response.setResultList(resList);
 
         // analyze request
-        final List<ClistChangeRequestElementV2> elems = request.getChanges();
-        if (MiscUtils.collectionIsEmpty(elems)){
+        if (request.getChanges() == null || MiscUtils.collectionIsEmpty(request.getChanges().getChanges())){
             response.setErrCode(CLIST_CHANGE_ERROR_EMPTY_REQUEST_LIST);
             return response;
         }
+
+        final List<ClistChangeRequestElementV2> elems = request.getChanges().getChanges();
 
         // iterating over request, algorithm:
         // 1. select targeted subscriber
@@ -3627,12 +3628,14 @@ public class PhoenixEndpoint {
             final StringBuilder query = new StringBuilder();
             final Map<String, Object> params = new HashMap<String, Object>();
 
-            query.append("SELECT cg FROM contactGroup cg WHERE cg.owner=:owner");
+            query.append("SELECT cg FROM contactGroup cg WHERE cg.owner=:ownerName");
             params.put("ownerName", caller);
 
-            final List<Long> ids = request.getIds();
-            if (!MiscUtils.collectionIsEmpty(ids)){
-                query.append(" OR cg.id IN :ids");
+            // User can specify list of group IDs to be fetched - but only where he is the owner.
+            // Here condition allows to fetch system wide groups with null owner.
+            if (request.getIdList() != null && !MiscUtils.collectionIsEmpty(request.getIdList().getIds())){
+                final List<Long> ids = request.getIdList().getIds();
+                query.append(" OR (cg.id IN :ids AND ( cg.owner=:ownerName OR cg.owner IS NULL ) ) ");
                 params.put("ids", new ArrayList<Long>(ids));
             }
 
@@ -3715,7 +3718,7 @@ public class PhoenixEndpoint {
                 criteria.add("cg.owner=:owner");
                 params.put("owner", owner);
 
-                // ID if specified
+                // ID if specified, user can update only groups he owns, no system wide.
                 if (elem.getId() != null) {
                     criteria.add("cg.id=:id");
                     params.put("id", elem.getId());

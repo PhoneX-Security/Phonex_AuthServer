@@ -309,7 +309,7 @@
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
 
-                <xs:element name="users" type="hr:userIdentifier" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="users" type="hr:sipList" minOccurs="0" maxOccurs="1"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -361,6 +361,12 @@
         </xs:sequence>
     </xs:complexType>
 
+    <xs:complexType name="clistChangeListV2">
+        <xs:sequence>
+            <xs:element name="changes" type="hr:clistChangeRequestElementV2" minOccurs ="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
     <xs:complexType name="clistChangeResultV2">
         <xs:annotation>
             <xs:documentation>
@@ -385,7 +391,7 @@
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="changes" type="hr:clistChangeRequestElementV2" minOccurs ="0" maxOccurs="unbounded"/>
+                <xs:element name="changes" type="hr:clistChangeListV2"/>
                 <xs:element name="managePairingRequests" type="xs:boolean" default="true"/>
                 <xs:element name="targetUser" type="hr:userSIP" minOccurs ="0" maxOccurs="1"/>
 
