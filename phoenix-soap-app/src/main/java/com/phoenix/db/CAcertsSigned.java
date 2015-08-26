@@ -60,11 +60,11 @@ public class CAcertsSigned implements Serializable {
     private byte[] rawCert;
 
     // pre-cache some meta data here - for database search purposes
-    @Column(nullable = false)
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
+    @Temporal(TemporalType.TIMESTAMP)
     private Date notValidBefore;
-    @Column(nullable = false)
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
+    @Temporal(TemporalType.TIMESTAMP)
     private Date notValidAfter;
     
     @Column(name = "dname", nullable = false)
@@ -73,15 +73,15 @@ public class CAcertsSigned implements Serializable {
     private String CN;
     
     // auditing information about creating and last change
-    @Column(nullable = false)
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
+    @Temporal(TemporalType.TIMESTAMP)
     private Date dateSigned;
     
     @Column(name = "isRevoked", nullable = false, columnDefinition = "TINYINT(1)")
     private Boolean isRevoked=false;
     
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    @Column(nullable = true)
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(nullable = true, columnDefinition = "TIMESTAMP")
     private Date dateRevoked;
     
     @Column(nullable = true)

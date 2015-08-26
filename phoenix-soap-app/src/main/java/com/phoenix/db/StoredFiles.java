@@ -49,11 +49,11 @@ public class StoredFiles {
     @Column(nullable = false)
     private byte[] dhpublic;
     
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date created;
     
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date expires;
     

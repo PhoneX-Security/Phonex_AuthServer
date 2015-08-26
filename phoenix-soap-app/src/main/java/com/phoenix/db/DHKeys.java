@@ -66,15 +66,15 @@ public class DHKeys {
     @Column(nullable = true)
     private byte[] sig2;
     
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date created;
     
-    @Column(nullable = true)
+    @Column(nullable = true, columnDefinition = "TIMESTAMP")
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date whenUsed;
     
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date expires;
     

@@ -60,8 +60,10 @@ public class Whitelist implements Serializable {
     
     // auditing information about creating and last change
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(columnDefinition = "TIMESTAMP")
     private Date dateCreated;
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(columnDefinition = "TIMESTAMP")
     private Date dateLastEdit;
 
     public Long getId() {

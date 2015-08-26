@@ -40,7 +40,7 @@ public class UsageLogs {
     @Column(nullable = true, columnDefinition = "VARCHAR(24)")
     private String lip;
     
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date lwhen;
 

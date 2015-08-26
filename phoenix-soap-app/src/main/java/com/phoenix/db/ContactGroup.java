@@ -32,12 +32,12 @@ public class ContactGroup implements Serializable {
     private Subscriber owner;
 
     // auditing information about creating and last change
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    @Column(name = "dateCreated", nullable = false, columnDefinition = "DATETIME")
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "dateCreated", nullable = false, columnDefinition = "TIMESTAMP")
     private Date dateCreated;
 
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    @Column(name = "dateLastEdit", nullable = false, columnDefinition = "DATETIME")
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "dateLastEdit", nullable = false, columnDefinition = "TIMESTAMP")
     private Date dateLastEdit;
 
     @Column(nullable = true, columnDefinition = "VARCHAR(255)")

@@ -28,12 +28,12 @@ public class PhxErrorReport implements Serializable {
     private String userResource;
 
     // auditing information about creating and last change
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    @Column(name = "date_created", nullable = false, columnDefinition = "DATETIME")
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "date_created", nullable = false, columnDefinition = "TIMESTAMP")
     private Date dateCreated;
 
-    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    @Column(name = "date_expiration", nullable = false, columnDefinition = "DATETIME")
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "date_expiration", nullable = false, columnDefinition = "TIMESTAMP")
     private Date dateExpiration;
 
     @Lob

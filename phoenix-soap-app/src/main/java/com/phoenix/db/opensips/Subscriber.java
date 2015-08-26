@@ -51,38 +51,38 @@ public class Subscriber implements java.io.Serializable {
         // Account was issued on (datetime)
         // Has to add "&amp;zeroDateTimeBehavior=convertToNull" to connection string
         // Problem [http://stackoverflow.com/questions/11133759/0000-00-00-000000-can-not-be-represented-as-java-sql-timestamp-error]
-        @Column(name = "issued_on", nullable = true, columnDefinition = "DATETIME")
+        @Column(name = "issued_on", nullable = true, columnDefinition = "TIMESTAMP")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar issued;
         // Account will expire on (datetime)
-        @Column(name = "expires_on", nullable = true, columnDefinition = "DATETIME")
+        @Column(name = "expires_on", nullable = true, columnDefinition = "TIMESTAMP")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar expires;
         // Should account be considered as deleted / not valid?
         @Column(name = "deleted", nullable = false, columnDefinition = "TINYINT(1)")
 	private Boolean deleted=false;
         // Timestamp for the first login.
-        @Column(name = "date_first_login", nullable = true, columnDefinition = "DATETIME")
+        @Column(name = "date_first_login", nullable = true, columnDefinition = "TIMESTAMP")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateFirstLogin = null;
         // Timestamp for the first user added.
-        @Column(name = "date_first_user_added", nullable = true, columnDefinition = "DATETIME")
+        @Column(name = "date_first_user_added", nullable = true, columnDefinition = "TIMESTAMP")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateFirstUserAdded = null;
         // Timestamp for the first authCheck.
-        @Column(name = "date_first_authCheck", nullable = true, columnDefinition = "DATETIME")
+        @Column(name = "date_first_authCheck", nullable = true, columnDefinition = "TIMESTAMP")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateFirstAuthCheck = null;
         // Timestamp for the last authCheck.
-        @Column(name = "date_last_authCheck", nullable = true, columnDefinition = "DATETIME")
+        @Column(name = "date_last_authCheck", nullable = true, columnDefinition = "TIMESTAMP")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateLastAuthCheck = null;
         // Timestamp for the last password change.
-        @Column(name = "date_last_pass_change", nullable = true, columnDefinition = "DATETIME")
+        @Column(name = "date_last_pass_change", nullable = true, columnDefinition = "TIMESTAMP")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateLastPasswordChange = null;
         // Timestamp for the last activity.
-        @Column(name = "date_last_activity", nullable = true, columnDefinition = "DATETIME")
+        @Column(name = "date_last_activity", nullable = true, columnDefinition = "TIMESTAMP")
         @Temporal(javax.persistence.TemporalType.TIMESTAMP)
         private java.util.Calendar dateLastActivity = null;
         // License type for the user. 

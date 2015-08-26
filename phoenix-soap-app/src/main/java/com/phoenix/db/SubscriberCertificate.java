@@ -57,8 +57,10 @@ public class SubscriberCertificate implements Serializable {
     
     // auditing information about creating and last change
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(columnDefinition = "TIMESTAMP")
     private Date dateCreated;
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    @Column(columnDefinition = "TIMESTAMP")
     private Date dateLastEdit;
     
     @Column(nullable=false)

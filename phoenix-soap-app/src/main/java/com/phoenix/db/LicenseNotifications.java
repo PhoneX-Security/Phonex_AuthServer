@@ -29,11 +29,11 @@ public class LicenseNotifications {
 
     // auditing information about creating and last change
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    @Column(name = "licenseDateExpire", nullable = true, columnDefinition = "DATETIME")
+    @Column(name = "licenseDateExpire", nullable = true, columnDefinition = "TIMESTAMP")
     private java.util.Calendar licenseDateExpire;
 
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    @Column(name = "lastNotificationDate", nullable = true, columnDefinition = "DATETIME")
+    @Column(name = "lastNotificationDate", nullable = true, columnDefinition = "TIMESTAMP")
     private java.util.Calendar lastNotificationDate;
 
     public LicenseNotifications(Subscriber subscriber) {

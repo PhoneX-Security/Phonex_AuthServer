@@ -28,7 +28,7 @@ public class TrialEventLog {
 
     // auditing information about creating and last change
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    @Column(name = "date_created", nullable = true, columnDefinition = "DATETIME")
+    @Column(name = "date_created", nullable = true, columnDefinition = "TIMESTAMP")
     private Date dateCreated;
 
     public TrialEventLog() {

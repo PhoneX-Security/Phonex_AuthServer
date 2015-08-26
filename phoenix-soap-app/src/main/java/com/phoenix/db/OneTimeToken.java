@@ -27,12 +27,12 @@ public class OneTimeToken implements Serializable {
     private Long id;
     
     @Temporal(TemporalType.TIMESTAMP)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
     @Index(name="dateIdx")
     private Date notValidAfter;
     
     @Temporal(TemporalType.TIMESTAMP)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TIMESTAMP")
     @Index(name="dateInsIdx")
     private Date inserted;
     
