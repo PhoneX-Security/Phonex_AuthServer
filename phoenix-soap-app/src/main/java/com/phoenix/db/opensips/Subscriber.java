@@ -119,8 +119,9 @@ public class Subscriber implements java.io.Serializable {
     @Column(name = "last_authcheck_ip", nullable = true, length = 64)
     private String lastAuthCheckIp;
 
-    @Column(name = "testing_type", nullable = true, length = 32)
-    private String testingType;
+    @Lob
+    @Column(name = "testing_settings", nullable = true, columnDefinition = "TEXT")
+    private String testingSettings;
 
     @Lob
     @Column(name = "aux_data", nullable = true, columnDefinition = "TEXT")
@@ -385,12 +386,12 @@ public class Subscriber implements java.io.Serializable {
         return deleted;
     }
 
-    public String getTestingType() {
-        return testingType;
+    public String getTestingSettings() {
+        return testingSettings;
     }
 
-    public void setTestingType(String testingType) {
-        this.testingType = testingType;
+    public void setTestingSettings(String testingSettings) {
+        this.testingSettings = testingSettings;
     }
 
     public String getAuxData() {

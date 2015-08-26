@@ -1834,7 +1834,7 @@ public class PhoenixEndpoint {
                 log.warn("Local user was not found in database for: " + sip);
                 return resp;
             }
-            
+
             // check user AUTH hash
             // generate 3 tokens, for 3 time slots
             boolean authHash_valid=false;
@@ -1909,15 +1909,29 @@ public class PhoenixEndpoint {
             }
 
             // Type of the testing account. Alpha / beta.
-            if (!StringUtils.isEmpty(localUser.getTestingType())){
-                jsonAuxObj.put("testingType", localUser.getTestingType());
-                resp.setAuxJSON(jsonAuxObj.toString());
+            if (!StringUtils.isEmpty(localUser.getTestingSettings())){
+                try {
+                    final String testingSettingsStr = localUser.getTestingSettings();
+                    final JSONObject testingSettings = new JSONObject(testingSettingsStr);
+
+                    jsonAuxObj.put("testingSettings", testingSettings);
+                    resp.setAuxJSON(jsonAuxObj.toString());
+                } catch(Exception e){
+                    log.error("Testing settings could not be parsed", e);
+                }
             }
 
             // AuxData
             if (!StringUtils.isEmpty(localUser.getAuxData())){
-                jsonAuxObj.put("auxData", localUser.getAuxData());
-                resp.setAuxJSON(jsonAuxObj.toString());
+                try {
+                    final String auxDataStr = localUser.getAuxData();
+                    final JSONObject auxData = new JSONObject(auxDataStr);
+
+                    jsonAuxObj.put("auxData", auxData);
+                    resp.setAuxJSON(jsonAuxObj.toString());
+                } catch(Exception e){
+                    log.error("Aux data could not be parsed", e);
+                }
             }
 
             // AUXJson - trial event logs.
@@ -2156,15 +2170,29 @@ public class PhoenixEndpoint {
             }
 
             // Type of the testing account. Alpha / beta.
-            if (!StringUtils.isEmpty(localUser.getTestingType())){
-                jsonAuxObj.put("testingType", localUser.getTestingType());
-                resp.setAuxJSON(jsonAuxObj.toString());
+            if (!StringUtils.isEmpty(localUser.getTestingSettings())){
+                try {
+                    final String testingSettingsStr = localUser.getTestingSettings();
+                    final JSONObject testingSettings = new JSONObject(testingSettingsStr);
+
+                    jsonAuxObj.put("testingSettings", testingSettings);
+                    resp.setAuxJSON(jsonAuxObj.toString());
+                } catch(Exception e){
+                    log.error("Testing settings could not be parsed", e);
+                }
             }
 
             // AuxData
             if (!StringUtils.isEmpty(localUser.getAuxData())){
-                jsonAuxObj.put("auxData", localUser.getAuxData());
-                resp.setAuxJSON(jsonAuxObj.toString());
+                try {
+                    final String auxDataStr = localUser.getAuxData();
+                    final JSONObject auxData = new JSONObject(auxDataStr);
+
+                    jsonAuxObj.put("auxData", auxData);
+                    resp.setAuxJSON(jsonAuxObj.toString());
+                } catch(Exception e){
+                    log.error("Aux data could not be parsed", e);
+                }
             }
 
             // AUXJson - trial event logs.
