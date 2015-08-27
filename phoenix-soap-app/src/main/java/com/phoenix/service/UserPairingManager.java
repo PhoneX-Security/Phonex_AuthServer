@@ -50,8 +50,12 @@ public class UserPairingManager {
 
     /**
      * Main handler for pairing request. User X removed user Y from its contact list.
-     * Thus remove X request from the Y pairing request table, if Y is local.
+     *
+     * a) Remove X request from the Y pairing request table, if Y is local.
      * Remove pairing request with resolution = none.
+     *
+     * b) Remove accepted, denied, none, requests from Y to X so X is notified again.
+     * Block should remain same.
      *
      * @param xOwner
      * @param yUser
@@ -81,6 +85,10 @@ public class UserPairingManager {
     public void onUserXRemovedYFromContactlist(Subscriber xOwner, Subscriber yUser){
         // Remove X request from the Y pairing request table, Y is local.
         removePairingRequest(yUser, PhoenixDataService.getSIP(xOwner), true);
+
+        // Remove requests from Y to X if in state accepted, denied, reverted, none.
+        // Y can now start from beginning and ask again for a new pairing. Blocked still remains.
+        removePairingRequestNotBlocked(xOwner, PhoenixDataService.getSIP(yUser));
     }
 
     /**
@@ -94,7 +102,11 @@ public class UserPairingManager {
      * @param yUser
      */
     public void onUserXRemovedYFromContactlist(Subscriber xOwner, RemoteUser yUser){
-        // Nothing to do. Removal of the remote request is not supported on the server.
+        // Remove requests from Y to X if in state accepted, denied, none. So Y can ask again for
+        // new pairing.
+        removePairingRequestNotBlocked(xOwner, yUser.getSip());
+
+        // Removal of the remote request is not supported on the server.
         // It is left up to the client.
     }
 
@@ -133,12 +145,13 @@ public class UserPairingManager {
         // If blocked, insert nothing.
         insertPairingRequest(yUser, xOwner, true, null);
 
-        // delete all denied && blocked pairing requests of Y to X.
+        // Delete all denied && blocked pairing requests of Y to X.
         ArrayList<String> criteria = new ArrayList<String>(1);
         Map<String, Object> params = new HashMap<String, Object>();
-        criteria.add("pr.resolution=:resblock OR pr.resolution=:resdenied");
+        criteria.add("pr.resolution=:resblock OR pr.resolution=:resdenied OR pr.resolution=:resreverted");
         params.put("resblock", PairingRequestResolution.BLOCKED);
         params.put("resdenied", PairingRequestResolution.DENIED);
+        params.put("resreverted", PairingRequestResolution.REVERTED);
         removePairingRequest(xOwner, PhoenixDataService.getSIP(yUser), criteria, params);
     }
 
@@ -178,7 +191,7 @@ public class UserPairingManager {
     @Transactional
     public int acceptPairingRequest(Subscriber xOwner, String fromUser, ResolutionDetails details){
         final String updateQueryTpl = "UPDATE pairingRequest pr SET %s " +
-                " WHERE pr.toUser=:toUser AND pr.fromUser=:fromUser AND resolution=:resnone";
+                " WHERE pr.toUser=:toUser AND pr.fromUser=:fromUser AND resolution=:resnone ";
 
         final String ownerSip = PhoenixDataService.getSIP(xOwner);
         final Map<String, Object> params = new HashMap<String, Object>();
@@ -375,6 +388,21 @@ public class UserPairingManager {
         }
 
         return INSERT_PAIRING_SUCCESS;
+    }
+
+    /**
+     * Removes pairing request from xOwners pairing request table from fromUser if it is not in blocked state.
+     * @param xOwner
+     * @param fromUser
+     * @return
+     */
+    public int removePairingRequestNotBlocked(Subscriber xOwner, String fromUser){
+        ArrayList<String> criteria = new ArrayList<String>();
+        Map<String, Object> params = new HashMap<String, Object>();
+
+        criteria.add("pr.resolution!=:resblocked");
+        params.put("resblocked", PairingRequestResolution.BLOCKED);
+        return removePairingRequest(xOwner, fromUser, criteria, params);
     }
 
     /**
