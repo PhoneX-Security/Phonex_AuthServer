@@ -8,6 +8,8 @@ package com.phoenix.service.pres;
 
 import org.codehaus.jackson.annotate.JsonAutoDetect;
 import org.codehaus.jackson.annotate.JsonProperty;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Roster item for JSON transfer.
@@ -35,6 +37,17 @@ public class TransferRosterItem {
     public String groups;
 
     public TransferRosterItem() {
+    }
+
+    public JSONObject toJSON() throws JSONException {
+        final JSONObject ret = new JSONObject();
+        ret.put("jid", jid);
+        ret.put("name", name);
+        ret.put("subscription", subscription);
+        ret.put("recvStatus", recvStatus);
+        ret.put("askStatus", askStatus);
+        ret.put("groups", groups);
+        return ret;
     }
     
     public String getJid() {

@@ -7,14 +7,17 @@
 package com.phoenix.service.xmpp;
 
 import com.phoenix.db.Contactlist;
+import com.phoenix.db.RemoteUser;
+import com.phoenix.db.extra.ContactlistObjType;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.BackgroundThreadService;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.utils.JiveGlobals;
+import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.PropertyEventDispatcher;
 import com.phoenix.utils.PropertyEventListener;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.persistence.TypedQuery;
@@ -43,6 +46,11 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
     * Minimal value of the timeout allowed.
     */
    private static final long MIN_TIMEOUT = 1000L*60L;
+
+    /**
+     * Number of users in the local buffer to stat resync.
+     */
+    private static final int RESYNC_THRESHOLD = 75;
    
    /**
     * Settings value for update timeout.
@@ -69,6 +77,11 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
    
    private long lastSync = 0;
    private volatile boolean running=true;
+
+    /**
+     * List of subscribers waiting for roster resync.
+     */
+    private final List<Subscriber> subList = new LinkedList<Subscriber>();
    
    @Autowired
    private PhoenixDataService dataService;
@@ -88,6 +101,7 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
        PropertyEventDispatcher.addListener(this);
        
        initThread(this, "RosterSync");
+       subList.clear();
        this.start();
    }
    
@@ -112,28 +126,62 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
             } else {
                 uq = em.createQuery("SELECT u FROM Subscriber u WHERE u.deleted=false", Subscriber.class);
             }
-            
-            List<Subscriber> subList = uq.getResultList();
-            log.info("Going to sync roster for #of entries: " + (subList == null ? 0 : subList.size()));
 
-            for (Subscriber owner : subList) {
+            // New resync run, clear old resync state.
+            subList.clear();
+
+            List<Subscriber> dbSubList = uq.getResultList();
+            log.info("Going to sync roster for #of entries: " + (dbSubList == null ? 0 : dbSubList.size()));
+            if (MiscUtils.collectionIsEmpty(dbSubList)){
+                return;
+            }
+
+            for (Subscriber owner : dbSubList) {
                 if (!isRunning() || !running){
                     log.info("Aborting execution, ending...");
                     return;
                 }
-                
-                try {
-                    // Fetch contact list for each user.
-                    List<Contactlist> contactlistForSubscriber = dataService.getContactlistForSubscriber(owner);
-                    // Sync roster to the XMPP server.
-                    dataService.syncRosterWithRetry(owner, contactlistForSubscriber, 3);
-                } catch(Exception e){
-                    log.warn("Exception in roster sync for user: " + owner.getUsername());
-                }
+
+                addSubscriberToSync(owner);
             }
+
+            finishResync();
         } catch (Exception ex) {
             log.info("Problem occurred during roster sync", ex);
         }
+    }
+
+    public void addSubscriberToSync(Subscriber sub){
+        subList.add(sub);
+
+        // Reached threshold? Resync then
+        if (subList.size() >= RESYNC_THRESHOLD){
+            resyncFromList();
+        }
+    }
+
+    public void finishResync(){
+        resyncFromList();
+    }
+
+    protected void resyncFromList(){
+        final Collection<RosterSyncElement> rosterDb = dataService.loadRosterSyncData(subList);
+
+        // Process roster database, build roster resync data.
+        try {
+            log.info(String.format("Going to synchronize roster for #entries: %d, original size %d",
+                    rosterDb.size(),
+                    subList.size()
+            ));
+
+            if (!rosterDb.isEmpty()) {
+                dataService.bulkSyncRosterWithRetry(rosterDb, 5);
+            }
+        } catch(Exception e){
+            log.warn("Exception in bulk roster sync", e);
+        }
+
+        subList.clear();
     }
 
     @Override

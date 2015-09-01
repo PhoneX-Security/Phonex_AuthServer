@@ -10,8 +10,16 @@ import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.executor.JobFinishedListener;
 import com.phoenix.service.executor.JobRunnable;
 import com.phoenix.service.pres.TransferRosterItem;
+import com.phoenix.service.xmpp.RosterSyncElement;
 import com.phoenix.utils.JiveGlobals;
 import com.phoenix.utils.MiscUtils;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 import org.bouncycastle.util.encoders.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.hibernate.Session;
@@ -471,7 +479,241 @@ public class PhoenixDataService {
         
         return tRosterItems;
     }
-    
+
+    /**
+     * Builds roster data for roster resync from resync element.
+     * @param rsyncElem
+     * @return
+     */
+    public List<TransferRosterItem> buildRoster(RosterSyncElement rsyncElem){
+        List<TransferRosterItem> tRosterItems = new LinkedList<TransferRosterItem>();
+
+        final ArrayList<Contactlist> clist = rsyncElem.getClist();
+        final ArrayList<Subscriber> clistSubs = rsyncElem.getClistSubs();
+        final int clistSize = clist.size();
+
+        if (clistSize != clistSubs.size()){
+            throw new RuntimeException("Size of the contact list does not match size of contacts subscribers records." + clistSize);
+        }
+
+        for(int i = 0; i < clistSize; i++){
+            final TransferRosterItem tri = new TransferRosterItem();
+            final Contactlist ce = clist.get(i);
+
+            ContactlistObjType ctype = ce.getObjType();
+            if (ctype!=ContactlistObjType.INTERNAL_USER){
+                continue;
+            }
+
+            final Subscriber s = clistSubs.get(i);
+            if (s==null || s.isDeleted()){
+                continue;
+            }
+
+            final String sip = PhoenixDataService.getSIP(s);
+
+            tri.jid = sip;
+            tri.name = ce.getDisplayName();
+            tri.askStatus = null;
+            tri.recvStatus = null;
+
+            // It username starts with ~ then subscription is from, both otherwise.
+            tri.subscription = (tri.name != null && tri.name.startsWith("~"))? SUB_FROM : SUB_BOTH;
+            tri.groups = "";
+
+            tRosterItems.add(tri);
+        }
+
+        return tRosterItems;
+    }
+
+    /**
+     * Loads data needed for roster resync for given list of subscribers.
+     * @param user
+     * @return
+     */
+    public Collection<RosterSyncElement> loadRosterSyncData(String user){
+        return loadRosterSyncData(Collections.singletonList(getLocalUser(user)));
+    }
+
+    /**
+     * Loads data needed for roster resync for given list of subscribers.
+     * @param user
+     * @return
+     */
+    public Collection<RosterSyncElement> loadRosterSyncData(Subscriber user){
+        return loadRosterSyncData(Collections.singletonList(user));
+    }
+
+    /**
+     * Loads data needed for roster resync for given list of subscribers.
+     * @param users
+     * @return
+     */
+    public Collection<RosterSyncElement> loadRosterSyncData(Collection<Subscriber> users){
+        Map<String, RosterSyncElement> rosterDb = new HashMap<String, RosterSyncElement>();
+
+        // Load contactlist for all users in the given set of local users.
+        // Standard query to CL, for given user, now only internal user
+        String getContactListQuery = "SELECT cl, ow, s, rm FROM contactlist cl "
+                + " LEFT OUTER JOIN cl.obj.intern_user s "
+                + " LEFT OUTER JOIN cl.owner ow "
+                + " LEFT OUTER JOIN cl.obj.extern_user rm "
+                + " WHERE cl.owner IN :owners "
+                + " ORDER BY cl.owner.domain, cl.owner.username, s.domain, s.username";
+
+        TypedQuery<Object[]> query = em.createQuery(getContactListQuery, Object[].class);
+        query.setParameter("owners", users);
+
+        List<Object[]> resultList = query.getResultList();
+        for(Object[] o : resultList){
+            final Contactlist cl = (Contactlist) o[0];
+            final Subscriber owner = (Subscriber) o[1];
+            Subscriber contact = null;
+            RemoteUser rm = null;
+
+            if (o.length == 3){
+                if (o[2] instanceof Subscriber){
+                    contact = (Subscriber) o[2];
+                } else if (o[2] instanceof RemoteUser){
+                    rm = (RemoteUser) o[2];
+                } else {
+                    log.error("Unknown object in o[1] for subscriber: " + owner.getUsername());
+                    continue;
+                }
+            } else {
+                contact = (Subscriber) o[2];
+                rm = (RemoteUser) o[3];
+            }
+
+            // Synchronizing contact list with remote entries is not supported yet.
+            if (cl == null || contact == null){
+                log.warn("Contact or subscriber is null: cl: " + cl + "; ");
+                continue;
+            }
+
+            // Fetch roster sync element / create a new one.
+            final String ownerSip = PhoenixDataService.getSIP(owner);
+            RosterSyncElement rs = rosterDb.get(ownerSip);
+            if (rs == null){
+                rs = new RosterSyncElement(owner);
+                rosterDb.put(ownerSip, rs);
+            }
+
+            // Add current internal user to the contact list sync element.
+            rs.getClist().add(cl);
+            rs.getClistSubs().add(contact);
+        }
+
+        return rosterDb.values();
+    }
+
+    /**
+     * Bulk roster sync call to the OpenFire service API.
+     * Request has single POST requets attribute, jsonReq, containing JSON request body.
+     * jsonReq: {"requests":[{},{},{},{}]}
+     *
+     * jsonReq requests contains objects: {owner: "test@phone-x.net", roster:[{TransferRosterItem1}, {TransferRosterItem2}]}
+     *
+     * @param rosterSync
+     * @return
+     */
+    public int bulkSyncRoster(Collection<RosterSyncElement> rosterSync){
+        final HttpClient client = new DefaultHttpClient();
+
+        final HttpPost post = new HttpPost("http://phone-x.net:9090/plugins/userService/userservice");
+        try {
+            post.setHeader("User-Agent", "PhoneX-home-server");
+            post.setHeader("Accept-Language", "en-US,en;q=0.5");
+
+            // Building request body.
+            JSONObject req = new JSONObject();
+            JSONArray reqArray = new JSONArray();
+            for (RosterSyncElement rse : rosterSync) {
+                JSONObject reqElem = new JSONObject();
+                reqElem.put("owner", PhoenixDataService.getSIP(rse.getOwner()));
+
+                JSONArray roster = new JSONArray();
+                final List<TransferRosterItem> transferRosterItems = buildRoster(rse);
+                for (TransferRosterItem tri : transferRosterItems) {
+                    roster.put(tri.toJSON());
+                }
+
+                reqElem.put("roster", roster);
+                reqArray.put(reqElem);
+            }
+            req.put("requests", reqArray);
+
+            // Request body is built, call HTTP REST interface.
+            final List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(3);
+            nameValuePairs.add(new BasicNameValuePair("type", "sync_roster_bulk"));
+            nameValuePairs.add(new BasicNameValuePair("secret", "eequaixee1Bi5ied"));
+            nameValuePairs.add(new BasicNameValuePair("jsonReq", req.toString()));
+            post.setEntity(new UrlEncodedFormEntity(nameValuePairs, "UTF-8"));
+
+            final HttpResponse response = client.execute(post);
+            if (response == null || response.getStatusLine() == null || (response.getStatusLine().getStatusCode() / 100) != 2){
+                throw new RuntimeException("Error response code: " + response);
+            }
+
+            final BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+            final StringBuilder responseBld = new StringBuilder();
+            String inputLine;
+            while ((inputLine = rd.readLine()) != null) {
+                responseBld.append(inputLine);
+            }
+            rd.close();
+            String respBody = responseBld.toString();
+
+            // If response is OK, return 1, else return -1
+            if (respBody.contains("<result>")){
+                return 1;
+            } else {
+                log.debug("RosterSync error: " + respBody);
+                return -1;
+            }
+
+        } catch (IOException e) {
+            log.error("Exception in sync bulk roster call", e);
+        } catch (JSONException e) {
+            log.error("Exception in sync bulk roster call", e);
+        }
+        return -1;
+    }
+
+    /**
+     * Bulk roster synchronization with retry counter.
+     * Roster sync with OpenFire server, blocking call.
+     *
+     * @param rosterSync
+     * @param retryCount
+     * @return
+     * @throws MalformedURLException
+     * @throws IOException
+     */
+    public int bulkSyncRosterWithRetry(Collection<RosterSyncElement> rosterSync, int retryCount) throws MalformedURLException, IOException{
+        // Synchronize roster list.
+        int syncRoster = -1;
+        for(int retryCtr = 0; retryCtr < retryCount; retryCtr++){
+            try {
+                syncRoster = bulkSyncRoster(rosterSync);
+                if (syncRoster > 0){
+                    // success here!
+                    log.info("Roster synchronization OK, cnt=" + MiscUtils.collectionSize(rosterSync));
+                    break;
+                } else {
+                    // not successfull, but request was delivered.
+                    log.info("Roster synchronization was not successfull, retrycount=" + retryCtr + "; err=" + syncRoster);
+                    break;
+                }
+            } catch(Exception e){
+                log.warn("Exception during roster synchronization", e);
+            }
+        }
+
+        return syncRoster;
+    }
+
     /**
      * Synchronizes contactlist with the roster for given user on the 
      * Openfire server - custom userservice plugin is needed for this.
@@ -492,7 +734,7 @@ public class PhoenixDataService {
         final String username = owner.getUsername();
         
         URL obj = new URL(destination);
-	HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
+	    HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
         
         // Allow Inputs & Outputs
         connection.setRequestMethod("POST");
@@ -554,13 +796,13 @@ public class PhoenixDataService {
     /**
      * Roster synchronization with retry counter.
      * Roster sync with OpenFire server, blocking call.
-     * 
+     *
      * @param owner
      * @param clist
      * @param retryCount
      * @return
      * @throws MalformedURLException
-     * @throws IOException 
+     * @throws IOException
      */
     public int syncRosterWithRetry(Subscriber owner, List<Contactlist> clist, int retryCount) throws MalformedURLException, IOException{
         // Synchronize roster list.
@@ -581,7 +823,7 @@ public class PhoenixDataService {
                 log.warn("Exception during roster synchronization", e);
             }
         }
-        
+
         return syncRoster;
     }
     
@@ -984,8 +1226,6 @@ public class PhoenixDataService {
     }
     
     public void resyncRoster(Subscriber tuser) throws IOException{
-        List<Contactlist> contactlistForSubscriber = getContactlistForSubscriber(tuser);
-        
         // Obsoleted, not using XCAP anymore.
 //        Map<Integer, Subscriber> internalUsersInContactlist = getInternalUsersInContactlist(contactlistForSubscriber);
 //        List<String> sips = new ArrayList(contactlistForSubscriber.size());
@@ -998,7 +1238,7 @@ public class PhoenixDataService {
 //        this.em.flush();
 
         // Synchronize roster list.
-        syncRosterWithRetry(tuser, contactlistForSubscriber, 3);
+        bulkSyncRosterWithRetry(loadRosterSyncData(tuser), 5);
     }
     
     public void resyncRoster(String userName) throws IOException{

@@ -2316,7 +2316,7 @@ public class PhoenixEndpoint {
         // obtain signing request
         byte[] csr = request.getCSR();
         if (csr==null || csr.length==0){
-            log.warn("CSR is null/empty");
+            log.warn("CSR is null/empty for request: " + request.toString());
             throw new IllegalArgumentException("Emty CSR");
         }
         
