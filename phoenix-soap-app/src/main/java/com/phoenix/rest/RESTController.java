@@ -317,7 +317,7 @@ public class RESTController {
 
                 dataService.persist(er, true);
 
-                resp.setStatusCode(-10);
+                resp.setStatusCode(0);
                 return resp.toJSONString();
 
             } catch(Exception e){
