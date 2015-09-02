@@ -18,6 +18,7 @@ public class PhxAuthState implements Serializable {
     @Column(name = "id", unique = true, nullable = false)
     private Long id;
 
+    @Index(name = "idxSubscriber")
     @ManyToOne(cascade = CascadeType.REMOVE)
     @JoinColumn(name="subscriber_id", nullable=false)
     private Subscriber owner;
