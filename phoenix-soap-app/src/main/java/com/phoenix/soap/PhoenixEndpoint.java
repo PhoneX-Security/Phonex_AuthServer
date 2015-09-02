@@ -3861,8 +3861,8 @@ public class PhoenixEndpoint {
             final String identifier = StringUtils.takeMaxN(request.getIdentifier(), 255);
 
             // Delete all previous records about secret & nonce for given user.
-            final Query delQuery = em.createQuery("DELETE FROM phxAuthState as " +
-                    " WHERE as.owner=:owner AND (as.identifier IS NULL OR as.identifier=:identifier)");
+            final Query delQuery = em.createQuery("DELETE FROM phxAuthState pas " +
+                    " WHERE pas.owner=:owner AND (pas.identifier IS NULL OR pas.identifier=:identifier)");
 
             delQuery.setParameter("owner", caller);
             delQuery.setParameter("identifier", identifier);
@@ -3939,9 +3939,9 @@ public class PhoenixEndpoint {
             }
 
             // Fetch newest auth state record.
-            TypedQuery<PhxAuthState> dbQuery = em.createQuery("SELECT as FROM phxAuthState as " +
-                    " WHERE as.owner=:owner AND as.nonce=:nonce AND as.wasUsed=0 " +
-                    " ORDER BY as.dateCreated DESC", PhxAuthState.class);
+            TypedQuery<PhxAuthState> dbQuery = em.createQuery("SELECT pas FROM phxAuthState pas " +
+                    " WHERE pas.owner=:owner AND pas.nonce=:nonce AND pas.wasUsed=0 " +
+                    " ORDER BY pas.dateCreated DESC", PhxAuthState.class);
             dbQuery.setParameter("owner", caller);
             dbQuery.setParameter("nonce", request.getNonce());
             final List<PhxAuthState> states = dbQuery.getResultList();

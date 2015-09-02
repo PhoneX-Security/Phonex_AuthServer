@@ -1512,7 +1512,7 @@ public class PhoenixDataService {
 
             // Delete autologin tokens.
             // Delete all previous records about secret & nonce for given user.
-            final Query delQuery = em.createQuery("DELETE FROM phxAuthState as WHERE as.owner=:owner");
+            final Query delQuery = em.createQuery("DELETE FROM phxAuthState pas WHERE pas.owner=:owner");
             delQuery.setParameter("owner", localUser);
             delQuery.executeUpdate();
 
