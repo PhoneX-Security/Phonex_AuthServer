@@ -17,6 +17,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
@@ -826,8 +827,79 @@ public class PhoenixDataService {
 
         return syncRoster;
     }
-    
-     /**
+
+    /**
+     * Calls license server API to obtain newest version of the application
+     *
+     * @param platform
+     * @return
+     */
+    public long getNewestAppVersion(String platform){
+        final HttpClient client = new DefaultHttpClient();
+        final HttpGet get = new HttpGet(String.format("https://www.phone-x.net/api/newest-version?type=%s", platform));
+
+        try {
+            get.setHeader("User-Agent", "PhoneX-home-server");
+            get.setHeader("Accept-Language", "en-US,en;q=0.5");
+
+            final HttpResponse response = client.execute(get);
+            if (response == null || response.getStatusLine() == null || (response.getStatusLine().getStatusCode() / 100) != 2){
+                throw new RuntimeException("Error response code: " + response);
+            }
+
+            final BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+            final StringBuilder responseBld = new StringBuilder();
+            String inputLine;
+            while ((inputLine = rd.readLine()) != null) {
+                responseBld.append(inputLine);
+            }
+            rd.close();
+
+            final String respBody = responseBld.toString();
+            final JSONObject json = new JSONObject(respBody);
+            return json.getLong("versionCode");
+
+        } catch (IOException e) {
+            log.error("Exception in get newest app version call", e);
+        } catch (JSONException e) {
+            log.error("Exception in get newest app version call", e);
+        }
+
+        return -1;
+    }
+
+    /**
+     * Bulk roster synchronization with retry counter.
+     * Roster sync with OpenFire server, blocking call.
+     *
+     * @param rosterSync
+     * @param retryCount
+     * @return
+     * @throws MalformedURLException
+     * @throws IOException
+     */
+    public long getNewestAppVersionWithRetry(String platform, int retryCount) throws MalformedURLException, IOException{
+        // Synchronize roster list.
+        long result = -1;
+        for(int retryCtr = 0; retryCtr < retryCount; retryCtr++){
+            try {
+                result = getNewestAppVersion(platform);
+                if (result >= 0){
+                    break;
+                } else {
+                    // not successfull, but request was delivered.
+                    log.info("GetNewestAppVersion was not successfull, retrycount=" + retryCtr + "; err=" + result);
+                    break;
+                }
+            } catch(Exception e){
+                log.warn("Exception during roster synchronization", e);
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Reads whole input stream to a byte array.
      *
      * @param is

@@ -2434,7 +2434,7 @@ public class PhoenixEndpoint {
                 log.info("User has some valid certificate in DB: " + userCert);
                 
                 Date expireLimit = new Date(System.currentTimeMillis() + 14L * 24L * 60L * 60L * 1000L);
-                if (CLIENT_DEBUG==false && userCert.getNotValidAfter().after(expireLimit)){
+                if (!CLIENT_DEBUG && userCert.getNotValidAfter().after(expireLimit)){
                     log.warn("User wants to create a new certificate even though "
                             + "he has on valid certificate, with more than 14 days validity");
                     throw new IllegalArgumentException("Your certificate is valid enough, wait for expiration.");
@@ -3832,6 +3832,147 @@ public class PhoenixEndpoint {
         } catch(Exception e){
             log.error("Exception in updating contact group", e);
             response.setErrCode(-1);
+        }
+
+        return response;
+    }
+
+    /**
+     * Request to save authentization state information.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "AuthStateSaveV1Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AuthStateSaveV1Response authStateSave(@RequestPayload AuthStateSaveV1Request request, MessageContext context) throws CertificateException {
+        final Subscriber caller = this.authUserFromCert(context, this.request);
+        final String callerSip = PhoenixDataService.getSIP(caller);
+        log.info("Remote user connected (authStateSave): " + callerSip);
+
+        // Construct response
+        final AuthStateSaveV1Response response = new AuthStateSaveV1Response();
+        response.setErrCode(0);
+
+        try {
+            final String identifier = StringUtils.takeMaxN(request.getIdentifier(), 255);
+
+            // Delete all previous records about secret & nonce for given user.
+            final Query delQuery = em.createQuery("DELETE FROM phxAuthState as " +
+                    " WHERE as.owner=:owner AND (as.identifier IS NULL OR as.identifier=:identifier)");
+
+            delQuery.setParameter("owner", caller);
+            delQuery.setParameter("identifier", identifier);
+            delQuery.executeUpdate();
+
+            // 3. Create a new StoredFile record
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.MONTH, 2);
+
+            // Insert a new state.
+            final PhxAuthState as = new PhxAuthState();
+            as.setOwner(caller);
+            as.setIdentifier(request.getIdentifier());
+            as.setSecret(request.getSecret());
+            as.setNonce(request.getSecret());
+
+            as.setDateCreated(new Date());
+            as.setDateExpiration(cal.getTime());
+            as.setAppVersion(StringUtils.takeMaxN(request.getAppVersion(), 8192));
+            as.setAppVersionCode(request.getAppVersionCode());
+
+            em.persist(as);
+            response.setErrCode(0);
+
+            logAction(callerSip, "authStateSave", "");
+
+        } catch(Throwable e){
+            log.error("Exception in saving auth state", e);
+            response.setErrCode(-2);
+        }
+
+        return response;
+    }
+
+    /**
+     * Request to store a new pairing requests to the database.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "AuthStateFetchV1Request", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AuthStateFetchV1Response authStateFetch(@RequestPayload AuthStateFetchV1Request request, MessageContext context) throws CertificateException {
+        // protect user identity and avoid MITM, require SSL
+        this.checkOneSideSSL(context, this.request);
+        log.info("Remote user connected (authStateFetch): " + request.getNonce());
+
+        // Construct response
+        final AuthStateFetchV1Response response = new AuthStateFetchV1Response();
+        response.setErrCode(0);
+
+        try {
+            final String userName = request.getUserName();
+            final Subscriber caller = dataService.getLocalUser(userName);
+            if (caller == null){
+                log.warn("User with given name not found: " + userName);
+
+                // Make indistinguishable from not-found record so user enumeration is not possible via this interface.
+                response.setErrCode(-3);
+                return response;
+            }
+
+            logAction(userName, "authStateFetch", null);
+
+            // Get newest app version code.
+            final long appVersion = dataService.getNewestAppVersionWithRetry("android", 5);
+            if (appVersion <= 0){
+                log.error("Unable to fetch newest app version code");
+                response.setErrCode(-2);
+                return response;
+            }
+
+            // Fetch newest auth state record.
+            TypedQuery<PhxAuthState> dbQuery = em.createQuery("SELECT as FROM phxAuthState as " +
+                    " WHERE as.owner=:owner AND as.nonce=:nonce AND as.wasUsed=0 " +
+                    " ORDER BY as.dateCreated DESC", PhxAuthState.class);
+            dbQuery.setParameter("owner", caller);
+            dbQuery.setParameter("nonce", request.getNonce());
+            final List<PhxAuthState> states = dbQuery.getResultList();
+            if (states.isEmpty()){
+                response.setErrCode(-3);
+                return response;
+            }
+
+            final PhxAuthState phxAuthState = states.get(0);
+
+            // Check version number.
+            if (phxAuthState.getAppVersionCode() >= appVersion){
+                log.warn(String.format("User tried to obtain auth token for older version. stored %d vs newest %d",
+                        phxAuthState.getAppVersionCode(), appVersion));
+
+                // Make indistinguishable from not-found record on purpose - hide this internal check from attacker.
+                response.setErrCode(-3);
+                return response;
+            }
+
+            response.setSecret(phxAuthState.getSecret());
+            response.setErrCode(0);
+
+            // Delete old auth token / mark as used.
+            phxAuthState.setWasUsed(true);
+            phxAuthState.setDateUsed(new Date());
+            em.persist(phxAuthState);
+
+        } catch(Throwable e){
+            log.error("Exception in fetching auth state", e);
+            response.setErrCode(-10);
         }
 
         return response;

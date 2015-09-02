@@ -18,6 +18,7 @@
     <class>com.phoenix.db.TrialEventLog</class>
     <class>com.phoenix.db.UsageLogs</class>
     <class>com.phoenix.db.SubscriberExtras</class>
+    <class>com.phoenix.db.PhxAuthState</class>
     <class>com.phoenix.db.PhxErrorReport</class>
     <class>com.phoenix.db.opensips.Acc</class>
     <class>com.phoenix.db.opensips.ActiveWatchers</class>

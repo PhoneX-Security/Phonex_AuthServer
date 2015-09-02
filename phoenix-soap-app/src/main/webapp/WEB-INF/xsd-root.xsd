@@ -47,6 +47,9 @@
     <!-- Push interaction related types & elements -->
     <xs:include schemaLocation="xsd-push.xsd"/>
 
+    <!-- Login state recovery related types & elements -->
+    <xs:include schemaLocation="xsd-authState.xsd"/>
+
     <!-- Misc types & elements -->
     <xs:element name="accountInfoV1Request">
         <xs:complexType>
