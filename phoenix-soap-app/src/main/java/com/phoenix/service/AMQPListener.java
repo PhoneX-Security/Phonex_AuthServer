@@ -223,8 +223,16 @@ public class AMQPListener extends BackgroundThreadService {
                 final String userName = data.getString("username");
                 log.info("License updated: " + userName);
 
-                // Contactlist refresh push notification to XMPP.
+                // License check refresh push notification to XMPP.
                 pushLicenseCheck(userName);
+
+            } else if ("logout".equalsIgnoreCase(job)){
+                final JSONObject data = obj.getJSONObject("data");
+                final String userName = data.getString("username");
+                log.info("Logout user: " + userName);
+
+                dataService.deleteSensitiveDataForUser(userName);
+                pushLogout(userName);
 
             } else {
                 log.info("Unrecognized job: " + job);
@@ -278,6 +286,22 @@ public class AMQPListener extends BackgroundThreadService {
      */
     public void pushLicenseCheck(String user)  throws JSONException, IOException {
         JSONObject jsonPush = this.buildLicenseCheckMsg(user);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
+    /**
+     * Send push message to logout user from device.
+     * Sends user a push message notifying him something has changed with his license so he should check it.
+     * License also might got expired.
+     *
+     * @param user
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushLogout(String user)  throws JSONException, IOException {
+        JSONObject jsonPush = this.buildLogoutMsg(user);
         final String jsonPushString = jsonPush.toString();
         this.xmppPublish(jsonPushString.getBytes("UTF-8"));
         log.info("Push message sent: " + jsonPushString);
@@ -382,6 +406,15 @@ public class AMQPListener extends BackgroundThreadService {
     public JSONObject buildLicenseCheckMsg(String user) throws JSONException {
         final long tstamp = System.currentTimeMillis();
         final LicenseCheckEventMessage part = new LicenseCheckEventMessage(tstamp);
+        final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
+        msg.addPart(part);
+
+        return msg.getJson();
+    }
+
+    public JSONObject buildLogoutMsg(String user) throws JSONException {
+        final long tstamp = System.currentTimeMillis();
+        final LogoutEventMessage part = new LogoutEventMessage(tstamp);
         final SimplePushMessage msg = new SimplePushMessage(user, tstamp);
         msg.addPart(part);
 

@@ -1496,6 +1496,32 @@ public class PhoenixDataService {
     }
 
     /**
+     * Deletes sensitive user data (e.g., auth tokens for autologin).
+     * Used when device is compromised and user should be logged out.
+     *
+     * @param userName
+     */
+    @Transactional
+    public void deleteSensitiveDataForUser(String userName) {
+        try {
+            final Subscriber localUser = getLocalUser(userName);
+            if(localUser == null){
+                log.warn("(deleteSensitiveDataForUser): Local user not found for: " + userName);
+                return;
+            }
+
+            // Delete autologin tokens.
+            // Delete all previous records about secret & nonce for given user.
+            final Query delQuery = em.createQuery("DELETE FROM phxAuthState as WHERE as.owner=:owner");
+            delQuery.setParameter("owner", localUser);
+            delQuery.executeUpdate();
+
+        } catch(Exception e){
+            log.error("Exception in deleting sensitive user data for user: " + userName, e);
+        }
+    }
+
+    /**
      * Adds support contact elements to the object given.
      * @param s
      * @param objToSet
