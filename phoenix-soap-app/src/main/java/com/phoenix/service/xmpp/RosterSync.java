@@ -50,7 +50,7 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
     /**
      * Number of users in the local buffer to stat resync.
      */
-    private static final int RESYNC_THRESHOLD = 75;
+    private static final int RESYNC_THRESHOLD = 100;
    
    /**
     * Settings value for update timeout.

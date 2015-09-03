@@ -552,7 +552,14 @@ public class PhoenixDataService {
      * @return
      */
     public Collection<RosterSyncElement> loadRosterSyncData(Collection<Subscriber> users){
-        Map<String, RosterSyncElement> rosterDb = new HashMap<String, RosterSyncElement>();
+        final Map<String, RosterSyncElement> rosterDb = new HashMap<String, RosterSyncElement>();
+
+        // Init roster database for each user. If some has empty contact list it wont appear in the result set below.
+        for (Subscriber user : users) {
+            final String ownerSip = PhoenixDataService.getSIP(user);
+            final RosterSyncElement rs = new RosterSyncElement(user);
+            rosterDb.put(ownerSip, rs);
+        }
 
         // Load contactlist for all users in the given set of local users.
         // Standard query to CL, for given user, now only internal user
@@ -596,10 +603,6 @@ public class PhoenixDataService {
             // Fetch roster sync element / create a new one.
             final String ownerSip = PhoenixDataService.getSIP(owner);
             RosterSyncElement rs = rosterDb.get(ownerSip);
-            if (rs == null){
-                rs = new RosterSyncElement(owner);
-                rosterDb.put(ownerSip, rs);
-            }
 
             // Add current internal user to the contact list sync element.
             rs.getClist().add(cl);
@@ -872,7 +875,7 @@ public class PhoenixDataService {
      * Bulk roster synchronization with retry counter.
      * Roster sync with OpenFire server, blocking call.
      *
-     * @param rosterSync
+     * @param platform
      * @param retryCount
      * @return
      * @throws MalformedURLException
