@@ -3845,7 +3845,7 @@ public class PhoenixEndpoint {
      * @return
      * @throws CertificateException
      */
-    @PayloadRoot(localPart = "AuthStateSaveV1Request", namespace = NAMESPACE_URI)
+    @PayloadRoot(localPart = "authStateSaveV1Request", namespace = NAMESPACE_URI)
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AuthStateSaveV1Response authStateSave(@RequestPayload AuthStateSaveV1Request request, MessageContext context) throws CertificateException {
@@ -3905,7 +3905,7 @@ public class PhoenixEndpoint {
      * @return
      * @throws CertificateException
      */
-    @PayloadRoot(localPart = "AuthStateFetchV1Request", namespace = NAMESPACE_URI)
+    @PayloadRoot(localPart = "authStateFetchV1Request", namespace = NAMESPACE_URI)
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AuthStateFetchV1Response authStateFetch(@RequestPayload AuthStateFetchV1Request request, MessageContext context) throws CertificateException {
