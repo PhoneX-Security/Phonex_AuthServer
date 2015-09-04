@@ -59,6 +59,7 @@ public class TrustVerifier implements X509TrustManager {
      * Trust store 
      */
     private KeyStore trustStoreCA = null;
+    private KeyStore trustStoreWeb = null;
     private PKIXParameters params = null;   // cerification parameters
     private X509Certificate[] trustedCerts = null;    
     
@@ -67,6 +68,7 @@ public class TrustVerifier implements X509TrustManager {
     private static final String serverCAresource2 = "signing-ca-2.crt";
     private static final String serverCAresource = "signing-ca-1.crt";
     private static final String trustedStore = "trust.jks";
+    private static final String trustedStoreWeb = "trust_web.jks";
     private static final String trustedStorePass = "Eedee4uush3E";
     
     private CertificateFactory cf = null;
@@ -102,6 +104,7 @@ public class TrustVerifier implements X509TrustManager {
             // now try to load server CA
             this.loadServerCACrt();
             this.loadTrustStoreCrt();
+            this.loadWebCrt();
             
             log.debug("All certificates loaded properly (rootCA, serverCA, trustStore)");
         } catch (Exception ex) {
@@ -116,7 +119,14 @@ public class TrustVerifier implements X509TrustManager {
             }
         }
     }
-    
+
+    /**
+     * Loads web key store.
+     */
+    public void loadWebCrt(){
+        trustStoreWeb = loadWebKeyStore();
+    }
+
     /**
      * Loads server CA certificate
      */
@@ -143,6 +153,38 @@ public class TrustVerifier implements X509TrustManager {
                 log.warn("Cannot close inpit stream for server CA", ex);
             }
         }
+    }
+
+    /**
+     * Loads web key store.
+     * @return
+     */
+    public static KeyStore loadWebKeyStore(){
+        // already initialized?
+        InputStream inStream = null;
+        KeyStore ks = null;
+        try {
+            // Loading the CA cert from resource
+            inStream = TrustVerifier.class.getClassLoader().getResourceAsStream(trustedStoreWeb);
+
+            // Load key store
+            ks = KeyStore.getInstance("JKS");
+            ks.load(inStream, "changeit".toCharArray());
+
+        } catch (Exception ex) {
+            log.warn("Problem with loading trust store", ex);
+
+        } finally {
+            try {
+                if(inStream!=null){
+                    inStream.close();
+                }
+            } catch (IOException ex) {
+                log.warn("Cannot close inpit stream for server CA", ex);
+            }
+        }
+
+        return ks;
     }
     
     /**
@@ -171,6 +213,7 @@ public class TrustVerifier implements X509TrustManager {
             Enumeration<String> aliases = trustStoreCA.aliases();
             while(aliases.hasMoreElements()){
                 final String alias = aliases.nextElement();
+                log.info("Loaded trust certificate alias: " + alias);
                 X509Certificate certificate = (X509Certificate) trustStoreCA.getCertificate(alias);
                 certs.add(certificate);
             }
@@ -180,6 +223,7 @@ public class TrustVerifier implements X509TrustManager {
             
         } catch (Exception ex) {
             log.warn("Problem with loading trust store", ex);
+
         } finally {
             try {
                 if(inStream!=null){
@@ -303,6 +347,8 @@ public class TrustVerifier implements X509TrustManager {
     public CertificateFactory getCf() {
         return cf;
     }
-    
-    
+
+    public KeyStore getTrustStoreWeb() {
+        return trustStoreWeb;
+    }
 }

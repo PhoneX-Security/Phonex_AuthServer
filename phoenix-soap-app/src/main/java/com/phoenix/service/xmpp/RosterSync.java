@@ -118,7 +118,10 @@ public class RosterSync extends BackgroundThreadService implements PropertyEvent
             // Perform roster sync here.
             // Get all active users.
             TypedQuery<Subscriber> uq = null;
-            
+
+            final long android = dataService.getNewestAppVersionWithRetry("android", 5);
+            log.info("Newest android version: " + android);
+
             // If XMPP is single-domain only, use only specified one.
             if (currentDomain!=null){
                 uq = em.createQuery("SELECT u FROM Subscriber u WHERE u.deleted=false AND u.domain=?", Subscriber.class);

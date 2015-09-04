@@ -19,7 +19,9 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.bouncycastle.util.encoders.Base64;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -48,6 +50,8 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.Future;
@@ -91,6 +95,9 @@ public class PhoenixDataService {
     
     @Autowired(required = true)
     private X509TrustManager trustManager;
+
+    @Autowired(required = true)
+    private TrustVerifier trustVerifier;
 
     @Autowired
     private TaskExecutor executor;
@@ -837,8 +844,8 @@ public class PhoenixDataService {
      * @param platform
      * @return
      */
-    public long getNewestAppVersion(String platform){
-        final HttpClient client = new DefaultHttpClient();
+    public long getNewestAppVersion(String platform) throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
+        CloseableHttpClient client = HttpClients.createDefault();
         final HttpGet get = new HttpGet(String.format("https://www.phone-x.net/api/newest-version?type=%s", platform));
 
         try {
