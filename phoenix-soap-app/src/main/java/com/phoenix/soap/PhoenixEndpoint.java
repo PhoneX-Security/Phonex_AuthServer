@@ -2611,7 +2611,7 @@ public class PhoenixEndpoint {
         try {
             for(FtDHKey key : dhkeys){
                 Integer result=-1;
-                
+
                 try {
                     DHKeys entity = new DHKeys();
 
@@ -2632,7 +2632,9 @@ public class PhoenixEndpoint {
                     this.dataService.persist(entity);
                     result=1;
                 } catch(Throwable e){
-                    log.warn("Exception when adding DH key to the database", e);
+                    log.warn(String.format("Exception when adding DH key to the database. User: [%s] forUser: [%s] nonce1: [%s]",
+                            ownerSip, key.getUser(), key.getNonce1()), e);
+
                 } finally {
                     response.getResult().getCode().add(result);
                 }
