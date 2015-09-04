@@ -63,7 +63,9 @@ public class TrustVerifier implements X509TrustManager {
     private X509Certificate[] trustedCerts = null;    
     
     private static final String rootCAresource = "ca.crt";
-    private static final String serverCAresource = "signing-ca-2.crt";
+    private static final String serverCAresource3 = "signing-ca-3.crt";
+    private static final String serverCAresource2 = "signing-ca-2.crt";
+    private static final String serverCAresource = "signing-ca-1.crt";
     private static final String trustedStore = "trust.jks";
     private static final String trustedStorePass = "Eedee4uush3E";
     
