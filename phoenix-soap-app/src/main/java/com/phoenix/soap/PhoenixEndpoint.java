@@ -2317,7 +2317,7 @@ public class PhoenixEndpoint {
         byte[] csr = request.getCSR();
         if (csr==null || csr.length==0){
             log.warn("CSR is null/empty for request: " + request.toString());
-            throw new IllegalArgumentException("Emty CSR");
+            throw new IllegalArgumentException("Empty CSR");
         }
         
         try {
@@ -2428,17 +2428,7 @@ public class PhoenixEndpoint {
             }
             
             if (userCert!=null){
-                // check if current certificate is about to expire
-                // in interval 14 days. If not, user is not allowed to sign new
-                // certificates.
                 log.info("User has some valid certificate in DB: " + userCert);
-                
-                Date expireLimit = new Date(System.currentTimeMillis() + 14L * 24L * 60L * 60L * 1000L);
-                if (!CLIENT_DEBUG && userCert.getNotValidAfter().after(expireLimit)){
-                    log.warn("User wants to create a new certificate even though "
-                            + "he has on valid certificate, with more than 14 days validity");
-                    throw new IllegalArgumentException("Your certificate is valid enough, wait for expiration.");
-                }
                 
                 // check if this certificate has same public key as proposed in request.
                 // if yes, then ask for new certificate
@@ -2457,6 +2447,7 @@ public class PhoenixEndpoint {
                 userCert.setRevokedReason("New certificate");
                 em.persist(userCert);
             }
+
             // insert new certificate record to table and use its serial, generated
             // by low level engine for signing. This should be run in transaction
             // thus if something will fail during signing, transaction with
@@ -3877,7 +3868,7 @@ public class PhoenixEndpoint {
             as.setOwner(caller);
             as.setIdentifier(request.getIdentifier());
             as.setSecret(request.getSecret());
-            as.setNonce(request.getSecret());
+            as.setNonce(request.getNonce());
 
             as.setDateCreated(new Date());
             as.setDateExpiration(cal.getTime());
@@ -3911,7 +3902,7 @@ public class PhoenixEndpoint {
     public AuthStateFetchV1Response authStateFetch(@RequestPayload AuthStateFetchV1Request request, MessageContext context) throws CertificateException {
         // protect user identity and avoid MITM, require SSL
         this.checkOneSideSSL(context, this.request);
-        log.info("Remote user connected (authStateFetch): " + request.getNonce());
+        log.info(String.format("Remote user connected (authStateFetch), nonce: [%s], uname: [%s]", request.getNonce(), request.getUserName()));
 
         // Construct response
         final AuthStateFetchV1Response response = new AuthStateFetchV1Response();
