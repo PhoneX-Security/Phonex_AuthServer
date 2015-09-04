@@ -32,7 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class XcapNotifierMonitor extends BackgroundThreadService {
    private static final Logger log = LoggerFactory.getLogger(XcapNotifierMonitor.class);
    private long lastRefresh = 0;
-   private boolean running=true;
+
+    /**
+     * Xcap is disabled by now as XCAP and SIP presence is deprecated.
+     */
+   private boolean running=false;
    
    @Autowired
    private PresenceManager pm;
