@@ -4,6 +4,7 @@
  */
 package com.phoenix.soap;
 
+import com.phoenix.accounting.AccountingManager;
 import com.phoenix.db.*;
 import com.phoenix.db.extra.*;
 import com.phoenix.db.opensips.Subscriber;
@@ -103,6 +104,9 @@ public class PhoenixEndpoint {
 
     @Autowired
     private UserPairingManager pairingMgr;
+
+    @Autowired
+    private AccountingManager accMgr;
 
     @Autowired
     private JiveGlobals jiveGlobals;
@@ -3995,6 +3999,8 @@ public class PhoenixEndpoint {
         response.setErrCode(0);
 
         try {
+            accMgr.processSaveRequest(caller, request, response);
+
             logAction(callerSip, "accountingSave", "");
         } catch(Throwable e){
             log.error("Exception in saving auth state", e);
