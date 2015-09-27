@@ -50,6 +50,9 @@
     <!-- Login state recovery related types & elements -->
     <xs:include schemaLocation="xsd-authState.xsd"/>
 
+    <!-- LITE accounting & billing -->
+    <xs:include schemaLocation="xsd-lite.xsd"/>
+
     <!-- Misc types & elements -->
     <xs:element name="accountInfoV1Request">
         <xs:complexType>
