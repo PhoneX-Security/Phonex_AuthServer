@@ -84,8 +84,17 @@ public class SubscriberExtras {
     @Column(name = "last_authcheck_ip", nullable = true, length = 64)
     private String lastAuthCheckIp;
 
-    @Column(name = "testing_type", nullable = true, length = 32)
-    private String testingType;
+    @Lob
+    @Column(name = "testing_settings", nullable = true, columnDefinition = "TEXT")
+    private String testingSettings;
+
+    @Lob
+    @Column(name = "usage_policy_expired", nullable = true, columnDefinition = "TEXT")
+    private String usagePolicyExpired;
+
+    @Lob
+    @Column(name = "usage_policy_current", nullable = true, columnDefinition = "TEXT")
+    private String usagePolicyCurrent;
 
     @Lob
     @Column(name = "aux_data", nullable = true, columnDefinition="TEXT")
@@ -248,5 +257,37 @@ public class SubscriberExtras {
 
     public void setLastAuthCheckIp(String lastAuthCheckIp) {
         this.lastAuthCheckIp = lastAuthCheckIp;
+    }
+
+    public String getTestingSettings() {
+        return testingSettings;
+    }
+
+    public void setTestingSettings(String testingSettings) {
+        this.testingSettings = testingSettings;
+    }
+
+    public String getAuxData() {
+        return auxData;
+    }
+
+    public void setAuxData(String auxData) {
+        this.auxData = auxData;
+    }
+
+    public String getUsagePolicyExpired() {
+        return usagePolicyExpired;
+    }
+
+    public void setUsagePolicyExpired(String usagePolicyExpired) {
+        this.usagePolicyExpired = usagePolicyExpired;
+    }
+
+    public String getUsagePolicyCurrent() {
+        return usagePolicyCurrent;
+    }
+
+    public void setUsagePolicyCurrent(String usagePolicyCurrent) {
+        this.usagePolicyCurrent = usagePolicyCurrent;
     }
 }

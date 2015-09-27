@@ -124,6 +124,14 @@ public class Subscriber implements java.io.Serializable {
     private String testingSettings;
 
     @Lob
+    @Column(name = "usage_policy_expired", nullable = true, columnDefinition = "TEXT")
+    private String usagePolicyExpired;
+
+    @Lob
+    @Column(name = "usage_policy_current", nullable = true, columnDefinition = "TEXT")
+    private String usagePolicyCurrent;
+
+    @Lob
     @Column(name = "aux_data", nullable = true, columnDefinition = "TEXT")
     private String auxData;
 
@@ -400,5 +408,21 @@ public class Subscriber implements java.io.Serializable {
 
     public void setAuxData(String auxData) {
         this.auxData = auxData;
+    }
+
+    public String getUsagePolicyExpired() {
+        return usagePolicyExpired;
+    }
+
+    public void setUsagePolicyExpired(String usagePolicyExpired) {
+        this.usagePolicyExpired = usagePolicyExpired;
+    }
+
+    public String getUsagePolicyCurrent() {
+        return usagePolicyCurrent;
+    }
+
+    public void setUsagePolicyCurrent(String usagePolicyCurrent) {
+        this.usagePolicyCurrent = usagePolicyCurrent;
     }
 }
