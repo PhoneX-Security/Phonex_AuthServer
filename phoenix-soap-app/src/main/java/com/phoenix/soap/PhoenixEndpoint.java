@@ -3975,7 +3975,6 @@ public class PhoenixEndpoint {
         return response;
     }
 
-    // TODO: accounting logic, accounting manager.
     /**
      * Request to save accounting logging information.
      * When user makes some action with the client it saves the action log here so we can track usage and
@@ -4010,6 +4009,38 @@ public class PhoenixEndpoint {
         return response;
     }
 
+    /**
+     * Request to fetch accounting logging information.
+     * Client uses this call to restore / resync his local database.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "accountingFetchRequest", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AccountingFetchResponse accountingFetch(@RequestPayload AccountingFetchRequest request, MessageContext context) throws CertificateException {
+        final Subscriber caller = this.authUserFromCert(context, this.request);
+        final String callerSip = PhoenixDataService.getSIP(caller);
+        log.info("Remote user connected (accountingSave): " + callerSip);
+
+        // Construct response
+        final AccountingFetchResponse response = new AccountingFetchResponse();
+        response.setErrCode(0);
+
+        try {
+            accMgr.processFetchRequest(caller, request, response);
+
+            logAction(callerSip, "accountingFetch", "");
+        } catch(Throwable e){
+            log.error("Exception in saving auth state", e);
+            response.setErrCode(-2);
+        }
+
+        return response;
+    }
 
     /**
      * Stores information about some action to the usage logs.

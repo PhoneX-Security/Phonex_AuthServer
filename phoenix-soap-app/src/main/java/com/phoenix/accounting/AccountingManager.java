@@ -6,6 +6,8 @@ import com.phoenix.db.opensips.Acc;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.AMQPListener;
 import com.phoenix.service.PhoenixDataService;
+import com.phoenix.soap.beans.AccountingFetchRequest;
+import com.phoenix.soap.beans.AccountingFetchResponse;
 import com.phoenix.soap.beans.AccountingSaveRequest;
 import com.phoenix.soap.beans.AccountingSaveResponse;
 import com.phoenix.utils.JSONHelper;
@@ -107,6 +109,46 @@ public class AccountingManager {
      */
     private static final String STORE_RESP_AG_AFFECTED = "agaffected";
 
+    /**
+     * Fetch request main container.
+     */
+    private static final String FETCH_REQUEST = "areq";
+
+    /**
+     * Resource of the user asking for fetch.
+     */
+    private static final String FETCH_REQUEST_RESOURCE = "res";
+
+    /**
+     * Type of the record user is asking for.
+     * Can be "aggregate" or "arecords".
+     */
+    private static final String FETCH_REQUEST_TYPE = "type";
+    private static final String FETCH_REQUEST_TYPE_AGGREGATE = "aaggregate";
+    private static final String FETCH_REQUEST_TYPE_RECORDS = "arecords";
+
+    /**
+     * Time interval of the records to be fetched.
+     */
+    private static final String FETCH_REQUEST_TIME_FROM = "timefrom";
+    private static final String FETCH_REQUEST_TIME_TO = "timeto";
+
+    /**
+     * User can specify to fetch only a particular types of actions
+     */
+    private static final String FETCH_REQUEST_ATYPE = "atype";
+
+    /**
+     * List of resources that user want to fetch recors for.
+     */
+    private static final String FETCH_REQUEST_ARESOURCES = "ares";
+
+    /**
+     * Fetch response block key.
+     */
+    private static final String FETCH_RESP_BODY = "afetch";
+    private static final String FETCH_RESP_RECORDS = "records";
+
     @Autowired
     private PhoenixDataService dataService;
 
@@ -121,6 +163,167 @@ public class AccountingManager {
     @PreDestroy
     public synchronized void deinit(){
         log.info("Shutting down AccountingManager");
+    }
+
+    /**
+     * Processing a general fetch request - basic entry point.
+     * User may fetch several data record types. The default one is aggregate report.
+     *
+     * {"areq:"{
+     *      "res":"abcdef123",
+     *      "ares":["abcdef123"], (optional)
+     *      "type":"aaggregate",  (optional, default is agregate. or: "arecords"),
+     *      "timefrom":12335522,  (optional)
+     *      "timeto":215241234,   (optional)
+     *      "atype":["c.os"]      (optional)
+     * }}
+     *
+     *
+     * Response:{"afetch":{
+     *      records:[{rec_1},{rec_2},{rec_3},...,{rec_n}]
+     * }}
+     *
+     * @param caller
+     * @param request
+     * @param response
+     */
+    public void processFetchRequest(Subscriber caller, AccountingFetchRequest request, AccountingFetchResponse response) throws JSONException {
+        final String reqBody = request.getRequestBody();
+        final JSONObject jReq = new JSONObject(reqBody);
+        if (!jReq.has(FETCH_REQUEST)){
+            log.warn("Unknown request, body not present");
+            response.setErrText("Unknown request, body not present");
+            response.setErrCode(-2);
+            return;
+        }
+
+        final JSONObject fetchReq = jReq.getJSONObject(FETCH_REQUEST);
+        final String type = fetchReq.has(FETCH_REQUEST_TYPE) ? fetchReq.getString(FETCH_REQUEST_TYPE) : FETCH_REQUEST_TYPE_AGGREGATE;
+        if (!FETCH_REQUEST_TYPE_AGGREGATE.equalsIgnoreCase(type) && !FETCH_REQUEST_TYPE_RECORDS.equalsIgnoreCase(type)){
+            log.warn("Given type not supported: " + type);
+            response.setErrText("Type unrecognized");
+            response.setErrCode(-3);
+            return;
+        }
+
+        // TODO: implement type fetch.
+        if (FETCH_REQUEST_TYPE_RECORDS.equalsIgnoreCase(type)){
+            log.warn("Not implemented yet");
+            response.setErrText("Not implemented yet");
+            response.setErrCode(-4);
+            return;
+        }
+
+        final JSONObject jsonResponse = new JSONObject();
+        fetchAggregate(caller, fetchReq, request, response, jsonResponse);
+
+        // Build JSON response.
+        response.setAuxJSON(jsonResponse.toString());
+    }
+
+    /**
+     * Sub call to fetch all aggregate records.
+     * @param caller
+     * @param fetchReq
+     * @param request
+     * @param response
+     * @param jsonResponse
+     * @throws JSONException
+     */
+    protected void fetchAggregate(Subscriber caller, JSONObject fetchReq,
+                                  AccountingFetchRequest request, AccountingFetchResponse response,
+                                  JSONObject jsonResponse) throws JSONException
+    {
+        final String callerSip = PhoenixDataService.getSIP(caller);
+        final String resource = fetchReq.has(FETCH_REQUEST_RESOURCE) ? fetchReq.getString(FETCH_REQUEST_RESOURCE) : null;
+        Long timeFrom = fetchReq.has(FETCH_REQUEST_TIME_FROM) ? fetchReq.getLong(FETCH_REQUEST_TIME_FROM) : null;
+        Long timeTo = fetchReq.has(FETCH_REQUEST_TIME_TO) ? fetchReq.getLong(FETCH_REQUEST_TIME_TO) : null;
+        try {
+            // Default timespan for fetching aggregate data is last 2 months.
+            if (timeFrom == null){
+                timeFrom = System.currentTimeMillis() - 1000l*60l*60l*24l*62l;
+            }
+
+            final String sqlFetch = "SELECT ag FROM AccountingAggregated WHERE ag.owner=:owner " +
+                    " AND ag.aggregationStart >= :timeFrom ";
+
+            final ArrayList<String> criteria = new ArrayList<String>(4);
+            final Map<String, Object> args = new HashMap<String, Object>();
+            args.put("owner", caller);
+            args.put("timeFrom", timeFrom);
+
+            // Limited to particular timeTo?
+            if (timeTo != null){
+                criteria.add("ag.aggregationStart <= :timeTo");
+                args.put("timeTo", timeTo);
+            }
+
+            // Only interested in particular types?
+            if (fetchReq.has(FETCH_REQUEST_ATYPE)){
+                final JSONArray atypes = fetchReq.getJSONArray(FETCH_REQUEST_ATYPE);
+                final ArrayList<String> typesList = JSONHelper.jsonStringArrayToList(atypes);
+                if (!typesList.isEmpty()){
+                    criteria.add("ag.type IN :types");
+                    args.put("types", typesList);
+                }
+            }
+
+            // Only for particular resources?
+            if (fetchReq.has(FETCH_REQUEST_ARESOURCES)){
+                final JSONArray atypes = fetchReq.getJSONArray(FETCH_REQUEST_ARESOURCES);
+                final ArrayList<String> resList = JSONHelper.jsonStringArrayToList(atypes);
+                if (!resList.isEmpty()){
+                    criteria.add("ag.resource IN :ares");
+                    args.put("ares", resList);
+                }
+            }
+
+            final String sql = dataService.buildQueryString(sqlFetch, criteria, " ORDER BY ag.aggregationStart, ag.type, ag.actionIdFirst ");
+            final TypedQuery<AccountingAggregated> query = dataService.createQuery(sql, AccountingAggregated.class);
+            dataService.setQueryParameters(query, args);
+            final List<AccountingAggregated> resultList = query.getResultList();
+            final JSONArray resultArray = new JSONArray();
+            for(AccountingAggregated curAg : resultList){
+                resultArray.put(aggregatedRecordToJson(curAg));
+            }
+
+            // Response.
+            final JSONObject storeResp = jsonResponse.has(FETCH_RESP_BODY) ? jsonResponse.getJSONObject(FETCH_RESP_BODY) : new JSONObject();
+            storeResp.put(FETCH_RESP_RECORDS, resultArray);
+            jsonResponse.put(FETCH_RESP_BODY, storeResp);
+
+        } catch(Exception e){
+            log.error("Exception when fetching aggregate data", e);
+            response.setErrText("DB exception");
+            response.setErrCode(-10);
+        }
+    }
+
+    /**
+     * Returns JSON representation of the aggregated record.
+     * @param ag
+     * @return
+     */
+    protected JSONObject aggregatedRecordToJson(AccountingAggregated ag) throws JSONException {
+        final JSONObject o = new JSONObject();
+        o.put("res", ag.getResource());
+        o.put("type", ag.getType());
+        o.put("akey", ag.getAggregationKey());
+        o.put("dcreated", ag.getDateCreated().getTime());
+        o.put("dmodif", ag.getDateModified().getTime());
+
+        o.put("aidFst", ag.getActionIdFirst());
+        o.put("ctrFst", ag.getActionCounterFirst());
+        o.put("aidLst", ag.getActionIdLast());
+        o.put("ctrLst", ag.getActionCounterLast());
+
+        o.put("vol", ag.getAmount());
+        o.put("aperiod", ag.getAggregationPeriod());
+        o.put("acount", ag.getAggregationCount());
+        o.put("astart", ag.getAggregationStart());
+
+        o.put("aref", ag.getAaref());
+        return o;
     }
 
     /**

@@ -23,6 +23,7 @@
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="errText" type="xs:string"/>
                 <xs:element name="responseBody" type="xs:string"/>
 
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
@@ -32,7 +33,7 @@
         </xs:complexType>
     </xs:element>
 
-    <xs:element name="accountingGetRequest">
+    <xs:element name="accountingFetchRequest">
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="requestBody" type="xs:string"/>
@@ -44,10 +45,11 @@
         </xs:complexType>
     </xs:element>
 
-    <xs:element name="accountingGetResponse">
+    <xs:element name="accountingFetchResponse">
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="errText" type="xs:string"/>
                 <xs:element name="responseBody" type="xs:string"/>
 
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
