@@ -311,18 +311,21 @@ public class AccountingManager {
         o.put("akey", ag.getAggregationKey());
         o.put("dcreated", ag.getDateCreated().getTime());
         o.put("dmodif", ag.getDateModified().getTime());
+        o.put("vol", ag.getAmount());
 
         o.put("aidFst", ag.getActionIdFirst());
         o.put("ctrFst", ag.getActionCounterFirst());
         o.put("aidLst", ag.getActionIdLast());
         o.put("ctrLst", ag.getActionCounterLast());
 
-        o.put("vol", ag.getAmount());
         o.put("aperiod", ag.getAggregationPeriod());
         o.put("acount", ag.getAggregationCount());
         o.put("astart", ag.getAggregationStart());
 
-        o.put("aref", ag.getAaref());
+        if (!StringUtils.isEmpty(ag.getAaref())) {
+            o.put("aref", ag.getAaref());
+        }
+
         return o;
     }
 

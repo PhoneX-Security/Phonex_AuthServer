@@ -19,6 +19,7 @@ public class AccountingLog {
     @Column(name = "id", unique = true, nullable = false)
     private Long id;
 
+    @Index(name="owner")
     @JoinTable(name = "Subscriber", joinColumns = { @JoinColumn(name = "id", nullable = false) })
     @Column(name = "aowner", nullable = false)
     private Subscriber owner;
@@ -26,7 +27,6 @@ public class AccountingLog {
     @Column(name = "aresource", nullable = true, length = 32)
     private String resource;
 
-    @Index(name="atype")
     @Column(name = "atype", nullable = false, length = 24)
     private String type;
 
