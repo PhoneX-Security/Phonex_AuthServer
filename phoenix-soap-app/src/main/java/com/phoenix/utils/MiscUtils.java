@@ -2,6 +2,7 @@ package com.phoenix.utils;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
+import org.bouncycastle.util.encoders.Base64;
 
 /**
  * Created by dusanklinec on 28.04.15.
@@ -35,6 +36,13 @@ public class MiscUtils {
         }
 
         return sb.toString();
+    }
+
+    public static String generateMD5HashBase64Encoded(byte[] data) throws NoSuchAlgorithmException {
+        java.security.MessageDigest sha = java.security.MessageDigest.getInstance("MD5");
+
+        byte[] digest = sha.digest(data);
+        return new String(Base64.encode(digest));
     }
 
     public static String generateMD5Hash(byte[] data) throws NoSuchAlgorithmException {
