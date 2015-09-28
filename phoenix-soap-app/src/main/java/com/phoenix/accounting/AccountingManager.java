@@ -178,9 +178,23 @@ public class AccountingManager {
      *      "atype":["c.os"]      (optional)
      * }}
      *
-     *
      * Response:{"afetch":{
-     *      records:[{rec_1},{rec_2},{rec_3},...,{rec_n}]
+     *      records:[{
+     *          "res":"abcdef123",              (resource)
+     *          "type": "c.os",
+     *          "akey": "ar3jdDJ2910sa212d==",  (24char len, base64-encoded, aggregation bucket key)
+     *          "dcreated": 1443472673397,      (date created, UTC milli)
+     *          "dmodif": 1443472673397,        (date modified, UTC milli)
+     *          "vol": 35,                      (aggregated value of the counter for given user:type)
+     *          "aidFst": 1443472670397,        (first accounting log ID in this aggregate record)
+     *          "ctrFst": 1,                    (first accounting log counter in this aggregate record)
+     *          "aidLst": 1443472672397         (last accounting log ID in this aggregate record)
+     *          "ctrLst": 13,                   (last accounting log counter in this aggregate record)
+     *          "aperiod": 3600000,             (aggregation period of this record, in milliseconds)
+     *          "acount": 5,                    (number of logs aggregated in this record)
+     *          "astart": 144347260000          (start of the aggregation interval)
+     *          "aref": "ed4b607e48009a34d0b79fe70f521cde"  (optional: reference of the accounting ID, if applicable)
+     *      }, {rec_2},{rec_3},...,{rec_n}]
      * }}
      *
      * @param caller
