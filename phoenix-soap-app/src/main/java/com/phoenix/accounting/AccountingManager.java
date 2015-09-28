@@ -8,6 +8,7 @@ import com.phoenix.service.AMQPListener;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.soap.beans.AccountingSaveRequest;
 import com.phoenix.soap.beans.AccountingSaveResponse;
+import com.phoenix.utils.JSONHelper;
 import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.StringUtils;
 import org.json.JSONArray;
@@ -39,7 +40,7 @@ public class AccountingManager {
     /**
      * Main key for storing accounting logs.
      */
-    private static final String REQ_BODY_STORE = "store";
+    private static final String REQ_BODY_STORE = "astore";
 
     /**
      * User resource, identifies particular device that made the action.
@@ -125,7 +126,7 @@ public class AccountingManager {
     /**
      * Processing save request - basic entry point.
      * Example JSON:
-     * {"store":{
+     * {"astore":{
      *     "res":"abcdef123",
      *     "records":[
      *          {"type":"c.os", "aid":1443185424488, "ctr":1, "vol": "120", "ref":"ed4b607e48009a34d0b79fe70f521cde"},
@@ -176,6 +177,91 @@ public class AccountingManager {
     }
 
     /**
+     * Performs insertion of the user-supplied accounting logs records to the database with duplicate detection
+     * and aggregation.
+     *
+     * Duplicate detection is made via rKey.
+     *
+     * @param caller
+     * @param toInsert
+     * @param semiAggregation
+     */
+    protected void persistAccountingLogMap(Subscriber caller,
+                                           final Map<String, AccountingLog> toInsert,
+                                           final Map<String, AccountingAggregated> semiAggregation,
+                                           final TopIdCounter topId)
+    {
+        if (toInsert.isEmpty()){
+            return;
+        }
+
+        final Set<String> rkeys = toInsert.keySet();
+        final int rkeysSize = rkeys.size();
+
+        // Duplicate detection: Fetch all rkeys in the database that match given set.
+        final String sqlDuplicate = "SELECT alog.rkey FROM AccountingLog alog WHERE alog.rkey IN :rkeys";
+        final TypedQuery<String> query = dataService.createQuery(sqlDuplicate, String.class);
+        query.setParameter("rkeys", new ArrayList<String>(rkeys));
+
+        final List<String> resultList = query.getResultList();
+        for(String rkey : resultList){
+            toInsert.remove(rkey);
+        }
+
+        // Duplicates were removed, new processing.
+        final int newRkeysSize = toInsert.size();
+        if (rkeysSize != newRkeysSize){
+            log.info(String.format("accounting log reduced from %d to %d", rkeysSize, newRkeysSize));
+        }
+
+        if (toInsert.isEmpty()){
+            return;
+        }
+
+        int i = 0;
+        for (AccountingLog alog : toInsert.values()) {
+            i += 1;
+            dataService.persist(alog, i >= newRkeysSize);
+
+            // Request-wide aggregation logic.
+            final String aggregationKey = getAggregationCacheKey(alog);
+            AccountingAggregated curAg = new AccountingAggregated();
+
+            curAg.setOwner(alog.getOwner());
+            curAg.setResource(alog.getResource());
+            curAg.setType(alog.getType());
+            curAg.setDateCreated(alog.getDateCreated());
+            curAg.setDateModified(alog.getDateCreated());
+
+            curAg.setActionIdFirst(alog.getActionId());
+            curAg.setActionCounterFirst(alog.getActionCounter());
+            curAg.setActionIdLast(alog.getActionId());
+            curAg.setActionCounterLast(alog.getActionCounter());
+
+            curAg.setAaref(alog.getAaref());
+            curAg.setAmount(alog.getAmount());
+
+            curAg.setAggregationKey(aggregationKey);
+            curAg.setAggregationCount(1);
+            curAg.setAggregationPeriod(getDefaultAggregationIntervalSize(alog));
+            curAg.setAggregationStart(getAggregationStart(alog, curAg.getAggregationPeriod()));
+
+            if (!semiAggregation.containsKey(aggregationKey)){
+                semiAggregation.put(aggregationKey, curAg);
+            } else {
+                final AccountingAggregated agRec = semiAggregation.get(aggregationKey);
+                mergeAggregatedRecords(agRec, curAg);
+            }
+
+            // Remove, in case of an exception.
+            toInsert.remove(alog.getRkey());
+        }
+
+        // Everything was processed, clear for next round / call.
+        toInsert.clear();
+    }
+
+    /**
      * Performs storing of the log to the database.
      *
      * @param caller
@@ -194,19 +280,21 @@ public class AccountingManager {
         final Date dateCreated = new Date();
 
         // Store newest accounting action id + counter.
-        long topAid = -1;
-        int topACtr = -1;
+        final TopIdCounter topId = new TopIdCounter();
 
         // Request-wide aggregation.
         final Map<String, AccountingAggregated> semiAggregation = new HashMap<String, AccountingAggregated>();
-        for (int i = 0; i < recSize; i++){
+
+        // Ignore duplicated keys.
+        final Map<String, AccountingLog> toInsert = new HashMap<String, AccountingLog>();
+        for (int i = 0; i < recSize; i++) {
             final JSONObject curRec = records.getJSONObject(i);
 
             // Sanitization.
             if (!curRec.has(STORE_ACTION_TYPE)
                     || curRec.has(STORE_ACTION_ID)
                     || curRec.has(STORE_ACTION_COUNTER)
-                    || curRec.has(STORE_ACTION_VOLUME)){
+                    || curRec.has(STORE_ACTION_VOLUME)) {
                 log.warn("Improperly formatted accounting action, missing some key attributes");
                 continue;
             }
@@ -221,47 +309,24 @@ public class AccountingManager {
             alog.setAmount(curRec.getLong(STORE_ACTION_VOLUME));
             alog.setAaref(curRec.has(STORE_ACTION_REFERENCE) ? curRec.getString(STORE_ACTION_REFERENCE) : null);
             alog.setAggregated(curRec.has(STORE_ACTION_AGGREGATED) ? curRec.getInt(STORE_ACTION_AGGREGATED) : 0);
-            dataService.persist(alog, i+1 >= recSize);
+            alog.setRkey(getAlogRkey(alog));
 
             // Top processed action ID & counter.
-            if (topAid <= alog.getActionId()){
-                if (topAid == alog.getActionId() && topACtr < alog.getActionCounter()){
-                    topACtr = alog.getActionCounter();
-                } else if (topAid < alog.getActionId()){
-                    topACtr = alog.getActionCounter();
-                }
+            topId.insert(alog.getActionId(), alog.getActionCounter());
 
-                topAid = alog.getActionId();
+            // Insert for processing.
+            final AccountingLog prev = toInsert.put(alog.getRkey(), alog);
+            if (prev != null){
+                log.warn(String.format("Warning, collision detected on accounting logs %s vs %s", prev, alog));
             }
 
-            // Request-wide aggregation logic.
-            final String aggregationKey = getAggregationCacheKey(alog);
-            AccountingAggregated curAg = new AccountingAggregated();
-
-            curAg.setOwner(alog.getOwner());
-            curAg.setResource(alog.getResource());
-            curAg.setType(alog.getType());
-            curAg.setDateCreated(alog.getDateCreated());
-            curAg.setDateModified(alog.getDateCreated());
-            curAg.setActionIdFirst(alog.getActionId());
-            curAg.setActionCounterFirst(alog.getActionCounter());
-            curAg.setActionIdLast(alog.getActionId());
-            curAg.setActionCounterLast(alog.getActionCounter());
-            curAg.setAaref(alog.getAaref());
-            curAg.setAmount(alog.getAmount());
-
-            curAg.setAggregationKey(aggregationKey);
-            curAg.setAggregationCount(1);
-            curAg.setAggregationPeriod(getDefaultAggregationIntervalSize(alog));
-            curAg.setAggregationStart(getAggregationStart(alog, curAg.getAggregationPeriod()));
-
-            if (!semiAggregation.containsKey(aggregationKey)){
-                semiAggregation.put(aggregationKey, curAg);
-            } else {
-                final AccountingAggregated agRec = semiAggregation.get(aggregationKey);
-                mergeAggregatedRecords(agRec, curAg);
+            // Each x-cycles do the dump to database with collision check.
+            if ((i % 25) == 0) {
+                persistAccountingLogMap(caller, toInsert, semiAggregation, topId);
             }
         }
+
+        persistAccountingLogMap(caller, toInsert, semiAggregation, topId);
 
         // Update aggregated records using semiAggregation.
         final int changed = mergeAggregationWithDB(semiAggregation);
@@ -269,8 +334,8 @@ public class AccountingManager {
 
         // Response.
         final JSONObject storeResp = jsonResponse.has(REQ_BODY_STORE) ? jsonResponse.getJSONObject(REQ_BODY_STORE) : new JSONObject();
-        storeResp.put(STORE_RESP_TOP_ACTION_ID, topAid);
-        storeResp.put(STORE_RESP_TOP_ACTION_COUNTER, topACtr);
+        storeResp.put(STORE_RESP_TOP_ACTION_ID, topId.getId());
+        storeResp.put(STORE_RESP_TOP_ACTION_COUNTER, topId.getCtr());
         storeResp.put(STORE_RESP_AG_AFFECTED, changed);
         jsonResponse.put(REQ_BODY_STORE, storeResp);
     }
@@ -282,7 +347,7 @@ public class AccountingManager {
      */
     public int mergeAggregationWithDB(Map<String, AccountingAggregated> aggregations){
         // Get all aggregation records from DB.
-        final String sqlFetch = "SELECT ag FROM AccountingAggregated WHERE aggregationKey IN :keys";
+        final String sqlFetch = "SELECT ag FROM AccountingAggregated WHERE ag.aggregationKey IN :keys";
         final TypedQuery<AccountingAggregated> query = dataService.createQuery(sqlFetch, AccountingAggregated.class);
         query.setParameter("keys", aggregations.keySet());
 
@@ -436,6 +501,48 @@ public class AccountingManager {
     }
 
     /**
+     * Generates rkey base for alog. Used as unique ID for the alog.
+     * @param alog
+     * @return
+     */
+    public String getAlogRkeyBase(AccountingLog alog){
+        final String ownerSip = PhoenixDataService.getSIP(alog.getOwner());
+        final StringBuilder sb = new StringBuilder();
+        sb.append(ownerSip)
+                .append(";")
+                .append(alog.getResource())
+                .append(";")
+                .append(alog.getType())
+                .append(";");
+
+        if (isArefType(alog)){
+            sb.append(alog.getAaref()).append(";");
+        }
+
+        sb.append(alog.getActionId())
+                .append(";")
+                .append(alog.getActionCounter());
+
+        return sb.toString();
+    }
+
+    /**
+     * Generates rkey (to be used in database) for alog. Used as unique ID for the alog record uploaded from the user.
+     * @param alog
+     * @return
+     */
+    public String getAlogRkey(AccountingLog alog){
+        final String alogRkeyBase = getAlogRkeyBase(alog);
+        try {
+            return MiscUtils.generateMD5HashBase64Encoded(alogRkeyBase.getBytes("UTF-8"));
+        } catch (Exception e) {
+            log.error("Could not generate hash", e);
+        }
+
+        return alogRkeyBase;
+    }
+
+    /**
      * Returns string forming unique key for this accounting log.
      * No aggregation is taken into account.
      *
@@ -448,8 +555,6 @@ public class AccountingManager {
         final String ownerSip = PhoenixDataService.getSIP(alog.getOwner());
         final StringBuilder sb = new StringBuilder();
         sb.append(ownerSip)
-                .append(";")
-                .append(alog.getResource())
                 .append(";")
                 .append(alog.getType());
 
@@ -486,7 +591,7 @@ public class AccountingManager {
 
         // Hash it with MD5 and return result.
         try {
-            return MiscUtils.generateMD5Hash(sb.toString().getBytes("UTF-8"));
+            return MiscUtils.generateMD5HashBase64Encoded(sb.toString().getBytes("UTF-8"));
         } catch (Exception e) {
             log.error("Could not generate hash", e);
         }
@@ -494,5 +599,35 @@ public class AccountingManager {
         return sb.toString();
     }
 
+    /**
+     * Simple class for counting top ids of accounting logs.
+     */
+    public static class TopIdCounter {
+        private long id = 0;
+        private int ctr = 0;
 
+        public TopIdCounter() {
+
+        }
+
+        public void insert(long aId, int aCtr){
+            if (id <= aId){
+                if (id == aId && ctr < aCtr){
+                    ctr = aCtr;
+                } else if (id < aId){
+                    ctr = aCtr;
+                }
+
+                id = aId;
+            }
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public int getCtr() {
+            return ctr;
+        }
+    }
 }

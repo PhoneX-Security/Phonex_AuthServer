@@ -411,7 +411,7 @@ public class PhoenixDataService {
      * @return
      */
     public String buildQueryString(String queryBase, Collection<String> criteria, String suffix){
-        StringBuilder sb = new StringBuilder(queryBase);
+        final StringBuilder sb = new StringBuilder(queryBase);
         sb.append(" ( ");
         sb.append(MiscUtils.join(criteria, " ) AND ( "));
         sb.append(" ) ");

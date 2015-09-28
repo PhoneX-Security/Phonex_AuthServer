@@ -32,9 +32,10 @@ public class AccountingAggregated {
 
     /**
      * Aggregation key, hashed value for the aggregation record.
+     * Base64 encoded hash, smaller index size.
      */
     @Index(name="akey")
-    @Column(name = "aggregation_key", nullable = false, length = 32)
+    @Column(name = "aggregation_key", nullable = false, length = 24)
     private String aggregationKey;
 
     @Temporal(TemporalType.TIMESTAMP)
@@ -234,5 +235,29 @@ public class AccountingAggregated {
 
     public void setAggregationStart(long aggregationStart) {
         this.aggregationStart = aggregationStart;
+    }
+
+    @Override
+    public String toString() {
+        return "AccountingAggregated{" +
+                "id=" + id +
+                ", owner=" + owner +
+                ", resource='" + resource + '\'' +
+                ", type='" + type + '\'' +
+                ", aggregationKey='" + aggregationKey + '\'' +
+                ", dateCreated=" + dateCreated +
+                ", dateModified=" + dateModified +
+                ", actionIdFirst=" + actionIdFirst +
+                ", actionCounterFirst=" + actionCounterFirst +
+                ", actionIdLast=" + actionIdLast +
+                ", actionCounterLast=" + actionCounterLast +
+                ", amount=" + amount +
+                ", aggregationPeriod=" + aggregationPeriod +
+                ", aggregationCount=" + aggregationCount +
+                ", aggregationStart=" + aggregationStart +
+                ", aaref='" + aaref + '\'' +
+                ", extra='" + extra + '\'' +
+                ", aux='" + aux + '\'' +
+                '}';
     }
 }

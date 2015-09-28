@@ -30,6 +30,14 @@ public class AccountingLog {
     @Column(name = "atype", nullable = false, length = 24)
     private String type;
 
+    /**
+     * Precomputed record key for easy duplicate detection.
+     * base64(md5("owner;resource;type[;aref];actionId;actionCounter"));
+     */
+    @Index(name="rkey")
+    @Column(name = "record_key", nullable = false, length = 24)
+    private String rkey;
+
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "adate_created", nullable = false, columnDefinition = "TIMESTAMP")
     private Date dateCreated = new Date();
@@ -171,5 +179,32 @@ public class AccountingLog {
 
     public void setAggregated(int aggregated) {
         this.aggregated = aggregated;
+    }
+
+    public String getRkey() {
+        return rkey;
+    }
+
+    public void setRkey(String rkey) {
+        this.rkey = rkey;
+    }
+
+    @Override
+    public String toString() {
+        return "AccountingLog{" +
+                "id=" + id +
+                ", owner=" + owner +
+                ", resource='" + resource + '\'' +
+                ", type='" + type + '\'' +
+                ", rkey='" + rkey + '\'' +
+                ", dateCreated=" + dateCreated +
+                ", actionId=" + actionId +
+                ", actionCounter=" + actionCounter +
+                ", amount=" + amount +
+                ", aggregated=" + aggregated +
+                ", aaref='" + aaref + '\'' +
+                ", extra='" + extra + '\'' +
+                ", aux='" + aux + '\'' +
+                '}';
     }
 }
