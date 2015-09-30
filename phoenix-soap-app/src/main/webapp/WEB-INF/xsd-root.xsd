@@ -92,8 +92,9 @@
     <xs:element name="generalRequest">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="reqType" type="xs:string"/>
+                <xs:element name="reqType" type="xs:string" default=""/>
                 <xs:element name="reqJSON" type="xs:string"/>
+
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
@@ -104,7 +105,9 @@
     <xs:element name="generalResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="errCode" type="xs:int" default="0"/>
+                <xs:element name="errText" type="xs:string" default=""/>
+
                 <xs:element name="responseJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
                 <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>

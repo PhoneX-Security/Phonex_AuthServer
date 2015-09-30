@@ -22,8 +22,8 @@
     <xs:element name="accountingSaveResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="errCode" type="xs:int"/>
-                <xs:element name="errText" type="xs:string"/>
+                <xs:element name="errCode" type="xs:int" default="0"/>
+                <xs:element name="errText" type="xs:string" default=""/>
                 <xs:element name="responseBody" type="xs:string"/>
 
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
@@ -48,8 +48,8 @@
     <xs:element name="accountingFetchResponse">
         <xs:complexType>
             <xs:sequence>
-                <xs:element name="errCode" type="xs:int"/>
-                <xs:element name="errText" type="xs:string"/>
+                <xs:element name="errCode" type="xs:int" default="0"/>
+                <xs:element name="errText" type="xs:string" default=""/>
                 <xs:element name="responseBody" type="xs:string"/>
 
                 <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
