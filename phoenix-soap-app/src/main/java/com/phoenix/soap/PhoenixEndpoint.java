@@ -1938,6 +1938,32 @@ public class PhoenixEndpoint {
                 }
             }
 
+            // Expired policy
+            if (!StringUtils.isEmpty(localUser.getUsagePolicyExpired())){
+                try {
+                    final String policyStr = localUser.getUsagePolicyExpired();
+                    final JSONObject policy = new JSONObject(policyStr);
+
+                    jsonAuxObj.put("expiredPolicy", policy);
+                    resp.setAuxJSON(jsonAuxObj.toString());
+                } catch(Exception e){
+                    log.error("Aux data could not be parsed", e);
+                }
+            }
+
+            // Current policy
+            if (!StringUtils.isEmpty(localUser.getUsagePolicyCurrent())){
+                try {
+                    final String policyStr = localUser.getUsagePolicyCurrent();
+                    final JSONObject policy = new JSONObject(policyStr);
+
+                    jsonAuxObj.put("currentPolicy", policy);
+                    resp.setAuxJSON(jsonAuxObj.toString());
+                } catch(Exception e){
+                    log.error("Aux data could not be parsed", e);
+                }
+            }
+
             // AUXJson - trial event logs.
             if (localUser.getExpires() != null && localUser.getExpires().before(Calendar.getInstance())){
                 final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
@@ -2193,6 +2219,32 @@ public class PhoenixEndpoint {
                     final JSONObject auxData = new JSONObject(auxDataStr);
 
                     jsonAuxObj.put("auxData", auxData);
+                    resp.setAuxJSON(jsonAuxObj.toString());
+                } catch(Exception e){
+                    log.error("Aux data could not be parsed", e);
+                }
+            }
+
+            // Expired policy
+            if (!StringUtils.isEmpty(localUser.getUsagePolicyExpired())){
+                try {
+                    final String policyStr = localUser.getUsagePolicyExpired();
+                    final JSONObject policy = new JSONObject(policyStr);
+
+                    jsonAuxObj.put("expiredPolicy", policy);
+                    resp.setAuxJSON(jsonAuxObj.toString());
+                } catch(Exception e){
+                    log.error("Aux data could not be parsed", e);
+                }
+            }
+
+            // Current policy
+            if (!StringUtils.isEmpty(localUser.getUsagePolicyCurrent())){
+                try {
+                    final String policyStr = localUser.getUsagePolicyCurrent();
+                    final JSONObject policy = new JSONObject(policyStr);
+
+                    jsonAuxObj.put("currentPolicy", policy);
                     resp.setAuxJSON(jsonAuxObj.toString());
                 } catch(Exception e){
                     log.error("Aux data could not be parsed", e);
