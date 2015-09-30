@@ -59,6 +59,15 @@ public class AccountingLog {
     @Column(name = "aref", nullable = true, length = 64)
     private String aaref;
 
+    @Column(name = "perm_id", nullable = true)
+    private Long permId;
+
+    @Column(name = "license_id", nullable = true)
+    private Long licenseId;
+
+    @Column(name = "source_id", nullable = true)
+    private Long srcdId;
+
     @Column(name = "aextra", nullable = true, columnDefinition = "TEXT")
     @Lob
     private String extra;
@@ -187,6 +196,30 @@ public class AccountingLog {
 
     public void setRkey(String rkey) {
         this.rkey = rkey;
+    }
+
+    public Long getPermId() {
+        return permId;
+    }
+
+    public void setPermId(Long permId) {
+        this.permId = permId;
+    }
+
+    public Long getLicenseId() {
+        return licenseId;
+    }
+
+    public void setLicenseId(Long licenseId) {
+        this.licenseId = licenseId;
+    }
+
+    public Long getSrcdId() {
+        return srcdId;
+    }
+
+    public void setSrcdId(Long srcdId) {
+        this.srcdId = srcdId;
     }
 
     @Override

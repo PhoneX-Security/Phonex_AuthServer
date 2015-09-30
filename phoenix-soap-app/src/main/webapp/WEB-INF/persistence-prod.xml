@@ -4,6 +4,7 @@
     <provider>org.hibernate.ejb.HibernatePersistence</provider>
     <class>com.phoenix.db.AccountingAggregated</class>
     <class>com.phoenix.db.AccountingLog</class>
+    <class>com.phoenix.db.AccountingPermission</class>
     <class>com.phoenix.db.OneTimeToken</class>
     <class>com.phoenix.db.CAcertsSigned</class>
     <class>com.phoenix.db.SubscriberCertificate</class>

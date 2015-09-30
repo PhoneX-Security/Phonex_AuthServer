@@ -2,6 +2,7 @@ package com.phoenix.accounting;
 
 import com.phoenix.db.AccountingAggregated;
 import com.phoenix.db.AccountingLog;
+import com.phoenix.db.AccountingPermission;
 import com.phoenix.db.opensips.Acc;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.AMQPListener;
@@ -92,6 +93,10 @@ public class AccountingManager {
      */
     private static final String STORE_ACTION_ID_BEGINNING = "aidbeg";
 
+    private static final String STORE_PERMISSION = "perm";
+    private static final String STORE_PERMISSION_LICENSE_ID = "licId";
+    private static final String STORE_PERMISSION_ID = "id";
+
     /**
      * When responding to the store request, this field holds the newest accounting action ID processed.
      * It serves as an ACK to the client that the upload was successful.
@@ -126,6 +131,13 @@ public class AccountingManager {
     private static final String FETCH_REQUEST_TYPE = "type";
     private static final String FETCH_REQUEST_TYPE_AGGREGATE = "aaggregate";
     private static final String FETCH_REQUEST_TYPE_RECORDS = "arecords";
+    private static final String FETCH_REQUEST_TYPE_NONE = "none";
+
+    /**
+     * Flags can be specified in store request to return affected permissions / aggregations.
+     */
+    private static final String FETCH_REQUEST_PERMISSIONS = "permissions";
+    private static final String FETCH_REQUEST_AGGREGATIONS = "aggregations";
 
     /**
      * Time interval of the records to be fetched.
@@ -171,8 +183,10 @@ public class AccountingManager {
      *
      * {"areq:"{
      *      "res":"abcdef123",
+     *      "permissions":1,      (optional, if set to 1 current set of permission counters is fetched).
+     *      "permissionsIds":[{"id":1,"licId":123}], (optional, particular set of permission IDs to fetch)
      *      "ares":["abcdef123"], (optional)
-     *      "type":"aaggregate",  (optional, default is agregate. or: "arecords"),
+     *      "type":"aaggregate",  (optional, default is agregate. or: "arecords", or "none"),
      *      "timefrom":12335522,  (optional)
      *      "timeto":215241234,   (optional)
      *      "atype":["c.os"]      (optional)
@@ -194,7 +208,12 @@ public class AccountingManager {
      *          "acount": 5,                    (number of logs aggregated in this record)
      *          "astart": 144347260000          (start of the aggregation interval)
      *          "aref": "ed4b607e48009a34d0b79fe70f521cde"  (optional: reference of the accounting ID, if applicable)
-     *      }, {rec_2},{rec_3},...,{rec_n}]
+     *      }, {rec_2},{rec_3},...,{rec_n}],
+     *
+     *      permissions:[{
+     *
+     *
+     *      }, {permission_2}, {permission_3}, ..., {permission_m}]
      * }}
      *
      * @param caller
@@ -231,6 +250,8 @@ public class AccountingManager {
         final JSONObject jsonResponse = new JSONObject();
         fetchAggregate(caller, fetchReq, request, response, jsonResponse);
 
+        // TODO: implement fetch permissions query.
+
         // Build JSON response.
         response.setAuxJSON(jsonResponse.toString());
     }
@@ -248,8 +269,6 @@ public class AccountingManager {
                                   AccountingFetchRequest request, AccountingFetchResponse response,
                                   JSONObject jsonResponse) throws JSONException
     {
-        final String callerSip = PhoenixDataService.getSIP(caller);
-        final String resource = fetchReq.has(FETCH_REQUEST_RESOURCE) ? fetchReq.getString(FETCH_REQUEST_RESOURCE) : null;
         Long timeFrom = fetchReq.has(FETCH_REQUEST_TIME_FROM) ? fetchReq.getLong(FETCH_REQUEST_TIME_FROM) : null;
         Long timeTo = fetchReq.has(FETCH_REQUEST_TIME_TO) ? fetchReq.getLong(FETCH_REQUEST_TIME_TO) : null;
         try {
@@ -344,14 +363,46 @@ public class AccountingManager {
     }
 
     /**
+     * Returns JSON representation of the aggregated record.
+     * @param perm
+     * @return
+     */
+    protected JSONObject permissionRecordToJson(AccountingPermission perm) throws JSONException {
+        final JSONObject o = new JSONObject();
+        o.put("id", perm.getId());
+        o.put("permId", perm.getPermId());
+        o.put("licId", perm.getLicenseId());
+        o.put("name", perm.getName());
+
+        o.put("akey", perm.getCacheKey());
+        o.put("dcreated", perm.getDateCreated().getTime());
+        o.put("dmodif", perm.getDateModified().getTime());
+        o.put("vol", perm.getAmount());
+
+        o.put("aidFst", perm.getActionIdFirst());
+        o.put("ctrFst", perm.getActionCounterFirst());
+        o.put("aidLst", perm.getActionIdLast());
+        o.put("ctrLst", perm.getActionCounterLast());
+        o.put("acount", perm.getAggregationCount());
+
+        if (!StringUtils.isEmpty(perm.getAaref())) {
+            o.put("aref", perm.getAaref());
+        }
+
+        return o;
+    }
+
+    /**
      * Processing save request - basic entry point.
      * Example JSON:
      * {"astore":{
      *     "res":"abcdef123",
-     *     "records":[
+     *      "permissions":1,      (optional, if set to 1 affected permissions are returned)
+     *      "aggregate":1,        (optional, if set to 1 affected aggregate records are returned)
+     *      "records":[
      *          {"type":"c.os", "aid":1443185424488, "ctr":1, "vol": "120", "ref":"ed4b607e48009a34d0b79fe70f521cde"},
-     *          {"type":"c.os", "aid":1443185524488, "ctr":2, "vol": "10"},
-     *          {"type":"m.om", "aid":1443185624488, "ctr":3, "vol": "120"},
+     *          {"type":"c.os", "aid":1443185524488, "ctr":2, "vol": "10", "perm":{"licId":123, "permId":1}},
+     *          {"type":"m.om", "aid":1443185624488, "ctr":3, "vol": "120", "perm":{"licId":123, "permId":2}},
      *          {"type":"m.om", "aid":1443185724488, "ctr":4, "vol": "10", "ag":1, "aidbeg":1443185724488},
      *          {"type":"f.id", "aid":1443185824488, "ctr":5, "vol": "1"}
      *     ]
@@ -359,7 +410,11 @@ public class AccountingManager {
      *
      * Response: {
      *     "store":{
-     *          "topaid":1443185824488, "topctr":5
+     *          "topaid":1443185824488,
+     *          "topctr":5,
+     *          "permissions:"{
+     *              {permission_1}, {permission_2}, ..., {permission_m}
+     *          }
      *     }
      * }
      * @param request
@@ -390,7 +445,7 @@ public class AccountingManager {
         }
 
         final JSONObject jsonResponse = new JSONObject();
-        store(caller, resource, records, request, response, jsonResponse);
+        store(caller, resource, records, request, response, storeReq, jsonResponse);
 
         // Build JSON response.
         response.setAuxJSON(jsonResponse.toString());
@@ -409,6 +464,7 @@ public class AccountingManager {
     protected void persistAccountingLogMap(Subscriber caller,
                                            final Map<String, AccountingLog> toInsert,
                                            final Map<String, AccountingAggregated> semiAggregation,
+                                           final Map<String, AccountingPermission> semiPermAggregation,
                                            final TopIdCounter topId)
     {
         if (toInsert.isEmpty()){
@@ -443,9 +499,30 @@ public class AccountingManager {
             i += 1;
             dataService.persist(alog, i >= newRkeysSize);
 
+            // Request-wide aggregation for permissions.
+            AccountingPermission curPerm = null;
+            if (alog.getPermId() != null && alog.getLicenseId() != null){
+                curPerm = new AccountingPermission();
+                curPerm.setPermId(alog.getPermId());
+                curPerm.setLicenseId(alog.getLicenseId());
+                curPerm.setAggregationCount(1);
+                curPerm.setAmount(alog.getAmount());
+
+                curPerm.setOwner(alog.getOwner());
+                curPerm.setAaref(alog.getAaref());
+
+                curPerm.setActionIdFirst(alog.getActionId());
+                curPerm.setActionCounterFirst(alog.getActionCounter());
+                curPerm.setActionIdLast(alog.getActionId());
+                curPerm.setActionCounterLast(alog.getActionCounter());
+
+                final String cacheKey = getPermissionCacheKey(curPerm);
+                curPerm.setCacheKey(cacheKey);
+            }
+
             // Request-wide aggregation logic.
             final String aggregationKey = getAggregationCacheKey(alog);
-            AccountingAggregated curAg = new AccountingAggregated();
+            final AccountingAggregated curAg = new AccountingAggregated();
 
             curAg.setOwner(alog.getOwner());
             curAg.setResource(alog.getResource());
@@ -473,6 +550,16 @@ public class AccountingManager {
                 mergeAggregatedRecords(agRec, curAg);
             }
 
+            if (curPerm != null){
+                final String permCacheKey = curPerm.getCacheKey();
+                if (semiPermAggregation.containsKey(permCacheKey)){
+                    semiPermAggregation.put(permCacheKey, curPerm);
+                } else {
+                    final AccountingPermission pRec = semiPermAggregation.get(permCacheKey);
+                    mergePermissionRecords(pRec, curPerm);
+                }
+            }
+
             // Remove, in case of an exception.
             toInsert.remove(alog.getRkey());
         }
@@ -493,17 +580,23 @@ public class AccountingManager {
      * @throws JSONException
      */
     protected void store(Subscriber caller, String resource, JSONArray records,
-                         AccountingSaveRequest request, AccountingSaveResponse response, JSONObject jsonResponse) throws JSONException
+                         AccountingSaveRequest request, AccountingSaveResponse response,
+                         final JSONObject storeReq, JSONObject jsonResponse) throws JSONException
     {
-        final String callerSip = PhoenixDataService.getSIP(caller);
         final int recSize = records.length();
         final Date dateCreated = new Date();
+
+        final boolean returnPermissions = storeReq.has(FETCH_REQUEST_PERMISSIONS) && storeReq.getBoolean(FETCH_REQUEST_PERMISSIONS);
+        final boolean returnAggregations = storeReq.has(FETCH_REQUEST_AGGREGATIONS) && storeReq.getBoolean(FETCH_REQUEST_AGGREGATIONS);
 
         // Store newest accounting action id + counter.
         final TopIdCounter topId = new TopIdCounter();
 
         // Request-wide aggregation.
         final Map<String, AccountingAggregated> semiAggregation = new HashMap<String, AccountingAggregated>();
+
+        // Request-wide aggregation for permission counters.
+        final Map<String, AccountingPermission> semiPermAggregation = new HashMap<String, AccountingPermission>();
 
         // Ignore duplicated keys.
         final Map<String, AccountingLog> toInsert = new HashMap<String, AccountingLog>();
@@ -531,6 +624,15 @@ public class AccountingManager {
             alog.setAggregated(curRec.has(STORE_ACTION_AGGREGATED) ? curRec.getInt(STORE_ACTION_AGGREGATED) : 0);
             alog.setRkey(getAlogRkey(alog));
 
+            // Permission counter association?
+            if (curRec.has(STORE_PERMISSION)){
+                final JSONObject permObj = curRec.getJSONObject(STORE_PERMISSION);
+                final long permId = permObj.getLong(STORE_PERMISSION_ID);
+                final long licId = permObj.getLong(STORE_PERMISSION_LICENSE_ID);
+                alog.setPermId(permId);
+                alog.setLicenseId(licId);
+            }
+
             // Top processed action ID & counter.
             topId.insert(alog.getActionId(), alog.getActionCounter());
 
@@ -542,18 +644,43 @@ public class AccountingManager {
 
             // Each x-cycles do the dump to database with collision check.
             if ((i % 25) == 0) {
-                persistAccountingLogMap(caller, toInsert, semiAggregation, topId);
+                persistAccountingLogMap(caller, toInsert, semiAggregation, semiPermAggregation, topId);
             }
         }
 
-        persistAccountingLogMap(caller, toInsert, semiAggregation, topId);
+        persistAccountingLogMap(caller, toInsert, semiAggregation, semiPermAggregation, topId);
 
         // Update aggregated records using semiAggregation.
         final int changed = mergeAggregationWithDB(semiAggregation);
         log.info(String.format("Aggregations updated to DB, records changed: %d", changed));
 
+        final int changedPerms = mergePermissionsWithDB(semiPermAggregation);
+        log.info(String.format("Permissions updated to DB, records changed: %d", changedPerms));
+
         // Response.
         final JSONObject storeResp = jsonResponse.has(REQ_BODY_STORE) ? jsonResponse.getJSONObject(REQ_BODY_STORE) : new JSONObject();
+
+        // Returning affected permissions.
+        if (returnPermissions){
+            final JSONArray permJson = new JSONArray();
+            for (AccountingPermission permission : semiPermAggregation.values()) {
+                permJson.put(permissionRecordToJson(permission));
+            }
+
+            storeResp.put(FETCH_REQUEST_PERMISSIONS, permJson);
+        }
+
+        // Returned affected aggregations
+        if (returnAggregations){
+            final JSONArray agJson = new JSONArray();
+            for (AccountingAggregated ag : semiAggregation.values()) {
+                agJson.put(aggregatedRecordToJson(ag));
+            }
+
+            storeResp.put(FETCH_REQUEST_AGGREGATIONS, agJson);
+        }
+
+        // Aggregate caches now contain updated records from database, can put to response.
         storeResp.put(STORE_RESP_TOP_ACTION_ID, topId.getId());
         storeResp.put(STORE_RESP_TOP_ACTION_COUNTER, topId.getCtr());
         storeResp.put(STORE_RESP_AG_AFFECTED, changed);
@@ -591,6 +718,8 @@ public class AccountingManager {
 
             // Change was made, persist a new record.
             dataService.persist(ag, false);
+            // Update aggregation cache.
+            aggregations.put(key, ag);
             changed += 1;
         }
 
@@ -601,6 +730,8 @@ public class AccountingManager {
             newCtr += 1;
             changed += 1;
             final AccountingAggregated ag = aggregations.get(agKey);
+            ag.setDateCreated(new Date());
+            ag.setDateCreated(new Date());
             dataService.persist(ag, newCtr >= newSize);
         }
 
@@ -666,6 +797,117 @@ public class AccountingManager {
     }
 
     /**
+     * Merges a collection of permissions records with those in database, persists changes to DB.
+     * @param permissions key -> permRecord mapping to be merged with the database records.
+     * @return Number of changed & inserted records.
+     */
+    public int mergePermissionsWithDB(Map<String, AccountingPermission> permissions){
+        // Get all aggregation records from DB.
+        final String sqlFetch = "SELECT aperm FROM AccountingPermission WHERE aperm.cacheKey IN :keys";
+        final TypedQuery<AccountingPermission> query = dataService.createQuery(sqlFetch, AccountingPermission.class);
+        query.setParameter("keys", permissions.keySet());
+
+        int changed = 0;
+        final Set<String> nonDbEntries = new HashSet<String>(permissions.keySet());
+        final List<AccountingPermission> resultList = query.getResultList();
+        for(AccountingPermission perm : resultList){
+            final String key = perm.getCacheKey();
+
+            // Remove aggregation keys from non-db entries set as it was found in the result set. Does not need to be inserted.
+            nonDbEntries.remove(key);
+
+            final int mergeResult = mergePermissionRecords(perm, permissions.get(key));
+            if (mergeResult < 0){
+                // Could not merge, nothing to be done. Should not happen - assertion. Keys matches..
+                continue;
+            } else if (mergeResult == 0){
+                // No change was made. No persistency is needed.
+                continue;
+            }
+
+            // Change was made, persist a new record.
+            dataService.persist(perm, false);
+            // Update cache.
+            permissions.put(key, perm);
+            changed += 1;
+        }
+
+        // Insert non-db entries to the database as a new ones.
+        int newCtr = 0;
+        final int newSize = nonDbEntries.size();
+        for(String agKey : nonDbEntries){
+            newCtr += 1;
+            changed += 1;
+            final AccountingPermission perm = permissions.get(agKey);
+            perm.setDateCreated(new Date());
+            perm.setDateCreated(new Date());
+            dataService.persist(perm, newCtr >= newSize);
+        }
+
+        return changed;
+    }
+
+    /**
+     * Merges permissions records a1 and a2 together, if possible.
+     * Merges a2 to a1 record. If no change was made, returns 0. On error or incompatibility, negative value is returned,
+     * on a successful merge with change, positive non-zero value is returned.
+     *
+     * @param a1 Aggregation record that a2 will be merged into.
+     * @param a2 Aggregation record which will be merged into a1.
+     * @return
+     */
+    public int mergePermissionRecords(AccountingPermission a1, AccountingPermission a2){
+        if (a1 == null && a2 == null){
+            return -1;
+        } else if (a1 != null && a2 == null){
+            return 0;
+        } else if (a1 == null){
+            return 0;
+        }
+
+        // Test if can be merged, aggregation keys has to match.
+        if (!a1.getCacheKey().equals(a2.getCacheKey())){
+            return -1;
+        }
+
+        boolean changed = false;
+
+        // Aggregation logic, add a2 -> a1 record.
+
+        // First = keep minimal.
+        if (compareIds(a1.getActionIdFirst(), a1.getActionCounterFirst(), a2.getActionIdFirst(), a2.getActionCounterFirst()) == 1){
+            a1.setActionIdFirst(a2.getActionIdFirst());
+            a1.setActionCounterFirst(a2.getActionCounterFirst());
+            changed = true;
+        }
+
+        // Last = keep maximal.
+        if (compareIds(a1.getActionIdLast(), a1.getActionCounterLast(), a2.getActionIdLast(), a2.getActionCounterLast()) == -1){
+            a1.setActionIdLast(a2.getActionIdLast());
+            a1.setActionCounterLast(a2.getActionCounterLast());
+            changed = true;
+        }
+
+        if (a2.getAggregationCount() > 0) {
+            a1.setAggregationCount(a1.getAggregationCount() + a2.getAggregationCount());
+            changed = true;
+        }
+
+        if (a2.getAmount() > 0) {
+            a1.setAmount(a1.getAmount() + a2.getAmount());
+            changed = true;
+        }
+
+        if (changed){
+            a1.setDateModified(new Date());
+        }
+
+        return changed ? 1 : 0;
+    }
+
+
+
+    /**
      * Performs action:ctr1 < id2:ctr2.
      * @param id1
      * @param ctr1
@@ -704,6 +946,17 @@ public class AccountingManager {
      * @return
      */
     public boolean isArefType(AccountingLog alog){
+        // TODO: implement.
+        return false;
+    }
+
+    /**
+     * Returns true if given accounting log needs aref field, i.e., is identified also by this field.
+     * Accounting logs for user-dependant counters needs aref to differentiate between different destination users.
+     * @param alog
+     * @return
+     */
+    public boolean isArefType(AccountingPermission cperm){
         // TODO: implement.
         return false;
     }
@@ -808,6 +1061,35 @@ public class AccountingManager {
                 .append(";")
                 .append(aggregationLowBound)
                 .append(";");
+
+        // Hash it with MD5 and return result.
+        try {
+            return MiscUtils.generateMD5HashBase64Encoded(sb.toString().getBytes("UTF-8"));
+        } catch (Exception e) {
+            log.error("Could not generate hash", e);
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Generates unique cache key for the aggregation for given record.
+     *
+     * @param cperm
+     * @return
+     */
+    public String getPermissionCacheKey(AccountingPermission cperm){
+        final String ownerSip = PhoenixDataService.getSIP(cperm.getOwner());
+        final StringBuilder sb = new StringBuilder();
+        sb.append(ownerSip)
+                .append(";")
+                .append(cperm.getPermId())
+                .append(";")
+                .append(cperm.getLicenseId());
+
+        if (isArefType(cperm)){
+            sb.append(";").append(cperm.getAaref());
+        }
 
         // Hash it with MD5 and return result.
         try {
