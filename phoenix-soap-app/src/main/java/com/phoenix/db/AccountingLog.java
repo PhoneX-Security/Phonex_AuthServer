@@ -19,9 +19,9 @@ public class AccountingLog {
     @Column(name = "id", unique = true, nullable = false)
     private Long id;
 
-    @Index(name="owner")
-    @JoinTable(name = "Subscriber", joinColumns = { @JoinColumn(name = "id", nullable = false) })
-    @Column(name = "aowner", nullable = false)
+    @Index(name = "idxSubscriber")
+    @ManyToOne(cascade = CascadeType.REMOVE)
+    @JoinColumn(name="subscriber_id", nullable=false)
     private Subscriber owner;
 
     @Column(name = "aresource", nullable = true, length = 32)
@@ -65,6 +65,9 @@ public class AccountingLog {
     @Column(name = "license_id", nullable = true)
     private Long licenseId;
 
+    /**
+     * Source action ID for this record. One call may be split among multiple records.
+     */
     @Column(name = "source_id", nullable = true)
     private Long srcdId;
 

@@ -18,9 +18,9 @@ public class AccountingPermission {
     @Column(name = "id", unique = true, nullable = false)
     private Long id;
 
-    @Index(name="owner")
-    @JoinTable(name = "Subscriber", joinColumns = { @JoinColumn(name = "id", nullable = false) })
-    @Column(name = "aowner", nullable = false)
+    @Index(name = "idxSubscriber")
+    @ManyToOne(cascade = CascadeType.REMOVE)
+    @JoinColumn(name="subscriber_id", nullable=false)
     private Subscriber owner;
 
     @Column(name = "perm_id", nullable = false)
