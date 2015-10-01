@@ -249,8 +249,7 @@ public class AccountingManager {
 
         final JSONObject jsonResponse = new JSONObject();
         fetchAggregate(caller, fetchReq, request, response, jsonResponse);
-
-        // TODO: implement fetch permissions query.
+        fetchPermissions(caller, fetchReq, request, response, jsonResponse);
 
         // Build JSON response.
         response.setAuxJSON(jsonResponse.toString());
@@ -277,6 +276,93 @@ public class AccountingManager {
                 timeFrom = System.currentTimeMillis() - 1000l*60l*60l*24l*62l;
             }
 
+            ArrayList<String> typesList = null;
+            ArrayList<String> resList = null;
+
+            // Only interested in particular types?
+            if (fetchReq.has(FETCH_REQUEST_ATYPE)){
+                final JSONArray atypes = fetchReq.getJSONArray(FETCH_REQUEST_ATYPE);
+                typesList = JSONHelper.jsonStringArrayToList(atypes);
+            }
+
+            // Only for particular resources?
+            if (fetchReq.has(FETCH_REQUEST_ARESOURCES)){
+                final JSONArray atypes = fetchReq.getJSONArray(FETCH_REQUEST_ARESOURCES);
+                resList = JSONHelper.jsonStringArrayToList(atypes);
+            }
+
+            final List<AccountingAggregated> resultList = fetchAggregate(caller, timeFrom, timeTo, typesList, resList);
+            final JSONArray resultArray = new JSONArray();
+            for(AccountingAggregated curAg : resultList){
+                resultArray.put(aggregatedRecordToJson(curAg));
+            }
+
+            // Response.
+            final JSONObject storeResp = jsonResponse.has(FETCH_RESP_BODY) ? jsonResponse.getJSONObject(FETCH_RESP_BODY) : new JSONObject();
+            storeResp.put(FETCH_RESP_RECORDS, resultArray);
+            jsonResponse.put(FETCH_RESP_BODY, storeResp);
+
+        } catch(Exception e){
+            log.error("Exception when fetching aggregate data", e);
+            response.setErrText("DB exception");
+            response.setErrCode(-10);
+        }
+    }
+
+    /**
+     * Sub call to fetch all permissions records.
+     * @param caller
+     * @param fetchReq
+     * @param request
+     * @param response
+     * @param jsonResponse
+     * @throws JSONException
+     */
+    protected void fetchPermissions(Subscriber caller, JSONObject fetchReq,
+                                  AccountingFetchRequest request, AccountingFetchResponse response,
+                                  JSONObject jsonResponse) throws JSONException
+    {
+        if (!fetchReq.has(FETCH_REQUEST_PERMISSIONS) || !fetchReq.getBoolean(FETCH_REQUEST_PERMISSIONS)){
+            return;
+        }
+
+        try {
+
+            final List<AccountingPermission> resultList = fetchPermissions(caller, null, null);
+            final JSONArray resultArray = new JSONArray();
+            for(AccountingPermission curPerm : resultList){
+                resultArray.put(permissionRecordToJson(curPerm));
+            }
+
+            // Response.
+            final JSONObject storeResp = jsonResponse.has(FETCH_RESP_BODY) ? jsonResponse.getJSONObject(FETCH_RESP_BODY) : new JSONObject();
+            storeResp.put(FETCH_REQUEST_PERMISSIONS, resultArray);
+            jsonResponse.put(FETCH_RESP_BODY, storeResp);
+
+        } catch(Exception e){
+            log.error("Exception when fetching aggregate data", e);
+            response.setErrText("DB exception");
+            response.setErrCode(-10);
+        }
+    }
+
+    /**
+     * Fetches aggregate records from database according to given criteria
+     * @param caller
+     * @param timeFrom
+     * @param timeTo
+     * @param typesList
+     * @param resList
+     * @return
+     */
+    protected List<AccountingAggregated> fetchAggregate(Subscriber caller, Long timeFrom, Long timeTo,
+                                   List<String> typesList, List<String> resList){
+        try {
+            // Default timespan for fetching aggregate data is last 2 months.
+            if (timeFrom == null){
+                timeFrom = System.currentTimeMillis() - 1000l*60l*60l*24l*62l;
+            }
+
             final String sqlFetch = "SELECT ag FROM AccountingAggregated WHERE ag.owner=:owner " +
                     " AND ag.aggregationStart >= :timeFrom ";
 
@@ -292,43 +378,63 @@ public class AccountingManager {
             }
 
             // Only interested in particular types?
-            if (fetchReq.has(FETCH_REQUEST_ATYPE)){
-                final JSONArray atypes = fetchReq.getJSONArray(FETCH_REQUEST_ATYPE);
-                final ArrayList<String> typesList = JSONHelper.jsonStringArrayToList(atypes);
-                if (!typesList.isEmpty()){
-                    criteria.add("ag.type IN :types");
-                    args.put("types", typesList);
-                }
+            if (!MiscUtils.collectionIsEmpty(typesList)){
+                criteria.add("ag.type IN :types");
+                args.put("types", typesList);
             }
 
             // Only for particular resources?
-            if (fetchReq.has(FETCH_REQUEST_ARESOURCES)){
-                final JSONArray atypes = fetchReq.getJSONArray(FETCH_REQUEST_ARESOURCES);
-                final ArrayList<String> resList = JSONHelper.jsonStringArrayToList(atypes);
-                if (!resList.isEmpty()){
-                    criteria.add("ag.resource IN :ares");
-                    args.put("ares", resList);
-                }
+            if (!MiscUtils.collectionIsEmpty(resList)){
+                criteria.add("ag.resource IN :ares");
+                args.put("ares", resList);
             }
 
             final String sql = dataService.buildQueryString(sqlFetch, criteria, " ORDER BY ag.aggregationStart, ag.type, ag.actionIdFirst ");
             final TypedQuery<AccountingAggregated> query = dataService.createQuery(sql, AccountingAggregated.class);
             dataService.setQueryParameters(query, args);
             final List<AccountingAggregated> resultList = query.getResultList();
-            final JSONArray resultArray = new JSONArray();
-            for(AccountingAggregated curAg : resultList){
-                resultArray.put(aggregatedRecordToJson(curAg));
-            }
-
-            // Response.
-            final JSONObject storeResp = jsonResponse.has(FETCH_RESP_BODY) ? jsonResponse.getJSONObject(FETCH_RESP_BODY) : new JSONObject();
-            storeResp.put(FETCH_RESP_RECORDS, resultArray);
-            jsonResponse.put(FETCH_RESP_BODY, storeResp);
+            return resultList;
 
         } catch(Exception e){
             log.error("Exception when fetching aggregate data", e);
-            response.setErrText("DB exception");
-            response.setErrCode(-10);
+            return null;
+        }
+    }
+
+    /**
+     * Fetches permissions records from database according to given criteria
+     * @param caller
+     * @param timeFrom
+     * @param idxs
+     * @return
+     */
+    protected List<AccountingPermission> fetchPermissions(Subscriber caller, Long timeFrom, List<PermissionIdx> idxs){
+        try {
+            final String sqlFetch = "SELECT aper FROM AccountingPermission WHERE aper.owner=:owner";
+            final ArrayList<String> criteria = new ArrayList<String>(4);
+            final Map<String, Object> args = new HashMap<String, Object>();
+            args.put("owner", caller);
+
+            // Limited to particular timeTo?
+            if (timeFrom != null){
+                criteria.add("aper.dateModified >= :timeFrom");
+                args.put("timeFrom", timeFrom);
+            }
+
+            // Only interested in particular types?
+            if (!MiscUtils.collectionIsEmpty(idxs)){
+                // Not implemented yet.
+            }
+
+            final String sql = dataService.buildQueryString(sqlFetch, criteria, " ORDER BY aper.licenseId, aper.permId ");
+            final TypedQuery<AccountingPermission> query = dataService.createQuery(sql, AccountingPermission.class);
+            dataService.setQueryParameters(query, args);
+            final List<AccountingPermission> resultList = query.getResultList();
+            return resultList;
+
+        } catch(Exception e){
+            log.error("Exception when fetching permissions data", e);
+            return null;
         }
     }
 
@@ -397,8 +503,8 @@ public class AccountingManager {
      * Example JSON:
      * {"astore":{
      *     "res":"abcdef123",
-     *      "permissions":1,      (optional, if set to 1 affected permissions are returned)
-     *      "aggregate":1,        (optional, if set to 1 affected aggregate records are returned)
+     *      "permissions":1,      (optional, if set to 1 AFFECTED permissions are returned)
+     *      "aggregate":1,        (optional, if set to 1 AFFECTED aggregate records are returned)
      *      "records":[
      *          {"type":"c.os", "aid":1443185424488, "ctr":1, "vol": "120", "ref":"ed4b607e48009a34d0b79fe70f521cde"},
      *          {"type":"c.os", "aid":1443185524488, "ctr":2, "vol": "10", "perm":{"licId":123, "permId":1}},
@@ -412,9 +518,12 @@ public class AccountingManager {
      *     "store":{
      *          "topaid":1443185824488,
      *          "topctr":5,
-     *          "permissions:"{
+     *          "permissions:"[
      *              {permission_1}, {permission_2}, ..., {permission_m}
-     *          }
+     *          ],
+     *          "aggregate":[
+     *              {ag_1,} {ag_2}, ..., {ag_n}
+     *          ]
      *     }
      * }
      * @param request
@@ -905,8 +1014,6 @@ public class AccountingManager {
         return changed ? 1 : 0;
     }
 
-
-
     /**
      * Performs action:ctr1 < id2:ctr2.
      * @param id1
@@ -953,7 +1060,7 @@ public class AccountingManager {
     /**
      * Returns true if given accounting log needs aref field, i.e., is identified also by this field.
      * Accounting logs for user-dependant counters needs aref to differentiate between different destination users.
-     * @param alog
+     * @param cperm
      * @return
      */
     public boolean isArefType(AccountingPermission cperm){
@@ -1130,6 +1237,57 @@ public class AccountingManager {
 
         public int getCtr() {
             return ctr;
+        }
+    }
+
+    /**
+     * Permission unique ID.
+     */
+    public static class PermissionIdx {
+        private long permId;
+        private long licId;
+
+        public PermissionIdx(long permId, long licId) {
+            this.permId = permId;
+            this.licId = licId;
+        }
+
+        public PermissionIdx() {
+        }
+
+        public long getPermId() {
+            return permId;
+        }
+
+        public void setPermId(long permId) {
+            this.permId = permId;
+        }
+
+        public long getLicId() {
+            return licId;
+        }
+
+        public void setLicId(long licId) {
+            this.licId = licId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            PermissionIdx that = (PermissionIdx) o;
+
+            if (permId != that.permId) return false;
+            return licId == that.licId;
+
+        }
+
+        @Override
+        public int hashCode() {
+            int result = (int) (permId ^ (permId >>> 32));
+            result = 31 * result + (int) (licId ^ (licId >>> 32));
+            return result;
         }
     }
 }
