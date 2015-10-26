@@ -584,7 +584,7 @@ public class AccountingManager {
                                            final Map<String, AccountingPermission> semiPermAggregation,
                                            final TopIdCounter topId)
     {
-        if (toInsert.isEmpty()){
+        if (toInsert == null || toInsert.isEmpty()){
             return;
         }
 
@@ -810,6 +810,10 @@ public class AccountingManager {
      * @return Number of changed & inserted records.
      */
     public int mergeAggregationWithDB(Map<String, AccountingAggregated> aggregations){
+        if (aggregations == null || aggregations.isEmpty() || aggregations.keySet().isEmpty()){
+            return 0;
+        }
+
         // Get all aggregation records from DB.
         final String sqlFetch = "SELECT ag FROM AccountingAggregated ag WHERE ag.aggregationKey IN :keys";
         final TypedQuery<AccountingAggregated> query = dataService.createQuery(sqlFetch, AccountingAggregated.class);
@@ -919,6 +923,10 @@ public class AccountingManager {
      * @return Number of changed & inserted records.
      */
     public int mergePermissionsWithDB(Map<String, AccountingPermission> permissions){
+        if (permissions == null || permissions.isEmpty() || permissions.keySet().isEmpty()){
+            return 0;
+        }
+
         // Get all aggregation records from DB.
         final String sqlFetch = "SELECT aperm FROM AccountingPermission aperm WHERE aperm.cacheKey IN :keys";
         final TypedQuery<AccountingPermission> query = dataService.createQuery(sqlFetch, AccountingPermission.class);

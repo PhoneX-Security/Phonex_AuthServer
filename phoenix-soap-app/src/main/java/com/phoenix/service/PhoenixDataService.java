@@ -560,6 +560,9 @@ public class PhoenixDataService {
      */
     public Collection<RosterSyncElement> loadRosterSyncData(Collection<Subscriber> users){
         final Map<String, RosterSyncElement> rosterDb = new HashMap<String, RosterSyncElement>();
+        if (MiscUtils.collectionIsEmpty(users)){
+            return rosterDb.values();
+        }
 
         // Init roster database for each user. If some has empty contact list it wont appear in the result set below.
         for (Subscriber user : users) {
