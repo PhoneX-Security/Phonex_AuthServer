@@ -625,6 +625,7 @@ public class AccountingManager {
                 curPerm.setLicenseId(alog.getLicenseId());
                 curPerm.setAggregationCount(1);
                 curPerm.setAmount(alog.getAmount());
+                curPerm.setName(alog.getType());
 
                 curPerm.setOwner(alog.getOwner());
                 curPerm.setAaref(alog.getAaref());
