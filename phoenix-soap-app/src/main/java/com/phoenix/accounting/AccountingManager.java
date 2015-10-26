@@ -612,7 +612,8 @@ public class AccountingManager {
         }
 
         int i = 0;
-        for (AccountingLog alog : toInsert.values()) {
+        final ArrayList<AccountingLog> toProcess = new ArrayList<AccountingLog>(toInsert.values());
+        for (AccountingLog alog : toProcess) {
             i += 1;
             dataService.persist(alog, i >= newRkeysSize);
 
