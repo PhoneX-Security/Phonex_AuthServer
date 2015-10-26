@@ -92,7 +92,7 @@ public class AccountingManager {
 
     private static final String STORE_PERMISSION = "perm";
     private static final String STORE_PERMISSION_LICENSE_ID = "licId";
-    private static final String STORE_PERMISSION_ID = "id";
+    private static final String STORE_PERMISSION_ID = "permId";
 
     /**
      * When responding to the store request, this field holds the newest accounting action ID processed.
