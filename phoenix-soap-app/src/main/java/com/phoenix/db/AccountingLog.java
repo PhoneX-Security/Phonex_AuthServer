@@ -12,7 +12,8 @@ import java.util.Date;
  *
  * @author ph4r05
  */
-@Entity(name = "accountingLog")
+@Entity
+@Table(name = "accountingLog")
 public class AccountingLog {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

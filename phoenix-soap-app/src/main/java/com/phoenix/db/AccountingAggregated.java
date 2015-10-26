@@ -12,7 +12,8 @@ import java.util.Date;
  *
  * @author ph4r05
  */
-@Entity(name = "accountingAggregated")
+@Entity
+@Table(name = "accountingAggregated")
 public class AccountingAggregated {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
