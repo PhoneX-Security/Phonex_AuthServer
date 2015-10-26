@@ -260,7 +260,7 @@ public class AccountingManager {
         fetchPermissions(caller, fetchReq, request, response, jsonResponse);
 
         // Build JSON response.
-        response.setAuxJSON(jsonResponse.toString());
+        response.setResponseBody(jsonResponse.toString());
     }
 
     /**
@@ -565,7 +565,7 @@ public class AccountingManager {
         store(caller, resource, records, request, response, storeReq, jsonResponse);
 
         // Build JSON response.
-        response.setAuxJSON(jsonResponse.toString());
+        response.setResponseBody(jsonResponse.toString());
     }
 
     /**
