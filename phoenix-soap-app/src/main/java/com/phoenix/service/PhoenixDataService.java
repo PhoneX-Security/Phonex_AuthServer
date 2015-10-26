@@ -867,7 +867,7 @@ public class PhoenixDataService {
 
             final String respBody = responseBld.toString();
             final JSONObject json = new JSONObject(respBody);
-            return json.getLong("versionCode");
+            return MiscUtils.getAsLong(json, "versionCode");
 
         } catch (IOException e) {
             log.error("Exception in get newest app version call", e);
