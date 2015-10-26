@@ -670,7 +670,7 @@ public class AccountingManager {
 
             if (curPerm != null){
                 final String permCacheKey = curPerm.getCacheKey();
-                if (semiPermAggregation.containsKey(permCacheKey)){
+                if (!semiPermAggregation.containsKey(permCacheKey)){
                     semiPermAggregation.put(permCacheKey, curPerm);
                 } else {
                     final AccountingPermission pRec = semiPermAggregation.get(permCacheKey);
