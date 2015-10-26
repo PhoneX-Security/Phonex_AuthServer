@@ -371,7 +371,7 @@ public class AccountingManager {
                 timeFrom = System.currentTimeMillis() - 1000l*60l*60l*24l*62l;
             }
 
-            final String sqlFetch = "SELECT ag FROM AccountingAggregated WHERE ag.owner=:owner " +
+            final String sqlFetch = "SELECT ag FROM AccountingAggregated ag WHERE ag.owner=:owner " +
                     " AND ag.aggregationStart >= :timeFrom ";
 
             final ArrayList<String> criteria = new ArrayList<String>(4);
@@ -418,7 +418,7 @@ public class AccountingManager {
      */
     protected List<AccountingPermission> fetchPermissions(Subscriber caller, Long timeFrom, List<PermissionIdx> idxs){
         try {
-            final String sqlFetch = "SELECT aper FROM AccountingPermission WHERE aper.owner=:owner";
+            final String sqlFetch = "SELECT aper FROM AccountingPermission aper WHERE aper.owner=:owner";
             final ArrayList<String> criteria = new ArrayList<String>(4);
             final Map<String, Object> args = new HashMap<String, Object>();
             args.put("owner", caller);
@@ -811,7 +811,7 @@ public class AccountingManager {
      */
     public int mergeAggregationWithDB(Map<String, AccountingAggregated> aggregations){
         // Get all aggregation records from DB.
-        final String sqlFetch = "SELECT ag FROM AccountingAggregated WHERE ag.aggregationKey IN :keys";
+        final String sqlFetch = "SELECT ag FROM AccountingAggregated ag WHERE ag.aggregationKey IN :keys";
         final TypedQuery<AccountingAggregated> query = dataService.createQuery(sqlFetch, AccountingAggregated.class);
         query.setParameter("keys", aggregations.keySet());
 
@@ -920,7 +920,7 @@ public class AccountingManager {
      */
     public int mergePermissionsWithDB(Map<String, AccountingPermission> permissions){
         // Get all aggregation records from DB.
-        final String sqlFetch = "SELECT aperm FROM AccountingPermission WHERE aperm.cacheKey IN :keys";
+        final String sqlFetch = "SELECT aperm FROM AccountingPermission aperm WHERE aperm.cacheKey IN :keys";
         final TypedQuery<AccountingPermission> query = dataService.createQuery(sqlFetch, AccountingPermission.class);
         query.setParameter("keys", permissions.keySet());
 
