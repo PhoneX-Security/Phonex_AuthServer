@@ -722,9 +722,9 @@ public class AccountingManager {
 
             // Sanitization.
             if (!curRec.has(STORE_ACTION_TYPE)
-                    || curRec.has(STORE_ACTION_ID)
-                    || curRec.has(STORE_ACTION_COUNTER)
-                    || curRec.has(STORE_ACTION_VOLUME)) {
+                    || !curRec.has(STORE_ACTION_ID)
+                    || !curRec.has(STORE_ACTION_COUNTER)
+                    || !curRec.has(STORE_ACTION_VOLUME)) {
                 log.warn("Improperly formatted accounting action, missing some key attributes");
                 continue;
             }
