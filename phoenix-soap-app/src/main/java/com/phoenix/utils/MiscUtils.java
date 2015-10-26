@@ -3,6 +3,8 @@ package com.phoenix.utils;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import org.bouncycastle.util.encoders.Base64;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Created by dusanklinec on 28.04.15.
@@ -92,4 +94,113 @@ public class MiscUtils {
     public static String getHA1(String username, String domain, String password) throws NoSuchAlgorithmException{
         return generateMD5Hash((username + ":" + domain + ":" + password).getBytes());
     }
+
+    /**
+     * Tries to extract json parameter as an integer.
+     * @param json
+     * @param key
+     * @return
+     * @throws JSONException
+     */
+    public static Boolean tryGetAsBoolean(JSONObject json, String key) throws JSONException {
+        final Object obj = json.get(key);
+        if (obj == null){
+            return null;
+        }
+
+        if(!obj.equals(Boolean.FALSE) && (!(obj instanceof String) || !((String)obj).equalsIgnoreCase("false"))) {
+            if(!obj.equals(Boolean.TRUE) && (!(obj instanceof String) || !((String)obj).equalsIgnoreCase("true"))) {
+                final Integer asInt = tryGetAsInteger(json, key);
+                if (asInt == null){
+                    return null;
+                }
+
+                return asInt!=0;
+
+            } else {
+                return true;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Tries to extract json parameter as an integer.
+     * @param json
+     * @param key
+     * @return
+     * @throws JSONException
+     */
+    public static Integer tryGetAsInteger(JSONObject json, String key) throws JSONException {
+        final Object obj = json.get(key);
+
+        if (obj instanceof String){
+            try {
+                return Integer.parseInt((String) obj);
+            } catch(Exception e){
+                return null;
+            }
+        }
+
+        try {
+            return obj instanceof Number ? ((Number) obj).intValue() : (int) json.getDouble(key);
+        } catch(Exception e){
+            return null;
+        }
+    }
+
+    /**
+     * Tries to extract json parameter as a long.
+     * @param json
+     * @param key
+     * @return
+     * @throws JSONException
+     */
+    public static Long tryGetAsLong(JSONObject json, String key) throws JSONException {
+        final Object obj = json.get(key);
+
+        if (obj instanceof String){
+            try {
+                return Long.parseLong((String) obj);
+            } catch(Exception e){
+                return null;
+            }
+        }
+
+        try {
+            return obj instanceof Number ? ((Number) obj).longValue() : (long) json.getDouble(key);
+        } catch(Exception e){
+            return null;
+        }
+    }
+
+    public static long getAsLong(JSONObject json, String key) throws JSONException {
+        final Long toret = tryGetAsLong(json, key);
+        if (toret == null) {
+            throw new JSONException("JSONObject[" + key + "] not found.");
+        }
+
+        return toret;
+    }
+
+    public static int getAsInteger(JSONObject json, String key) throws JSONException {
+        final Integer toret = tryGetAsInteger(json, key);
+        if (toret == null) {
+            throw new JSONException("JSONObject[" + key + "] not found.");
+        }
+
+        return toret;
+    }
+
+    public static boolean getAsBoolean(JSONObject json, String key) throws JSONException {
+        final Boolean toret = tryGetAsBoolean(json, key);
+        if (toret == null) {
+            throw new JSONException("JSONObject[" + key + "] not found.");
+        }
+
+        return toret;
+    }
+
+
 }

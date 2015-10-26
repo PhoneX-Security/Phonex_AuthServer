@@ -3,7 +3,6 @@ package com.phoenix.accounting;
 import com.phoenix.db.AccountingAggregated;
 import com.phoenix.db.AccountingLog;
 import com.phoenix.db.AccountingPermission;
-import com.phoenix.db.opensips.Acc;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.AMQPListener;
 import com.phoenix.service.PhoenixDataService;
@@ -26,8 +25,6 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.persistence.TypedQuery;
-import java.io.UnsupportedEncodingException;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 /**
@@ -211,8 +208,19 @@ public class AccountingManager {
      *      }, {rec_2},{rec_3},...,{rec_n}],
      *
      *      permissions:[{
-     *
-     *
+     *          "id": 123,              (internal DB ID)
+     *          "permId": 1,            (permission ID)
+     *          "licId": 133            (license ID)
+     *          "name": "outgoing_calls_seconds"
+     *          "akey": "ajkasb901ns02==" (aggregation key, can be ignored)
+     *          "dcreated": 1443472673397,
+     *          "dmodif": 1443472673397,
+     *          "vol": 320,             (current value of the permission counter)
+     *          "aidFst": 1443472670397,
+     *          "ctrFst": 1,
+     *          "aidLst": 1443472672397,
+     *          "ctrLst": 13,
+     *          "acount": 5             (number of log records aggregated in this permission counter)
      *      }, {permission_2}, {permission_3}, ..., {permission_m}]
      * }}
      *
@@ -268,8 +276,8 @@ public class AccountingManager {
                                   AccountingFetchRequest request, AccountingFetchResponse response,
                                   JSONObject jsonResponse) throws JSONException
     {
-        Long timeFrom = fetchReq.has(FETCH_REQUEST_TIME_FROM) ? fetchReq.getLong(FETCH_REQUEST_TIME_FROM) : null;
-        Long timeTo = fetchReq.has(FETCH_REQUEST_TIME_TO) ? fetchReq.getLong(FETCH_REQUEST_TIME_TO) : null;
+        Long timeFrom = fetchReq.has(FETCH_REQUEST_TIME_FROM) ? MiscUtils.getAsLong(fetchReq, FETCH_REQUEST_TIME_FROM) : null;
+        Long timeTo = fetchReq.has(FETCH_REQUEST_TIME_TO) ? MiscUtils.getAsLong(fetchReq, FETCH_REQUEST_TIME_TO) : null;
         try {
             // Default timespan for fetching aggregate data is last 2 months.
             if (timeFrom == null){
@@ -322,7 +330,7 @@ public class AccountingManager {
                                   AccountingFetchRequest request, AccountingFetchResponse response,
                                   JSONObject jsonResponse) throws JSONException
     {
-        if (!fetchReq.has(FETCH_REQUEST_PERMISSIONS) || !fetchReq.getBoolean(FETCH_REQUEST_PERMISSIONS)){
+        if (!fetchReq.has(FETCH_REQUEST_PERMISSIONS) || !MiscUtils.getAsBoolean(fetchReq, FETCH_REQUEST_PERMISSIONS)){
             return;
         }
 
@@ -695,8 +703,8 @@ public class AccountingManager {
         final int recSize = records.length();
         final Date dateCreated = new Date();
 
-        final boolean returnPermissions = storeReq.has(FETCH_REQUEST_PERMISSIONS) && storeReq.getBoolean(FETCH_REQUEST_PERMISSIONS);
-        final boolean returnAggregations = storeReq.has(FETCH_REQUEST_AGGREGATIONS) && storeReq.getBoolean(FETCH_REQUEST_AGGREGATIONS);
+        final Boolean returnPermissions = storeReq.has(FETCH_REQUEST_PERMISSIONS) ? MiscUtils.tryGetAsBoolean(storeReq, FETCH_REQUEST_PERMISSIONS) : null;
+        final Boolean returnAggregations = storeReq.has(FETCH_REQUEST_AGGREGATIONS) ? MiscUtils.tryGetAsBoolean(storeReq, FETCH_REQUEST_AGGREGATIONS) : null;
 
         // Store newest accounting action id + counter.
         final TopIdCounter topId = new TopIdCounter();
@@ -726,18 +734,18 @@ public class AccountingManager {
             alog.setOwner(caller);
             alog.setResource(resource);
             alog.setType(curRec.getString(STORE_ACTION_TYPE));
-            alog.setActionId(curRec.getLong(STORE_ACTION_ID));
-            alog.setActionCounter(curRec.getInt(STORE_ACTION_COUNTER));
-            alog.setAmount(curRec.getLong(STORE_ACTION_VOLUME));
+            alog.setActionId(MiscUtils.getAsLong(curRec, STORE_ACTION_ID));
+            alog.setActionCounter(MiscUtils.getAsInteger(curRec, STORE_ACTION_COUNTER));
+            alog.setAmount(MiscUtils.getAsLong(curRec, STORE_ACTION_VOLUME));
             alog.setAaref(curRec.has(STORE_ACTION_REFERENCE) ? curRec.getString(STORE_ACTION_REFERENCE) : null);
-            alog.setAggregated(curRec.has(STORE_ACTION_AGGREGATED) ? curRec.getInt(STORE_ACTION_AGGREGATED) : 0);
+            alog.setAggregated(curRec.has(STORE_ACTION_AGGREGATED) ? MiscUtils.getAsInteger(curRec, STORE_ACTION_AGGREGATED) : 0);
             alog.setRkey(getAlogRkey(alog));
 
             // Permission counter association?
             if (curRec.has(STORE_PERMISSION)){
                 final JSONObject permObj = curRec.getJSONObject(STORE_PERMISSION);
-                final long permId = permObj.getLong(STORE_PERMISSION_ID);
-                final long licId = permObj.getLong(STORE_PERMISSION_LICENSE_ID);
+                final long permId = MiscUtils.getAsLong(permObj, STORE_PERMISSION_ID);
+                final long licId = MiscUtils.getAsLong(permObj, STORE_PERMISSION_LICENSE_ID);
                 alog.setPermId(permId);
                 alog.setLicenseId(licId);
             }
@@ -770,7 +778,7 @@ public class AccountingManager {
         final JSONObject storeResp = jsonResponse.has(REQ_BODY_STORE) ? jsonResponse.getJSONObject(REQ_BODY_STORE) : new JSONObject();
 
         // Returning affected permissions.
-        if (returnPermissions){
+        if (returnPermissions != null && returnPermissions){
             final JSONArray permJson = new JSONArray();
             for (AccountingPermission permission : semiPermAggregation.values()) {
                 permJson.put(permissionRecordToJson(permission));
@@ -780,7 +788,7 @@ public class AccountingManager {
         }
 
         // Returned affected aggregations
-        if (returnAggregations){
+        if (returnAggregations != null && returnAggregations){
             final JSONArray agJson = new JSONArray();
             for (AccountingAggregated ag : semiAggregation.values()) {
                 agJson.put(aggregatedRecordToJson(ag));
@@ -1208,86 +1216,4 @@ public class AccountingManager {
         return sb.toString();
     }
 
-    /**
-     * Simple class for counting top ids of accounting logs.
-     */
-    public static class TopIdCounter {
-        private long id = 0;
-        private int ctr = 0;
-
-        public TopIdCounter() {
-
-        }
-
-        public void insert(long aId, int aCtr){
-            if (id <= aId){
-                if (id == aId && ctr < aCtr){
-                    ctr = aCtr;
-                } else if (id < aId){
-                    ctr = aCtr;
-                }
-
-                id = aId;
-            }
-        }
-
-        public long getId() {
-            return id;
-        }
-
-        public int getCtr() {
-            return ctr;
-        }
-    }
-
-    /**
-     * Permission unique ID.
-     */
-    public static class PermissionIdx {
-        private long permId;
-        private long licId;
-
-        public PermissionIdx(long permId, long licId) {
-            this.permId = permId;
-            this.licId = licId;
-        }
-
-        public PermissionIdx() {
-        }
-
-        public long getPermId() {
-            return permId;
-        }
-
-        public void setPermId(long permId) {
-            this.permId = permId;
-        }
-
-        public long getLicId() {
-            return licId;
-        }
-
-        public void setLicId(long licId) {
-            this.licId = licId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-
-            PermissionIdx that = (PermissionIdx) o;
-
-            if (permId != that.permId) return false;
-            return licId == that.licId;
-
-        }
-
-        @Override
-        public int hashCode() {
-            int result = (int) (permId ^ (permId >>> 32));
-            result = 31 * result + (int) (licId ^ (licId >>> 32));
-            return result;
-        }
-    }
 }
