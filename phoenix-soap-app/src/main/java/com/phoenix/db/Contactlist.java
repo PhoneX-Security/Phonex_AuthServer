@@ -66,6 +66,9 @@ public class Contactlist implements Serializable {
     @Column(nullable = true, columnDefinition = "VARCHAR(255)")
     private String displayName;
 
+    @Column(name="pref_mute_until", nullable = false)
+    private long prefMuteUntil = 0;
+
     @Lob
     @Column(name = "aux_data", nullable = true, columnDefinition = "TEXT")
     private String auxData;
@@ -172,6 +175,14 @@ public class Contactlist implements Serializable {
 
     public void setPrimaryGroup(ContactGroup primaryGroup) {
         this.primaryGroup = primaryGroup;
+    }
+
+    public long getPrefMuteUntil() {
+        return prefMuteUntil;
+    }
+
+    public void setPrefMuteUntil(long prefMuteUntil) {
+        this.prefMuteUntil = prefMuteUntil;
     }
 
     @Override

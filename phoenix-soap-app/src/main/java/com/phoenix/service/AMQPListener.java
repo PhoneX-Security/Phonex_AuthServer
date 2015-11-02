@@ -59,6 +59,9 @@ public class AMQPListener extends BackgroundThreadService {
     @Autowired
     private JiveGlobals jiveGlobals;
 
+    @Autowired
+    private AccountManager accountMgr;
+
     /**
      * Initializes internal running thread.
      */
@@ -234,6 +237,13 @@ public class AMQPListener extends BackgroundThreadService {
                 dataService.deleteSensitiveDataForUser(userName);
                 pushLogout(userName);
 
+            } else if ("offlineMessage".equalsIgnoreCase(job)){
+                final JSONObject data = obj.getJSONObject("data");
+                final String userName = data.getString("to");
+                log.info("Offline message, user: " + userName);
+
+                accountMgr.onNewOfflineMessage(data);
+
             } else {
                 log.info("Unrecognized job: " + job);
             }
@@ -241,6 +251,24 @@ public class AMQPListener extends BackgroundThreadService {
         } catch (Exception ex) {
             log.warn("Exception in processing a new message", ex);
         }
+    }
+
+    /**
+     * Sends push APN request to the XMPP server.
+     * Will send request for a push message for this event to the XMPP queue for processing.
+     *
+     * @param from
+     * @param to
+     * @param timestamp
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushNewOfflineMessage(String from, String to, long timestamp) throws JSONException, IOException {
+        JSONObject jsonPush = this.buildNewOfflineMessage(from, to, timestamp);
+
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
     }
 
     /**
@@ -445,6 +473,43 @@ public class AMQPListener extends BackgroundThreadService {
         msg.addPart(part);
 
         return msg.getJson();
+    }
+
+    /**
+     * Generates pushRequest message for XMPP server.
+     *
+     * {"action"    :"pushReq",
+     *  "user"      :"test1@phone-x.net",
+     *  "pushreq"   :[
+     *    {"push":"newEvent",       "target": "test-internal3@phone-x.net", "tstamp": 1446487435000},
+     *    {"push":"newAttention",   "target": "test-internal3@phone-x.net"},
+     *    {"push":"newMessage",     "target": "test-internal3@phone-x.net"},
+     *    {"push":"newMissedCall",  "target": "test-internal3@phone-x.net"},
+     *    {"push":"newCall",        "target": "test-internal3@phone-x.net", "key":"af45bed", "expire":180000,}
+     *  ]
+     *  }
+     *
+     * @param from
+     * @param to
+     * @param timestamp
+     * @return
+     * @throws JSONException
+     */
+    public JSONObject buildNewOfflineMessage(String from, String to, long timestamp) throws JSONException {
+        final long tstamp = System.currentTimeMillis();
+        final JSONObject jObj = new JSONObject();
+        jObj.put("action", "pushReq");
+        jObj.put("user", from);
+
+        final JSONArray pushreq = new JSONArray();
+        final JSONObject pushMsg = new JSONObject();
+        pushMsg.put("push", "newOfflineMsg");
+        pushMsg.put("target", to);
+        pushMsg.put("tstamp", timestamp);
+        pushreq.put(pushMsg);
+
+        jObj.put("pushreq", pushreq);
+        return jObj;
     }
 
     /**

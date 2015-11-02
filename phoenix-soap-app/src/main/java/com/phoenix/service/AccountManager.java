@@ -1,11 +1,10 @@
 package com.phoenix.service;
 
+import com.phoenix.db.Contactlist;
 import com.phoenix.db.TrialEventLog;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Request;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Response;
-import com.phoenix.soap.beans.AccountingFetchRequest;
-import com.phoenix.soap.beans.AccountingFetchResponse;
 import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.PasswordGenerator;
 import com.phoenix.utils.StringUtils;
@@ -17,9 +16,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.io.IOException;
 import java.util.Calendar;
 import java.util.List;
 
@@ -37,8 +38,12 @@ public class AccountManager {
     public static final String JSON_SETTINGS_LOGIN = "loggedIn";
     public static final String JSON_SETTINGS_MUTE_PUSH = "mutePush";
 
-    private static final String AUTH_TURN_PASSWD_KEY = "turnPwd";
+    public static final String AUTH_TURN_PASSWD_KEY = "turnPwd";
     public static final String JSON_SETTINGS_LOGOUT_DATE = "logoutDate";
+
+    public static final String AMQP_OFFLINE_FROM = "from";
+    public static final String AMQP_OFFLINE_TO = "to";
+    public static final String AMQP_OFFLINE_TIMESTAMP_SECONDS = "timestampSeconds";
 
     @Autowired
     private PhoenixDataService dataService;
@@ -259,6 +264,78 @@ public class AccountManager {
 
         } catch(Throwable th){
             log.error("Exception in authcheck, turn password set.", th);
+        }
+    }
+
+    /**
+     * Returns true when the local user is muted for notifications.
+     *
+     * @param localUser
+     */
+    public boolean isLocalUserMutedForNotifications(Subscriber localUser){
+        if (localUser == null){
+            return true;
+        }
+
+        final long muteUntil = localUser.getPrefMuteUntil();
+        return System.currentTimeMillis() < muteUntil;
+    }
+
+    /**
+     * Called when a new AMQP message arrives indicating a new offline message was stored.
+     *
+     * MessageFormat:
+     * {"job":"offlineMessage", "data":{"from":"test@phone-x.net","to":"test-internal3@phone-x.net","timestampSeconds":1446480038}}
+     *
+     * We get data object here.
+     *
+     * @param data
+     */
+    @Transactional(readOnly = true)
+    public void onNewOfflineMessage(final JSONObject data) throws JSONException, IOException {
+        if (data == null
+                || !data.has(AMQP_OFFLINE_FROM)
+                || !data.has(AMQP_OFFLINE_TO)
+                || !data.has(AMQP_OFFLINE_TIMESTAMP_SECONDS))
+        {
+            log.error("Offline message AMQP message is malformed: " + data);
+            return;
+        }
+
+        final String from = data.getString(AMQP_OFFLINE_FROM);
+        final String to = data.getString(AMQP_OFFLINE_TO);
+        final long timestamp = MiscUtils.getAsLong(data, AMQP_OFFLINE_TIMESTAMP_SECONDS) * 1000l;
+
+        try {
+            // Load local user.
+            final Subscriber toSubs = dataService.getLocalUser(to);
+            if (toSubs == null){
+                log.error("Unrecognized to user: " + to);
+                return;
+            }
+
+            // Check if $to has not blocked messages.
+            if (isLocalUserMutedForNotifications(toSubs)){
+                log.info(String.format("User %s blocked from updates, new offline from %s", to, from));
+            }
+
+            // Check if $to has $from in contactlist.
+            final Contactlist toContactFrom = dataService.getContactlistForSubscriber(toSubs, from);
+            if (toContactFrom == null){
+                log.info(String.format("User %s not found in %s's contact list", from, to));
+                return;
+            }
+
+            // Check if $from is not muted for notifications.
+            if (timestamp < toContactFrom.getPrefMuteUntil()){
+                log.info(String.format("User %s is muted %s's contact list until %d", from, to, toContactFrom.getPrefMuteUntil()));
+            }
+
+            // Send AMQP message to XMPP server, with pushReq.
+            amqpListener.pushNewOfflineMessage(from, to, timestamp);
+
+        }catch (Exception e){
+            log.error("Exception when processing new offline message event", e);
         }
     }
 }
