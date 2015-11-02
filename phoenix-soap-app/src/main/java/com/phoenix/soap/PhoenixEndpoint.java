@@ -67,8 +67,6 @@ public class PhoenixEndpoint {
     private static final int CLIST_CHANGE_ERROR_INVALID_NAME = -5;
     private static final int CLIST_CHANGE_ERROR_NO_USER = -6;
 
-    private static final String AUTH_TURN_PASSWD_KEY = "turnPwd";
-
     @Autowired
     private SessionFactory sessionFactory;
     
@@ -107,6 +105,9 @@ public class PhoenixEndpoint {
 
     @Autowired
     private AccountingManager accMgr;
+
+    @Autowired
+    private AccountManager accountMgr;
 
     @Autowired
     private JiveGlobals jiveGlobals;
@@ -1908,100 +1909,24 @@ public class PhoenixEndpoint {
             
             // Force password change?
             Boolean passwdChange = localUser.getForcePasswordChange();
-            if (passwdChange!=null && passwdChange==true){
+            if (passwdChange!=null && passwdChange){
                 resp.setForcePasswordChange(TrueFalse.TRUE);
             }
 
-            // Type of the testing account. Alpha / beta.
-            if (!StringUtils.isEmpty(localUser.getTestingSettings())){
-                try {
-                    final String testingSettingsStr = localUser.getTestingSettings();
-                    final JSONObject testingSettings = new JSONObject(testingSettingsStr);
-
-                    jsonAuxObj.put("testingSettings", testingSettings);
-                    resp.setAuxJSON(jsonAuxObj.toString());
-                } catch(Exception e){
-                    log.error("Testing settings could not be parsed", e);
-                }
-            }
-
-            // AuxData
-            if (!StringUtils.isEmpty(localUser.getAuxData())){
-                try {
-                    final String auxDataStr = localUser.getAuxData();
-                    final JSONObject auxData = new JSONObject(auxDataStr);
-
-                    jsonAuxObj.put("auxData", auxData);
-                    resp.setAuxJSON(jsonAuxObj.toString());
-                } catch(Exception e){
-                    log.error("Aux data could not be parsed", e);
-                }
-            }
-
-            // Expired policy
-            if (!StringUtils.isEmpty(localUser.getUsagePolicyExpired())){
-                try {
-                    final String policyStr = localUser.getUsagePolicyExpired();
-                    final JSONObject policy = new JSONObject(policyStr);
-
-                    jsonAuxObj.put("expiredPolicy", policy);
-                    resp.setAuxJSON(jsonAuxObj.toString());
-                } catch(Exception e){
-                    log.error("Aux data could not be parsed", e);
-                }
-            }
-
-            // Current policy
-            if (!StringUtils.isEmpty(localUser.getUsagePolicyCurrent())){
-                try {
-                    final String policyStr = localUser.getUsagePolicyCurrent();
-                    final JSONObject policy = new JSONObject(policyStr);
-
-                    jsonAuxObj.put("currentPolicy", policy);
-                    resp.setAuxJSON(jsonAuxObj.toString());
-                } catch(Exception e){
-                    log.error("Aux data could not be parsed", e);
-                }
-            }
-
-            // AUXJson - trial event logs.
-            if (localUser.getExpires() != null && localUser.getExpires().before(Calendar.getInstance())){
-                final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
-                final JSONObject jsonObj = dataService.eventLogToJson(logs, localUser);
-                jsonAuxObj.put("evtlog", jsonObj);
-                resp.setAuxJSON(jsonAuxObj.toString());
-            }
+            // Fill in aux data.
+            accountMgr.fillAuxJsonFromSubscriber(localUser, jsonAuxObj);
+            resp.setAuxJSON(jsonAuxObj.toString());
 
             // Support contacts.
-            dataService.setSupportContacts(localUser, jsonAuxObj);
+            accountMgr.setSupportContacts(localUser, jsonAuxObj);
             resp.setAuxJSON(jsonAuxObj.toString());
 
             // Turn password.
-            try {
-                final String turnPasswd = localUser.getTurnPasswd();
-                if (turnPasswd == null || turnPasswd.length() == 0) {
-                    final String turnPasswdGen = PasswordGenerator.genPassword(24, true);
-                    localUser.setTurnPasswd(turnPasswdGen);
-                    localUser.setTurnPasswdHa1b(MiscUtils.getHA1(PhoenixDataService.getSIP(localUser), localUser.getDomain(), turnPasswdGen));
-                }
-
-                // Fix turn ha1b password if missing.
-                final String turnHa1b = localUser.getTurnPasswdHa1b();
-                if (turnHa1b == null || turnHa1b.length() == 0){
-                    localUser.setTurnPasswdHa1b(MiscUtils.getHA1(PhoenixDataService.getSIP(localUser), localUser.getDomain(), turnPasswd));
-                }
-
-                // Base field - action/method of this message.
-                jsonAuxObj.put(AUTH_TURN_PASSWD_KEY, localUser.getTurnPasswd());
-                resp.setAuxJSON(jsonAuxObj.toString());
-
-                // TODO: send AMQP message to the TURN server so it updates auth credentials.
-            } catch(Throwable th){
-                log.error("Exception in authcheck, turn password set.", th);
-            }
+            accountMgr.turnPasswordSetOrFix(localUser, jsonAuxObj);
+            resp.setAuxJSON(jsonAuxObj.toString());
 
             // Store app version provided by the user so we have statistics of update and for debugging.
-            String appVersion = StringUtils.takeMaxN(request.getAppVersion(), 1024);
+            String appVersion = StringUtils.takeMaxN(request.getAppVersion(), 2048);
             if (appVersion != null){
                 localUser.setAppVersion(appVersion);
             }
@@ -2199,64 +2124,17 @@ public class PhoenixEndpoint {
                 resp.setForcePasswordChange(TrueFalse.TRUE);
             }
 
-            // Type of the testing account. Alpha / beta.
-            if (!StringUtils.isEmpty(localUser.getTestingSettings())){
-                try {
-                    final String testingSettingsStr = localUser.getTestingSettings();
-                    final JSONObject testingSettings = new JSONObject(testingSettingsStr);
+            // Fill in aux data.
+            accountMgr.fillAuxJsonFromSubscriber(localUser, jsonAuxObj);
+            resp.setAuxJSON(jsonAuxObj.toString());
 
-                    jsonAuxObj.put("testingSettings", testingSettings);
-                    resp.setAuxJSON(jsonAuxObj.toString());
-                } catch(Exception e){
-                    log.error("Testing settings could not be parsed", e);
-                }
-            }
+            // Support contacts.
+            accountMgr.setSupportContacts(localUser, jsonAuxObj);
+            resp.setAuxJSON(jsonAuxObj.toString());
 
-            // AuxData
-            if (!StringUtils.isEmpty(localUser.getAuxData())){
-                try {
-                    final String auxDataStr = localUser.getAuxData();
-                    final JSONObject auxData = new JSONObject(auxDataStr);
-
-                    jsonAuxObj.put("auxData", auxData);
-                    resp.setAuxJSON(jsonAuxObj.toString());
-                } catch(Exception e){
-                    log.error("Aux data could not be parsed", e);
-                }
-            }
-
-            // Expired policy
-            if (!StringUtils.isEmpty(localUser.getUsagePolicyExpired())){
-                try {
-                    final String policyStr = localUser.getUsagePolicyExpired();
-                    final JSONObject policy = new JSONObject(policyStr);
-
-                    jsonAuxObj.put("expiredPolicy", policy);
-                    resp.setAuxJSON(jsonAuxObj.toString());
-                } catch(Exception e){
-                    log.error("Aux data could not be parsed", e);
-                }
-            }
-
-            // Current policy
-            if (!StringUtils.isEmpty(localUser.getUsagePolicyCurrent())){
-                try {
-                    final String policyStr = localUser.getUsagePolicyCurrent();
-                    final JSONObject policy = new JSONObject(policyStr);
-
-                    jsonAuxObj.put("currentPolicy", policy);
-                    resp.setAuxJSON(jsonAuxObj.toString());
-                } catch(Exception e){
-                    log.error("Aux data could not be parsed", e);
-                }
-            }
-
-            // AUXJson - trial event logs.
-            if (localUser.getExpires() != null && localUser.getExpires().before(Calendar.getInstance())){
-                final List<TrialEventLog> logs = dataService.getTrialEventLogs(localUser, null);
-                final JSONObject jsonObj = dataService.eventLogToJson(logs, localUser);
-                jsonAuxObj.put("evtlog", jsonObj);
-            }
+            // Turn password.
+            accountMgr.turnPasswordSetOrFix(localUser, jsonAuxObj);
+            resp.setAuxJSON(jsonAuxObj.toString());
 
             // Update app_version?
             if (!StringUtils.isEmpty(auxJsonReq)){
@@ -2276,10 +2154,6 @@ public class PhoenixEndpoint {
             localUser.setDateLastActivity(Calendar.getInstance());
             localUser.setLastActionIp(auth.getIp(this.request));
             em.persist(localUser);
-
-            // Support contacts.
-            dataService.setSupportContacts(localUser, jsonAuxObj);
-            resp.setAuxJSON(jsonAuxObj.toString());
 
         } catch(Exception e){
             log.warn("Exception in password change procedure", e);
@@ -4086,6 +3960,39 @@ public class PhoenixEndpoint {
             accMgr.processFetchRequest(caller, request, response);
 
             logAction(callerSip, "accountingFetch", "");
+        } catch(Throwable e){
+            log.error("Exception in saving auth state", e);
+            response.setErrCode(-2);
+        }
+
+        return response;
+    }
+
+    /**
+     * Request to fetch accounting logging information.
+     * Client uses this call to restore / resync his local database.
+     *
+     * @param request
+     * @param context
+     * @return
+     * @throws CertificateException
+     */
+    @PayloadRoot(localPart = "accountSettingsUpdate", namespace = NAMESPACE_URI)
+    @ResponsePayload
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public AccountSettingsUpdateV1Response accountSettingsUpdate(@RequestPayload AccountSettingsUpdateV1Request request, MessageContext context) throws CertificateException {
+        final Subscriber caller = this.authUserFromCert(context, this.request);
+        final String callerSip = PhoenixDataService.getSIP(caller);
+        log.info("Remote user connected (accountSettingsUpdate): " + callerSip);
+
+        // Construct response
+        final AccountSettingsUpdateV1Response response = new AccountSettingsUpdateV1Response();
+        response.setErrCode(0);
+
+        try {
+            accountMgr.processSettingsUpdateRequest(caller, request, response);
+
+            logAction(callerSip, "accountSettingsUpdate", "");
         } catch(Throwable e){
             log.error("Exception in saving auth state", e);
             response.setErrCode(-2);

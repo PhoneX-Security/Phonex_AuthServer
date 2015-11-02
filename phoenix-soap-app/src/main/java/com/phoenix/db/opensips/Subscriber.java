@@ -119,6 +119,16 @@ public class Subscriber implements java.io.Serializable {
     @Column(name = "last_authcheck_ip", nullable = true, length = 64)
     private String lastAuthCheckIp;
 
+    @Column(name = "date_current_logout", nullable = true, columnDefinition = "DATETIME")
+    private java.util.Calendar dateCurrentLogout;
+
+    @Column(name = "pref_mute_until", nullable = false)
+    private long prefMuteUntil = 0;
+
+    @Lob
+    @Column(name = "account_settings", nullable = true, columnDefinition = "TEXT")
+    private String accountSettings;
+
     @Lob
     @Column(name = "testing_settings", nullable = true, columnDefinition = "TEXT")
     private String testingSettings;
@@ -424,5 +434,29 @@ public class Subscriber implements java.io.Serializable {
 
     public void setUsagePolicyCurrent(String usagePolicyCurrent) {
         this.usagePolicyCurrent = usagePolicyCurrent;
+    }
+
+    public Calendar getDateCurrentLogout() {
+        return dateCurrentLogout;
+    }
+
+    public void setDateCurrentLogout(Calendar dateCurrentLogout) {
+        this.dateCurrentLogout = dateCurrentLogout;
+    }
+
+    public long getPrefMuteUntil() {
+        return prefMuteUntil;
+    }
+
+    public void setPrefMuteUntil(long prefMuteUntil) {
+        this.prefMuteUntil = prefMuteUntil;
+    }
+
+    public String getAccountSettings() {
+        return accountSettings;
+    }
+
+    public void setAccountSettings(String accountSettings) {
+        this.accountSettings = accountSettings;
     }
 }

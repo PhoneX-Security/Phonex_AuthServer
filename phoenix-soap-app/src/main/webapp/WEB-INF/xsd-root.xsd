@@ -88,6 +88,33 @@
         </xs:complexType>
     </xs:element>
 
+    <!-- Account settings -->
+    <xs:element name="accountSettingsUpdateV1Request">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="targetUser" type="hr:userSIP"/>
+                <xs:element name="requestBody" type="xs:string"/>
+
+                <xs:element name="version" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="accountSettingsUpdateV1Response">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errCode" type="xs:int"/>
+                <xs:element name="errText" type="xs:string" default=""/>
+                <xs:element name="responseBody" type="xs:string"/>
+
+                <xs:element name="auxVersion" type="xs:int" minOccurs ="0" maxOccurs="1"/>
+                <xs:element name="auxJSON" type="xs:string" minOccurs ="0" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
     <!-- General misc type -->
     <xs:element name="generalRequest">
         <xs:complexType>

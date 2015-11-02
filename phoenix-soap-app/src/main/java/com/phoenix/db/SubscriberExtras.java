@@ -84,6 +84,13 @@ public class SubscriberExtras {
     @Column(name = "last_authcheck_ip", nullable = true, length = 64)
     private String lastAuthCheckIp;
 
+    @Column(name = "date_current_logout", nullable = true, columnDefinition = "DATETIME")
+    private java.util.Calendar dateCurrentLogout;
+
+    @Lob
+    @Column(name = "account_settings", nullable = true, columnDefinition = "TEXT")
+    private String accountSettings;
+
     @Lob
     @Column(name = "testing_settings", nullable = true, columnDefinition = "TEXT")
     private String testingSettings;
@@ -289,5 +296,21 @@ public class SubscriberExtras {
 
     public void setUsagePolicyCurrent(String usagePolicyCurrent) {
         this.usagePolicyCurrent = usagePolicyCurrent;
+    }
+
+    public Calendar getDateCurrentLogout() {
+        return dateCurrentLogout;
+    }
+
+    public void setDateCurrentLogout(Calendar dateCurrentLogout) {
+        this.dateCurrentLogout = dateCurrentLogout;
+    }
+
+    public String getAccountSettings() {
+        return accountSettings;
+    }
+
+    public void setAccountSettings(String accountSettings) {
+        this.accountSettings = accountSettings;
     }
 }
