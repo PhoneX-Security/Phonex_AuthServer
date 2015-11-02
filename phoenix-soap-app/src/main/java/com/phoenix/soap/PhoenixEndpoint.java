@@ -1987,6 +1987,9 @@ public class PhoenixEndpoint {
                     resp.setCertStatus(CertificateStatus.OK);
                 }
 
+                // Logged in, delete logout flag.
+                localUser.setDateCurrentLogout(null);
+
                 em.persist(localUser);
                 logAction(certSip, "authCheck3", null);
             } catch (Throwable e){
@@ -2149,6 +2152,9 @@ public class PhoenixEndpoint {
                     log.warn("Could not parse auxJson, app_version", e);
                 }
             }
+
+            // Account info -> must be logged in
+            localUser.setDateCurrentLogout(null);
 
             logAction(sip, "accountInfoV1", null);
             localUser.setDateLastActivity(Calendar.getInstance());
