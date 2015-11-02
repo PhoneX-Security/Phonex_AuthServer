@@ -66,6 +66,7 @@ public class PhoenixEndpoint {
     private static final int CLIST_CHANGE_ERROR_ALREADY_ADDED = -2;
     private static final int CLIST_CHANGE_ERROR_INVALID_NAME = -5;
     private static final int CLIST_CHANGE_ERROR_NO_USER = -6;
+    private static final String CLIST_MUTE_UNTIL = "muteUntil";
 
     @Autowired
     private SessionFactory sessionFactory;
@@ -843,32 +844,42 @@ public class PhoenixEndpoint {
 
         List<Object[]> resultList = query.getResultList();
         for(Object[] o : resultList){
-            final Subscriber t = (Subscriber) o[0];
-            final Contactlist cl = (Contactlist) o[1];
-            final String userSIP = PhoenixDataService.getSIP(t);
+            try {
+                final Subscriber t = (Subscriber) o[0];
+                final Contactlist cl = (Contactlist) o[1];
+                final String userSIP = PhoenixDataService.getSIP(t);
+                final JSONObject jAux = new JSONObject();
 
-            ClistElementV2 elem = new ClistElementV2();
-            elem.setAlias(t.getUsername());
-            elem.setContactlistStatus(EnabledDisabled.ENABLED);
-            elem.setPresenceStatus(UserPresenceStatus.ONLINE);
-            elem.setUserid(t.getId());
-            elem.setUsersip(userSIP);
-            elem.setWhitelistStatus(UserWhitelistStatus.NOCLUE);
-            elem.setAuxData(StringUtils.isEmpty(cl.getAuxData()) ? null : cl.getAuxData());
-            if (cl != null){
-                elem.setWhitelistStatus(cl.isInWhitelist() ? UserWhitelistStatus.IN : UserWhitelistStatus.NOTIN);
-                elem.setDisplayName(cl.getDisplayName());
-            }
+                ClistElementV2 elem = new ClistElementV2();
+                elem.setAlias(t.getUsername());
+                elem.setContactlistStatus(EnabledDisabled.ENABLED);
+                elem.setPresenceStatus(UserPresenceStatus.ONLINE);
+                elem.setUserid(t.getId());
+                elem.setUsersip(userSIP);
+                elem.setWhitelistStatus(UserWhitelistStatus.NOCLUE);
+                elem.setAuxData(StringUtils.isEmpty(cl.getAuxData()) ? null : cl.getAuxData());
+                if (cl != null) {
+                    elem.setWhitelistStatus(cl.isInWhitelist() ? UserWhitelistStatus.IN : UserWhitelistStatus.NOTIN);
+                    elem.setDisplayName(cl.getDisplayName());
 
-            if (cl.getDateLastEdit() != null){
-                try {
-                    elem.setDateLastChange(getXMLDate(cl.getDateLastEdit()));
-                } catch(Exception e){
-                    log.error("Exception in data conversion", e);
+                    // MuteUntil, in aux json.
+                    jAux.put(CLIST_MUTE_UNTIL, cl.getPrefMuteUntil());
                 }
-            }
 
-            elist.getElements().add(elem);
+                if (cl.getDateLastEdit() != null) {
+                    try {
+                        elem.setDateLastChange(getXMLDate(cl.getDateLastEdit()));
+                    } catch (Exception e) {
+                        log.error("Exception in data conversion", e);
+                    }
+                }
+
+                elem.setAuxJSON(jAux.toString());
+                elist.getElements().add(elem);
+
+            }catch(Exception e){
+                log.error("Exception when processing contact list element", e);
+            }
         }
 
         logAction(ownerSip, "clistGetV2", null);
@@ -928,6 +939,16 @@ public class PhoenixEndpoint {
                 Subscriber s = null;
                 final String sip = elem.getUser().getUserSIP();
                 final Long userID = elem.getUser().getUserID();
+                final String auxJsonStr = elem.getAuxJSON();
+                JSONObject auxData = new JSONObject();
+
+                // Parse aux json.
+                try {
+                    auxData = new JSONObject(auxJsonStr);
+                } catch (Exception e){
+                    log.error("Exception when parsing aux json: " + auxJsonStr, e);
+                }
+
                 if (sip!=null && !sip.isEmpty()){
                     s = dataService.getLocalUser(sip);
                 } else if (userID!=null && userID>0){
@@ -1009,7 +1030,7 @@ public class PhoenixEndpoint {
 
                             // Aux data.
                             if (!StringUtils.isEmpty(elem.getAuxData())){
-                                final String newAuxData = StringUtils.takeMaxN(elem.getDisplayName(), 4096);
+                                final String newAuxData = StringUtils.takeMaxN(elem.getAuxData(), 4096);
                                 cl.setAuxData(newAuxData);
                             }
 
@@ -1017,6 +1038,11 @@ public class PhoenixEndpoint {
                             if (elem.getPrimaryGroup() != null){
                                 final ContactGroup primaryGroup = dataService.getContactGroup(elem.getPrimaryGroup());
                                 cl.setPrimaryGroup(primaryGroup);
+                            }
+
+                            // MuteUntil
+                            if (auxData != null && auxData.has(CLIST_MUTE_UNTIL)){
+                                cl.setPrefMuteUntil(MiscUtils.getAsLong(auxData, CLIST_MUTE_UNTIL));
                             }
 
                             // TODO: multiple groups?
@@ -1079,6 +1105,11 @@ public class PhoenixEndpoint {
                             cl.setInBlacklist(false);
                             cl.setAuxData(elem.getAuxData());
                             cl.setInWhitelist(waction == WhitelistAction.ENABLE || waction == WhitelistAction.ADD);
+
+                            // MuteUntil
+                            if (auxData != null && auxData.has(CLIST_MUTE_UNTIL)){
+                                cl.setPrefMuteUntil(MiscUtils.getAsLong(auxData, CLIST_MUTE_UNTIL));
+                            }
 
                             this.dataService.persist(cl, true);
                             ret.setResultCode(1);
