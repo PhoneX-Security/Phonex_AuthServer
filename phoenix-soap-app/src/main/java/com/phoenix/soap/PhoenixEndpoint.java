@@ -4014,7 +4014,7 @@ public class PhoenixEndpoint {
      * @return
      * @throws CertificateException
      */
-    @PayloadRoot(localPart = "accountSettingsUpdate", namespace = NAMESPACE_URI)
+    @PayloadRoot(localPart = "accountSettingsUpdateV1Request", namespace = NAMESPACE_URI)
     @ResponsePayload
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AccountSettingsUpdateV1Response accountSettingsUpdate(@RequestPayload AccountSettingsUpdateV1Request request, MessageContext context) throws CertificateException {
