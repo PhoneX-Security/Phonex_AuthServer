@@ -314,9 +314,16 @@ public class AccountManager {
                 return;
             }
 
+            // Check if $to is not intentionally logged out.
+            if (toSubs.getDateCurrentLogout() != null){
+                log.info(String.format("User %s is logged out, new offline from %s", to, from));
+                return;
+            }
+
             // Check if $to has not blocked messages.
             if (isLocalUserMutedForNotifications(toSubs)){
                 log.info(String.format("User %s blocked from updates, new offline from %s", to, from));
+                return;
             }
 
             // Check if $to has $from in contactlist.
