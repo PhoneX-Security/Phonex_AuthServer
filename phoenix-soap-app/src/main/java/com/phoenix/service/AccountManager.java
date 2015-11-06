@@ -43,6 +43,7 @@ public class AccountManager {
 
     public static final String AMQP_OFFLINE_FROM = "from";
     public static final String AMQP_OFFLINE_TO = "to";
+    public static final String AMQP_OFFLINE_MSG_TYPE = "msgType";
     public static final String AMQP_OFFLINE_TIMESTAMP_SECONDS = "timestampSeconds";
 
     @Autowired
@@ -285,7 +286,7 @@ public class AccountManager {
      * Called when a new AMQP message arrives indicating a new offline message was stored.
      *
      * MessageFormat:
-     * {"job":"offlineMessage", "data":{"from":"test@phone-x.net","to":"test-internal3@phone-x.net","timestampSeconds":1446480038}}
+     * {"job":"offlineMessage", "data":{"from":"test@phone-x.net","to":"test-internal3@phone-x.net","timestampSeconds":1446480038, "msgType":"2;4"}}
      *
      * We get data object here.
      *
@@ -302,9 +303,16 @@ public class AccountManager {
             return;
         }
 
-        final String from = data.getString(AMQP_OFFLINE_FROM);
-        final String to = data.getString(AMQP_OFFLINE_TO);
+        String from = data.getString(AMQP_OFFLINE_FROM);
+        String to = data.getString(AMQP_OFFLINE_TO);
+        final String msgType = data.has(AMQP_OFFLINE_MSG_TYPE) ? data.getString(AMQP_OFFLINE_MSG_TYPE) : null;
         final long timestamp = MiscUtils.getAsLong(data, AMQP_OFFLINE_TIMESTAMP_SECONDS) * 1000l;
+
+        from = from.replaceFirst("sips:", "");
+        from = from.replaceFirst("sip:", "");
+
+        to = to.replaceFirst("sips:", "");
+        to = to.replaceFirst("sip:", "");
 
         try {
             // Load local user.
