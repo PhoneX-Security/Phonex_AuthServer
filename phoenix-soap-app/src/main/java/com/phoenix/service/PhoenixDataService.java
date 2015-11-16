@@ -230,7 +230,7 @@ public class PhoenixDataService {
         sb.append("SELECT wl, s FROM whitelist wl");
         sb.append(" LEFT OUTER JOIN wl.dst.intern_user s");
         sb.append(" WHERE wl.src.intern_user=:owner");
-        if (intern!=null){
+        if (!MiscUtils.collectionIsEmpty(intern)){
             sb.append(" AND s IN :targets ");
         }
         // finally sort by domain and user
@@ -238,7 +238,7 @@ public class PhoenixDataService {
         
         Query query = em.createQuery(sb.toString());
         query.setParameter("owner", owner);
-        if (intern!=null){
+        if (!MiscUtils.collectionIsEmpty(intern)){
             query.setParameter("targets", intern);
         }
         
@@ -412,10 +412,12 @@ public class PhoenixDataService {
      */
     public String buildQueryString(String queryBase, Collection<String> criteria, String suffix){
         final StringBuilder sb = new StringBuilder(queryBase);
-        sb.append(" ( ");
-        sb.append(MiscUtils.join(criteria, " ) AND ( "));
-        sb.append(" ) ");
-        sb.append(suffix);
+        if (!MiscUtils.collectionIsEmpty(criteria)) {
+            sb.append(" ( ");
+            sb.append(MiscUtils.join(criteria, " ) AND ( "));
+            sb.append(" ) ");
+        }
+        sb.append(" ").append(suffix);
         return sb.toString();
     }
 
