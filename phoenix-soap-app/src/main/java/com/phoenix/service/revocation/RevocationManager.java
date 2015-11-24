@@ -31,8 +31,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -130,16 +128,19 @@ public class RevocationManager {
         lastCrl.setTimeGenerated(new Date());
 
         // Loading all revoked certificates from database, may take some time.
+        long numRecords = 0;
         final List<CAcertsSigned> revoked = loadRevokedCertificates();
         final X509v2CRLBuilder crlGenerator = signer.getCrlGenerator(newSerial);
         for(CAcertsSigned revokedCert : revoked){
             signer.addCRLEntry(crlGenerator, BigInteger.valueOf(revokedCert.getSerial()), revokedCert.getDateRevoked());
+            numRecords += 1;
         }
 
         final X509CRLHolder crlHolder = signer.generateCrl(crlGenerator);
         final X509CRL crlObj = signer.getCRLFromHolder(crlHolder);
         lastCrl.setCrl(crlObj);
         lastCrl.setRawCrl(crlObj.getEncoded());
+        lastCrl.setNumberOfRecords(numRecords);
 
         // Generate PEM representation.
         lastCrl.updatePem();
@@ -174,6 +175,7 @@ public class RevocationManager {
             final X509CRL newCrlObj = signer.getCRLFromHolder(newCrlHolder);
             lastCrl.setCrl(crlObj);
             lastCrl.setRawCrl(crlObj.getEncoded());
+            lastCrl.setNumberOfRecords(lastCrl.getNumberOfRecords() + 1);
 
             // Generate PEM representation.
             lastCrl.updatePem();
@@ -191,6 +193,7 @@ public class RevocationManager {
         newCrl.setTimeGenerated(new Date());
 
         // Loading all revoked certificates from database, may take some time.
+        long numRecords = 0;
         final List<CAcertsSigned> revoked = loadRevokedCertificates();
         final X509v2CRLBuilder crlGenerator = signer.getCrlGenerator(BigInteger.ONE);
         for(CAcertsSigned revokedCert : revoked){
@@ -199,17 +202,20 @@ public class RevocationManager {
             }
 
             signer.addCRLEntry(crlGenerator, BigInteger.valueOf(revokedCert.getSerial()), revokedCert.getDateRevoked());
+            numRecords += 1;
         }
 
         // Add one passed as parameter.
         if (!givenSerialAlreadyRevoked){
             signer.addCRLEntry(crlGenerator, BigInteger.valueOf(certificateSerial), new Date());
+            numRecords += 1;
         }
 
         final X509CRLHolder crlHolder = signer.generateCrl(crlGenerator);
         final X509CRL crlObj = signer.getCRLFromHolder(crlHolder);
         newCrl.setCrl(crlObj);
         newCrl.setRawCrl(crlObj.getEncoded());
+        newCrl.setNumberOfRecords(numRecords);
 
         // Generate PEM representation.
         newCrl.updatePem();

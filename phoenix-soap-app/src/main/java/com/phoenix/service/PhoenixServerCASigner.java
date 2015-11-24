@@ -36,6 +36,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
 
+import com.phoenix.utils.MiscUtils;
 import org.bouncycastle.asn1.DEREnumerated;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DERSequence;
@@ -442,7 +443,7 @@ public class PhoenixServerCASigner {
      */
     public String getCAIdentifier() throws NoSuchAlgorithmException, CertificateEncodingException {
         final AuthorityKeyIdentifier identif = new JcaX509ExtensionUtils().createAuthorityKeyIdentifier(caCert);
-        return identif.toString();
+        return MiscUtils.encodeHex(identif.getKeyIdentifier());
     }
 
     /**

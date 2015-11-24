@@ -54,8 +54,11 @@ public class CrlHolder implements Serializable {
     @Column(name = "serial", nullable = false)
     private Long serial;
 
-    @Column(name = "ca_id", nullable = true, columnDefinition = "TEXT")
+    @Column(name = "ca_id", nullable = true, length = 64)
     private String caId;
+
+    @Column(name = "num_records", nullable = false)
+    private long numberOfRecords = 0;
 
     @Override
     public String toString() {
@@ -68,6 +71,7 @@ public class CrlHolder implements Serializable {
                 ", timeGenerated=" + timeGenerated +
                 ", serial=" + serial +
                 ", caId='" + caId + '\'' +
+                ", numberOfRecords=" + numberOfRecords +
                 '}';
     }
 
@@ -201,5 +205,13 @@ public class CrlHolder implements Serializable {
 
     public void setCaId(String caId) {
         this.caId = caId;
+    }
+
+    public long getNumberOfRecords() {
+        return numberOfRecords;
+    }
+
+    public void setNumberOfRecords(long numberOfRecords) {
+        this.numberOfRecords = numberOfRecords;
     }
 }
