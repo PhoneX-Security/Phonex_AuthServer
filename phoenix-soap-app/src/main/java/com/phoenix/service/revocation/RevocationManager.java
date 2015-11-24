@@ -4,14 +4,10 @@ import com.phoenix.db.CAcertsSigned;
 import com.phoenix.db.CrlHolder;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
-import com.phoenix.service.executor.JobRunnable;
-import com.phoenix.service.executor.JobTask;
 import org.bouncycastle.cert.X509CRLHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Scope;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
@@ -35,16 +31,16 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Service takes care about certificate revocation.
  *
- * TODO: add signing key identification to DB, for different CA keys.
  * Created by dusanklinec on 23.11.15.
  */
 @Service
@@ -59,9 +55,6 @@ public class RevocationManager {
     @Autowired(required = true)
     private PhoenixServerCASigner signer;
 
-    @Autowired(required = true)
-    private RevocationExecutor executor;
-
     @PostConstruct
     public synchronized void init() {
         log.info("Initializing RevocationManager");
@@ -74,13 +67,15 @@ public class RevocationManager {
 
     /**
      * Returns CRL stored in database.
+     * Need to be called from transactional method.
+     *
      * @return
      */
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public CrlHolder getLastCrl() {
         final String sql = "SELECT crl FROM CrlHolder crl WHERE crl.domain = :domain";
         final TypedQuery<CrlHolder> query = dataService.createQuery(sql, CrlHolder.class);
         query.setParameter("domain", "phone-x.net");
+        query.setMaxResults(1);
 
         final List<CrlHolder> resultList = query.getResultList();
         if (resultList == null || resultList.isEmpty()){
@@ -100,8 +95,7 @@ public class RevocationManager {
      * Does not load certificate owner / der certificate or certifcate hash, loads only serial and revocation projection.
      * @return
      */
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
-    public List<CAcertsSigned> loadRevokedCertificates(){
+    protected List<CAcertsSigned> loadRevokedCertificates(){
         final String sqlFetch = "SELECT NEW CAcertsSigned(cert.serial, cert.isRevoked, cert.dateRevoked, cert.revokedReason) " +
                 " FROM CAcertsSigned cert WHERE cert.isRevoked = 1";
 
@@ -115,24 +109,25 @@ public class RevocationManager {
      * @return new database record with filled in CRL.
      */
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    protected synchronized CrlHolder generateNewCrl() throws OperatorCreationException, CertificateEncodingException, CertIOException, NoSuchAlgorithmException, CRLException {
-        final CrlHolder lastCrl = getLastCrl();
-
+    public synchronized CrlHolder generateNewCrl() throws OperatorCreationException, CertificateEncodingException, CertIOException, NoSuchAlgorithmException, CRLException {
+        CrlHolder lastCrl = getLastCrl();
         BigInteger newSerial = null;
-        CrlHolder newCrl = null;
+        boolean newOne = false;
 
         if (lastCrl == null){
-            newCrl = new CrlHolder();
-            newCrl.setDomain("phone-x.net");
+            lastCrl = new CrlHolder();
+            lastCrl.setDomain("phone-x.net");
+            lastCrl.setCaId(signer.getCAIdentifier());
             newSerial = BigInteger.ONE;
+            newOne = true;
 
         } else {
-            newCrl = lastCrl;
             newSerial = BigInteger.valueOf(lastCrl.getSerial() + 1);
         }
 
-        newCrl.setSerial(newSerial.longValue());
-        newCrl.setTimeGenerated(new Date());
+        lastCrl.setCaId(signer.getCAIdentifier());
+        lastCrl.setSerial(newSerial.longValue());
+        lastCrl.setTimeGenerated(new Date());
 
         // Loading all revoked certificates from database, may take some time.
         final List<CAcertsSigned> revoked = loadRevokedCertificates();
@@ -143,37 +138,14 @@ public class RevocationManager {
 
         final X509CRLHolder crlHolder = signer.generateCrl(crlGenerator);
         final X509CRL crlObj = signer.getCRLFromHolder(crlHolder);
-        newCrl.setCrl(crlObj);
-        newCrl.setRawCrl(crlObj.getEncoded());
+        lastCrl.setCrl(crlObj);
+        lastCrl.setRawCrl(crlObj.getEncoded());
 
         // Generate PEM representation.
-        newCrl.updatePem();
+        lastCrl.updatePem();
 
-        dataService.persist(newCrl);
-        return newCrl;
-    }
-
-    /**
-     * Enqueues new CRL generation to the executor.
-     */
-    public void generateNewCrlAsync(boolean blockUntilFinished){
-        final JobTask task = new JobTask("newCrl", new JobRunnable() {
-            @Override
-            public void run() {
-                try {
-                    log.info("Going to regenerate CRL");
-                    generateNewCrl();
-                } catch (Exception e) {
-                    log.error("Exception when generating new CRL", e);
-                }
-            }
-        });
-
-        executor.enqueueJob(task);
-        if (blockUntilFinished){
-            final boolean waitOk = task.waitCompletionUntil(1, TimeUnit.DAYS);
-            log.info("newCrl: Execution finished {}", waitOk);
-        }
+        dataService.persist(lastCrl);
+        return lastCrl;
     }
 
     /**
@@ -182,8 +154,8 @@ public class RevocationManager {
      * @return
      */
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    protected synchronized CrlHolder addNewCrlEntry(long certificateSerial) throws IOException, NoSuchAlgorithmException, OperatorCreationException, CertificateEncodingException, CRLException {
-        final CrlHolder lastCrl = getLastCrl();
+    public synchronized CrlHolder addNewCrlEntry(long certificateSerial) throws IOException, NoSuchAlgorithmException, OperatorCreationException, CertificateEncodingException, CRLException {
+        CrlHolder lastCrl = getLastCrl();
         if (lastCrl != null){
             final X509CRL crlObj = lastCrl.getCrl();
             X509CRLHolder crlHolder = new X509CRLHolder(lastCrl.getRawCrl());
@@ -213,6 +185,8 @@ public class RevocationManager {
         // LastCrl is empty -> new one has to be created.
         boolean givenSerialAlreadyRevoked = false;
         final CrlHolder newCrl = new CrlHolder();
+        newCrl.setDomain("phone-x.net");
+        newCrl.setCaId(signer.getCAIdentifier());
         newCrl.setSerial(1L);
         newCrl.setTimeGenerated(new Date());
 
@@ -245,35 +219,13 @@ public class RevocationManager {
     }
 
     /**
-     * Enqueues new CRL generation to the executor.
-     */
-    public void addNewCrlEntryAsync(final long certificateSerial, boolean blockUntilFinished){
-        final JobTask task = new JobTask("addNewCrlEntry", new JobRunnable() {
-            @Override
-            public void run() {
-                try {
-                    log.info("Adding a new certificate to CRL {}", certificateSerial);
-                    addNewCrlEntry(certificateSerial);
-                } catch (Exception e) {
-                    log.error("Exception when adding a new CRL record");
-                }
-            }
-        });
-
-        executor.enqueueJob(task);
-        if (blockUntilFinished){
-            final boolean waitOk = task.waitCompletionUntil(1, TimeUnit.DAYS);
-            log.info("newCrlEntry: Execution finished {}", waitOk);
-        }
-    }
-
-    /**
      * Simple demonstration URL to test JSON output converter and dependency injection.
      * @param request
      * @param response
      * @return
      */
     @RequestMapping(value="/ca/revoked.crl", method=RequestMethod.GET)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public @ResponseBody String getRevocationList(HttpServletRequest request, HttpServletResponse response) {
         final CrlHolder lastCrl = getLastCrl();
         if (lastCrl == null || lastCrl.getPemCrl() == null){

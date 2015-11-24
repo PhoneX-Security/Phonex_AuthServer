@@ -12,6 +12,7 @@ import com.phoenix.db.tools.DBObjectLoader;
 import com.phoenix.service.*;
 import com.phoenix.service.files.FileManager;
 import com.phoenix.service.pres.PresenceManager;
+import com.phoenix.service.revocation.RevocationExecutor;
 import com.phoenix.service.revocation.RevocationManager;
 import com.phoenix.soap.beans.*;
 import com.phoenix.utils.*;
@@ -113,6 +114,9 @@ public class PhoenixEndpoint {
 
     @Autowired
     private RevocationManager revocationMgr;
+
+    @Autowired
+    private RevocationExecutor revocationExecutor;
 
     @Autowired
     private JiveGlobals jiveGlobals;
@@ -2488,7 +2492,7 @@ public class PhoenixEndpoint {
 
             // Regenerate CRL.
             if (userCert != null) {
-                revocationMgr.addNewCrlEntryAsync(userCert.getSerial(), false);
+                revocationExecutor.addNewCrlEntryAsync(userCert.getSerial(), false);
             }
 
             logAction(reqUser, "signCert", null);

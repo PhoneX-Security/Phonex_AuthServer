@@ -434,6 +434,18 @@ public class PhoenixServerCASigner {
     }
 
     /**
+     * Returns CA identifier.
+     *
+     * @return
+     * @throws NoSuchAlgorithmException
+     * @throws CertificateEncodingException
+     */
+    public String getCAIdentifier() throws NoSuchAlgorithmException, CertificateEncodingException {
+        final AuthorityKeyIdentifier identif = new JcaX509ExtensionUtils().createAuthorityKeyIdentifier(caCert);
+        return identif.toString();
+    }
+
+    /**
      * From BouncyCastle CRL Holder makes java.security.X509CRL.
      * 
      * @param crlHolder

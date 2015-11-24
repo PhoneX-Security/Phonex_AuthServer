@@ -37,6 +37,9 @@ public class RevocationRefreshService  extends BackgroundThreadService {
     @Autowired
     private RevocationManager revocationManager;
 
+    @Autowired
+    private RevocationExecutor revocationExecutor;
+
     public RevocationRefreshService() {
 
     }
@@ -59,7 +62,7 @@ public class RevocationRefreshService  extends BackgroundThreadService {
     public void doTheJob() {
         try {
             log.info("Going to generate new CRL");
-            revocationManager.generateNewCrlAsync(true);
+            revocationExecutor.generateNewCrlAsync(true);
 
         } catch (Exception ex) {
             log.info("Problem occurred during property sync", ex);

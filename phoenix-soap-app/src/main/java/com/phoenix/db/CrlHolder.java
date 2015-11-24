@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import javax.persistence.*;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Date;
@@ -21,8 +22,9 @@ import java.util.Date;
  */
 @Entity
 @Table(name = "crlHolder")
-public class CrlHolder {
+public class CrlHolder implements Serializable {
     private static final Logger log = LoggerFactory.getLogger(CrlHolder.class);
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -52,14 +54,20 @@ public class CrlHolder {
     @Column(name = "serial", nullable = false)
     private Long serial;
 
+    @Column(name = "ca_id", nullable = true, columnDefinition = "TEXT")
+    private String caId;
+
     @Override
     public String toString() {
         return "CrlHolder{" +
                 "id=" + id +
                 ", domain='" + domain + '\'' +
                 ", rawCrl=" + Arrays.toString(rawCrl) +
+                ", pemCrl='" + pemCrl + '\'' +
+                ", crl=" + crl +
                 ", timeGenerated=" + timeGenerated +
                 ", serial=" + serial +
+                ", caId='" + caId + '\'' +
                 '}';
     }
 
@@ -170,6 +178,7 @@ public class CrlHolder {
         this.id = id;
     }
 
+    @Transient
     public X509CRL getCrl() {
         return crl;
     }
@@ -184,5 +193,13 @@ public class CrlHolder {
 
     public void setPemCrl(String pemCrl) {
         this.pemCrl = pemCrl;
+    }
+
+    public String getCaId() {
+        return caId;
+    }
+
+    public void setCaId(String caId) {
+        this.caId = caId;
     }
 }
