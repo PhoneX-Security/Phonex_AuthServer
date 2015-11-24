@@ -281,7 +281,7 @@ public class AccountingManager {
         try {
             // Default timespan for fetching aggregate data is last 2 months.
             if (timeFrom == null){
-                timeFrom = System.currentTimeMillis() - 1000l*60l*60l*24l*62l;
+                timeFrom = System.currentTimeMillis() - 1000L*60L*60L*24L*62L;
             }
 
             ArrayList<String> typesList = null;

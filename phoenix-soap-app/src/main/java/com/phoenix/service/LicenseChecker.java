@@ -26,7 +26,7 @@ public class LicenseChecker extends BackgroundThreadService {
     /**
      * Timeout sleep for re-checking license expiration. Each 2 hours.
      */
-    private static final long MAX_TIMEOUT = 1000L*60L*60L*2l;
+    private static final long MAX_TIMEOUT = 1000L*60L*60L*2L;
     private long lastCheck = 0;
 
     private boolean running=true;

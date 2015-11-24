@@ -63,6 +63,7 @@ public class CAcertsSigned implements Serializable {
     @Column(nullable = false)
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date notValidBefore;
+
     @Column(nullable = false)
     @Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date notValidAfter;
