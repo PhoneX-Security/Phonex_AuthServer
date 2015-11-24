@@ -44,12 +44,12 @@ import java.util.concurrent.TimeUnit;
 /**
  * Service takes care about certificate revocation.
  *
+ * TODO: add signing key identification to DB, for different CA keys.
  * Created by dusanklinec on 23.11.15.
  */
 @Service
 @Repository
 @Controller
-@Scope(value = "singleton")
 public class RevocationManager {
     private static final Logger log = LoggerFactory.getLogger(RevocationManager.class);
 
@@ -273,13 +273,13 @@ public class RevocationManager {
      * @param response
      * @return
      */
-    @RequestMapping(value="/ca/revoked.crl", method=RequestMethod.GET, produces=MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @RequestMapping(value="/ca/revoked.crl", method=RequestMethod.GET)
     public @ResponseBody String getRevocationList(HttpServletRequest request, HttpServletResponse response) {
-
         final CrlHolder lastCrl = getLastCrl();
         if (lastCrl == null || lastCrl.getPemCrl() == null){
+            log.info("Last CRL is null/empty");
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            return null;
+            return "";
         }
 
         response.setStatus(HttpServletResponse.SC_OK);

@@ -463,7 +463,7 @@ public class PhoenixServerCASigner {
         crlGen.addExtension(X509Extension.cRLNumber, false, new CRLNumber(serial));//Because we create it. The CRLNumber is 1
         crlGen.addExtension(X509Extension.authorityKeyIdentifier, false, new JcaX509ExtensionUtils().createAuthorityKeyIdentifier(caCert));
 
-        GeneralName gn = new GeneralName(6, new DERIA5String("https://phone-x.net:8442/phoenixService/ca/revoked.crl"));
+        GeneralName gn = new GeneralName(6, new DERIA5String("https://phone-x.net:8442/phoenix/rest/ca/revoked.crl"));
         GeneralNames gns = new GeneralNames(gn);
         DistributionPointName dpn = new DistributionPointName(gns);
         DistributionPoint distp = new DistributionPoint(dpn, null, null);
