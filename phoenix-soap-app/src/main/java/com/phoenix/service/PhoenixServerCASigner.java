@@ -31,25 +31,17 @@ import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.util.Date;
 import java.util.Formatter;
+import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
+
+import org.bouncycastle.asn1.DEREnumerated;
+import org.bouncycastle.asn1.DERIA5String;
+import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
-import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
-import org.bouncycastle.asn1.x509.BasicConstraints;
-import org.bouncycastle.asn1.x509.CRLNumber;
-import org.bouncycastle.asn1.x509.CRLReason;
-import org.bouncycastle.asn1.x509.Certificate;
-import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
-import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import org.bouncycastle.asn1.x509.X509Extension;
-import org.bouncycastle.asn1.x509.X509NameTokenizer;
-import org.bouncycastle.cert.CertIOException;
-import org.bouncycastle.cert.X509CRLHolder;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.X509v2CRLBuilder;
-import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.cert.*;
 import org.bouncycastle.cert.jcajce.JcaX509CRLConverter;
 import org.bouncycastle.cert.jcajce.JcaX509CRLHolder;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
@@ -65,8 +57,10 @@ import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.x509.extension.X509ExtensionUtil;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,7 +95,16 @@ public class PhoenixServerCASigner {
     private X509Certificate caCert;
     private RSAPrivateCrtKey privKey;
     private volatile boolean caInitialized = false;
-    
+
+    /**
+     * Initializes internal running thread.
+     */
+    @PostConstruct
+    public synchronized void init() {
+        log.info("Initializing CA module");
+        initCA();
+    }
+
     /**
      * Initializes Server CA keystores
      */
@@ -216,13 +219,27 @@ public class PhoenixServerCASigner {
      * @throws IOException
      * @throws CertificateEncodingException
      */
-    public byte[] getCertificateAsPEM(X509Certificate cert) throws IOException, CertificateEncodingException {
+    public static byte[] getCertificateAsPEM(X509Certificate cert) throws IOException, CertificateEncodingException {
         final String type = "CERTIFICATE";
         byte[] encoding = cert.getEncoded();
         PemObject pemObject = new PemObject(type, encoding);
         return createPEM(pemObject);
     }
-    
+
+    /**
+     * Returns PEM format of CRL
+     *
+     * @return
+     * @throws IOException
+     * @throws CRLException
+     */
+    public static byte[] getCRLAsPEM(X509CRL cert) throws IOException, CRLException {
+        final String type = "X509 CRL";
+        byte[] encoding = cert.getEncoded();
+        PemObject pemObject = new PemObject(type, encoding);
+        return createPEM(pemObject);
+    }
+
     /**
      * Creates PEM object representation and returns byte array
      *
@@ -230,9 +247,9 @@ public class PhoenixServerCASigner {
      * @return
      * @throws IOException
      */
-    public byte[] createPEM(Object obj) throws IOException {
+    public static byte[] createPEM(Object obj) throws IOException {
         ByteArrayOutputStream barrout = new ByteArrayOutputStream();
-        this.createPEM(new OutputStreamWriter(barrout), obj);
+        createPEM(new OutputStreamWriter(barrout), obj);
         // return encoded PEM data - collect bytes from ByteArrayOutputStream		
         return barrout.toByteArray();
     }
@@ -243,7 +260,7 @@ public class PhoenixServerCASigner {
      * @param writer
      * @throws IOException
      */
-    public void createPEM(Writer writer, Object obj) throws IOException {
+    public static void createPEM(Writer writer, Object obj) throws IOException {
         PEMWriter pemWrt = new PEMWriter(writer, BC);
         pemWrt.writeObject(obj);
         pemWrt.flush();
@@ -426,9 +443,51 @@ public class PhoenixServerCASigner {
     public X509CRL getCRLFromHolder(X509CRLHolder crlHolder) throws CRLException{
          return new JcaX509CRLConverter().setProvider(BC).getCRL(crlHolder);
     }
-    
+
     /**
-     * Generates new CRL
+     * Prepares CRL generator with CA public key and given extensions.
+     *
+     * @param serial
+     * @return
+     * @throws CertIOException
+     * @throws NoSuchAlgorithmException
+     * @throws OperatorCreationException
+     * @throws CertificateEncodingException
+     */
+    public X509v2CRLBuilder getCrlGenerator(BigInteger serial) throws CertIOException, NoSuchAlgorithmException, OperatorCreationException, CertificateEncodingException {
+        Date now = new Date();
+        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(new X500Name(caCert.getSubjectDN().getName()), now);
+
+        Date nextUpdate = new Date(now.getTime() + 7L * 24L * 60L * 60L * 1000L); // Every 7 days
+        crlGen.setNextUpdate(nextUpdate);
+        crlGen.addExtension(X509Extension.cRLNumber, false, new CRLNumber(serial));//Because we create it. The CRLNumber is 1
+        crlGen.addExtension(X509Extension.authorityKeyIdentifier, false, new JcaX509ExtensionUtils().createAuthorityKeyIdentifier(caCert));
+
+        GeneralName gn = new GeneralName(6, new DERIA5String("https://phone-x.net:8442/phoenixService/ca/revoked.crl"));
+        GeneralNames gns = new GeneralNames(gn);
+        DistributionPointName dpn = new DistributionPointName(gns);
+        DistributionPoint distp = new DistributionPoint(dpn, null, null);
+        crlGen.addExtension(X509Extension.cRLDistributionPoints, false, new DERSequence(distp));
+
+        return crlGen;
+    }
+
+    /**
+     * Generates CRLHolder from CRL builder.
+     * @param crlGen
+     * @return
+     * @throws OperatorCreationException
+     */
+    public X509CRLHolder generateCrl(X509v2CRLBuilder crlGen) throws OperatorCreationException {
+        ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256withRSA").setProvider("BC").build(privKey);//sign with our privatekey
+        X509CRLHolder crlholder = crlGen.build(contentSigner);
+
+        return crlholder;
+    }
+
+    /**
+     * Generates new empty CRL.
+     *
      * @return
      * @throws CertificateParsingException
      * @throws NoSuchProviderException
@@ -440,36 +499,26 @@ public class PhoenixServerCASigner {
      * @throws CertIOException
      * @throws OperatorCreationException 
      */
-    public X509CRLHolder genereteNewCRL() throws CertificateParsingException, NoSuchProviderException, NoSuchProviderException, SecurityException, SignatureException, InvalidKeyException, NoSuchAlgorithmException, CertIOException, OperatorCreationException {
-        // DEPRECATED, now using 1.47
-        // X509V2CRLGenerator   crlGen = new X509V2CRLGenerator();
+    public X509CRLHolder generateNewCRL() throws CertificateParsingException, NoSuchProviderException, NoSuchProviderException, SecurityException, SignatureException, InvalidKeyException, NoSuchAlgorithmException, CertIOException, OperatorCreationException, CertificateEncodingException {
+        final X509v2CRLBuilder crlGen = getCrlGenerator(BigInteger.ONE);
+        return generateCrl(crlGen);
+    }
 
-        Date now = new Date();
-        Date nextUpdate = new Date(System.currentTimeMillis() + 1000L * 60L * 60L * 24L);
-
-        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(
-                new X500Name(this.caCert.getSubjectX500Principal().getName()),
-                now);
-
-        // build CRL        
-        crlGen.setNextUpdate(nextUpdate);
-        crlGen.addCRLEntry(BigInteger.ONE, now, CRLReason.privilegeWithdrawn);
-
-        // extensions
-        JcaX509ExtensionUtils ut = new JcaX509ExtensionUtils();
-        SubjectKeyIdentifier ski = ut.createSubjectKeyIdentifier(this.caCert.getPublicKey());
-        crlGen.addExtension(X509Extension.authorityKeyIdentifier, false, ski);
-        crlGen.addExtension(X509Extension.cRLNumber, false, new CRLNumber(BigInteger.valueOf(1)));
-
-        // signer
-        ContentSigner signer = new JcaContentSignerBuilder("SHA1withRSA")
-                .setProvider(new BouncyCastleProvider())
-                .build(this.privKey);
-
-        // build CRL
-        X509CRLHolder holder = crlGen.build(signer);
-        
-        return holder;
+    /**
+     * Adds crl entry to the CRL builder.
+     *
+     * @param crlGen
+     * @param serialToRevoke
+     * @return
+     * @throws CRLException
+     * @throws OperatorCreationException
+     * @throws NoSuchAlgorithmException
+     * @throws CertIOException
+     * @throws CertificateEncodingException
+     */
+    public X509v2CRLBuilder addCRLEntry(X509v2CRLBuilder crlGen, BigInteger serialToRevoke, Date when) throws CRLException, OperatorCreationException, NoSuchAlgorithmException, CertIOException, CertificateEncodingException {
+        crlGen.addCRLEntry(serialToRevoke, when == null ? new Date() : when, CRLReason.privilegeWithdrawn);
+        return crlGen;
     }
 
     /**
@@ -481,27 +530,67 @@ public class PhoenixServerCASigner {
      * @throws NoSuchAlgorithmException
      * @throws CertIOException 
      */
-    public X509CRLHolder addCRLEntry(X509CRL crl) throws CRLException, OperatorCreationException, NoSuchAlgorithmException, CertIOException{
-        Date now = new Date();
-        Date nextUpdate = new Date(System.currentTimeMillis() + 1000L * 60L * 60L * 24L);
+    public X509CRLHolder addCRLEntry(X509CRLHolder crl, BigInteger crlSerial) throws CRLException, OperatorCreationException, NoSuchAlgorithmException, CertIOException, CertificateEncodingException {
+        final Date now = new Date();
+        final Date nextUpdate = new Date(System.currentTimeMillis() + 7L * 24L * 60L * 60L * 1000L);
+        final X509v2CRLBuilder crlGen = getCrlGenerator(crlSerial);
 
-        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(
-                new X500Name(this.caCert.getSubjectX500Principal().getName()),
-                now);
-
-        
         crlGen.setNextUpdate(nextUpdate);
-        crlGen.addCRL(new JcaX509CRLHolder(crl));
+        crlGen.addCRL(crl);
         crlGen.addCRLEntry(BigInteger.valueOf(2), now, CRLReason.privilegeWithdrawn);
-        
-        // extensions
-        JcaX509ExtensionUtils ut = new JcaX509ExtensionUtils();
-        SubjectKeyIdentifier ski = ut.createSubjectKeyIdentifier(this.caCert.getPublicKey());
-        crlGen.addExtension(X509Extension.authorityKeyIdentifier, false, ski);
+
         X509CRLHolder crlHolder = crlGen.build(new JcaContentSignerBuilder("SHA256withRSAEncryption").setProvider(BC).build(this.privKey));
         return crlHolder;
     }
-    
+
+    /**
+     * Check the CRL signature in accordance with the given certificate
+     *
+     * @param crl
+     * @param caCert
+     * @return
+     */
+    public static boolean isCRLValid(X509CRLHolder crl, X509Certificate caCert) {
+        try {
+            return crl.isSignatureValid(new JcaContentVerifierProviderBuilder().setProvider("BC").build(caCert));
+
+        } catch (Exception e) {
+            log.error("CRL validity check failed", e);
+            return false;
+        }
+    }
+
+    /**
+     * Return true if the serial is not in the crl, false otherwise
+     *
+     * @param crl
+     * @param serial
+     * @return
+     */
+    public static boolean serialNotInCRL(X509CRLHolder crl, BigInteger serial) {
+        X509CRLEntryHolder entry = crl.getRevokedCertificate(serial);
+        if (entry == null) {
+            return true;
+        }
+        else {
+            log.debug("Certificate number: " + entry.getSerialNumber());
+            log.debug("Issuer            : " + crl.getIssuer());
+            if (entry.hasExtensions()) {
+                Extension ext = entry.getExtension(X509Extension.reasonCode);
+                if (ext != null) {
+                    DEREnumerated reasonCode;
+                    try {
+                        reasonCode = (DEREnumerated) X509ExtensionUtil.fromExtensionValue(ext.getExtnValue().getEncoded());
+                        log.info("Reason Code      : "+reasonCode.getValue());
+
+                    } catch (IOException e) {
+                        log.error("Exception in CRL parsing", e);
+                    }
+                }
+            }
+            return false;
+        }
+    }
     
     /**
      * class for breaking up an X500 Name into it's component tokens, ala

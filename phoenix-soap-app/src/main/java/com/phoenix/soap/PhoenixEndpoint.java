@@ -12,6 +12,7 @@ import com.phoenix.db.tools.DBObjectLoader;
 import com.phoenix.service.*;
 import com.phoenix.service.files.FileManager;
 import com.phoenix.service.pres.PresenceManager;
+import com.phoenix.service.revocation.RevocationManager;
 import com.phoenix.soap.beans.*;
 import com.phoenix.utils.*;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -109,6 +110,9 @@ public class PhoenixEndpoint {
 
     @Autowired
     private AccountManager accountMgr;
+
+    @Autowired
+    private RevocationManager revocationMgr;
 
     @Autowired
     private JiveGlobals jiveGlobals;
@@ -2480,6 +2484,11 @@ public class PhoenixEndpoint {
                 dataService.notifyNewCertificateToRoster(localUser, sign.getNotBefore().getTime(), crtDigest);
             } catch(Exception ex){
                 log.error("Error in pushing contact cert update event", ex);
+            }
+
+            // Regenerate CRL.
+            if (userCert != null) {
+                revocationMgr.addNewCrlEntryAsync(userCert.getSerial(), false);
             }
 
             logAction(reqUser, "signCert", null);

@@ -6,6 +6,7 @@
     <class>com.phoenix.db.AccountingLog</class>
     <class>com.phoenix.db.AccountingPermission</class>
     <class>com.phoenix.db.OneTimeToken</class>
+    <class>com.phoenix.db.CrlHolder</class>
     <class>com.phoenix.db.CAcertsSigned</class>
     <class>com.phoenix.db.SubscriberCertificate</class>
     <class>com.phoenix.db.Contactlist</class>

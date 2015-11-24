@@ -1,5 +1,6 @@
 package com.phoenix.utils;
 
+import java.io.Closeable;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import org.bouncycastle.util.encoders.Base64;
@@ -38,6 +39,21 @@ public class MiscUtils {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Closes closeable object silently.
+     * @param toClose
+     */
+    public static void closeSilently(Closeable toClose){
+        if (toClose == null){
+            return;
+        }
+        try {
+             toClose.close();
+        } catch (Exception e){
+
+        }
     }
 
     public static String generateMD5HashBase64Encoded(byte[] data) throws NoSuchAlgorithmException {

@@ -103,7 +103,17 @@ public class CAcertsSigned implements Serializable {
         InputStream in = new ByteArrayInputStream(this.rawCert);
         this.cert = (X509Certificate)cf.generateCertificate(in);
     }
-    
+
+    public CAcertsSigned() {
+    }
+
+    public CAcertsSigned(Long serial, Boolean isRevoked, Date dateRevoked, String revokedReason) {
+        this.serial = serial;
+        this.isRevoked = isRevoked;
+        this.dateRevoked = dateRevoked;
+        this.revokedReason = revokedReason;
+    }
+
     public Long getSerial() {
         return serial;
     }
