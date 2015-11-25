@@ -225,7 +225,9 @@ public class RevocationManager {
     }
 
     /**
-     * Simple demonstration URL to test JSON output converter and dependency injection.
+     * Returns CRL in PEM format.
+     * openssl crl -in revoked.der -inform PEM -text -noout
+     *
      * @param request
      * @param response
      * @return
@@ -242,6 +244,33 @@ public class RevocationManager {
 
         response.setStatus(HttpServletResponse.SC_OK);
         return lastCrl.getPemCrl();
+    }
+
+    /**
+     * Returns CRL in DER format.
+     *  openssl crl -in revoked.der -inform DER -text -noout
+     *
+     * @param request
+     * @param response
+     * @return
+     */
+    @RequestMapping(value="/ca/revoked.der", method=RequestMethod.GET)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
+    public @ResponseBody byte[] getRevocationListDer(HttpServletRequest request, HttpServletResponse response) {
+        final CrlHolder lastCrl = getLastCrl();
+        if (lastCrl == null || lastCrl.getRawCrl() == null){
+            log.info("Last CRL is null/empty");
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return new byte[0];
+        }
+
+        response.setStatus(HttpServletResponse.SC_OK);
+        return lastCrl.getRawCrl();
+
+//        return ResponseEntity.ok()
+//                .contentLength(gridFsFile.getLength())
+//                .contentType(MediaType.parseMediaType(gridFsFile.getContentType()))
+//                .body(new InputStreamResource(gridFsFile.getInputStream()));
     }
 
     public PhoenixDataService getDataService() {
