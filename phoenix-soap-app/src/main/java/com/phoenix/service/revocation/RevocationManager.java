@@ -304,7 +304,7 @@ public class RevocationManager {
         // TODO: regenerate Opensips CRL
         // TODO: refactor, AMQP message to all components about CRL change, so they update it... Opensips watcher listening to AMQP.
         final String crlDir = "/etc/opensips/crl/";
-        final String crlFile = "phonex.crl";
+        final String crlFile = "phonex_"+newCrl.getCaId()+".crl";
 
         FileOutputStream out = null;
         try {
