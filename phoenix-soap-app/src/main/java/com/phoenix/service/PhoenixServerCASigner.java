@@ -468,8 +468,9 @@ public class PhoenixServerCASigner {
      * @throws CertificateEncodingException
      */
     public X509v2CRLBuilder getCrlGenerator(BigInteger serial) throws CertIOException, NoSuchAlgorithmException, OperatorCreationException, CertificateEncodingException {
-        Date now = new Date();
-        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(new X500Name(caCert.getSubjectDN().getName()), now);
+        final Date now = new Date();
+        final String realSubjectDN = reverseDN(caCert.getSubjectX500Principal().getName());
+        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(new X500Name(realSubjectDN), now);
 
         Date nextUpdate = new Date(now.getTime() + 7L * 24L * 60L * 60L * 1000L); // Every 7 days
         crlGen.setNextUpdate(nextUpdate);
