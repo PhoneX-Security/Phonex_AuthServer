@@ -4,6 +4,9 @@ import com.phoenix.db.CAcertsSigned;
 import com.phoenix.db.CrlHolder;
 import com.phoenix.service.PhoenixDataService;
 import com.phoenix.service.PhoenixServerCASigner;
+import com.phoenix.service.ServerCommandExecutor;
+import com.phoenix.service.ServerMICommand;
+import com.phoenix.utils.MiscUtils;
 import org.bouncycastle.cert.X509CRLHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +15,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
@@ -52,6 +57,12 @@ public class RevocationManager {
 
     @Autowired(required = true)
     private PhoenixServerCASigner signer;
+
+    @Autowired(required = true)
+    private RevocationExecutor executor;
+
+    @Autowired(required = true)
+    private ServerCommandExecutor serverCmdExecutor;
 
     @PostConstruct
     public synchronized void init() {
@@ -146,6 +157,7 @@ public class RevocationManager {
         lastCrl.updatePem();
 
         dataService.persist(lastCrl);
+        onCrlUpdated(lastCrl);
         return lastCrl;
     }
 
@@ -181,6 +193,7 @@ public class RevocationManager {
             lastCrl.updatePem();
 
             dataService.persist(lastCrl);
+            onCrlUpdated(lastCrl);
             return lastCrl;
         }
 
@@ -221,6 +234,7 @@ public class RevocationManager {
         newCrl.updatePem();
 
         dataService.persist(newCrl);
+        onCrlUpdated(newCrl);
         return newCrl;
     }
 
@@ -271,6 +285,52 @@ public class RevocationManager {
 //                .contentLength(gridFsFile.getLength())
 //                .contentType(MediaType.parseMediaType(gridFsFile.getContentType()))
 //                .body(new InputStreamResource(gridFsFile.getInputStream()));
+    }
+
+    /**
+     * Called when CRL gets updated and this update should be reflected somewhere.
+     */
+    public void onCrlUpdated(CrlHolder newCrl){
+        // TODO: change to loose coupling with Guava event bus.
+        executor.propagateCrlAsync(newCrl, false);
+    }
+
+    /**
+     * Rewrites CRL file, called on CRL change.
+     * @param newCrl
+     */
+    public void propagateCrlRefresh(CrlHolder newCrl){
+        log.info("Propagating CRL change.");
+        // TODO: regenerate Opensips CRL
+        // TODO: refactor, AMQP message to all components about CRL change, so they update it... Opensips watcher listening to AMQP.
+        final String crlDir = "/etc/opensips/crl/";
+        final String crlFile = "phonex.crl";
+
+        FileOutputStream out = null;
+        try {
+            final File crlDirF = new File(crlDir);
+            if (!crlDirF.exists()){
+                crlDirF.mkdirs();
+            }
+
+            if (!crlDirF.canWrite()){
+                log.error("Cannot write to CRL directory {}", crlDirF.getAbsolutePath());
+            }
+
+            final File destCrl = new File(crlDir + crlFile);
+            out = new FileOutputStream(destCrl, false);
+            out.write(newCrl.getPemCrl().getBytes("UTF-8"));
+            out.flush();
+
+            log.info("Going to call refresh cmd");
+            final ServerMICommand refreshCmd = new ServerMICommand("refresh_crl_ca");
+            serverCmdExecutor.addToQueue(refreshCmd);
+
+        } catch(Exception e){
+            log.error("Could not dump CRL file, user: " + System.getProperty("user.name"), e);
+        } finally {
+            MiscUtils.closeSilently(out);
+        }
     }
 
     public PhoenixDataService getDataService() {

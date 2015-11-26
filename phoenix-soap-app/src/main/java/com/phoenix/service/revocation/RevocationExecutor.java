@@ -1,5 +1,6 @@
 package com.phoenix.service.revocation;
 
+import com.phoenix.db.CrlHolder;
 import com.phoenix.service.BackgroundThreadService;
 import com.phoenix.service.executor.JobRunnable;
 import com.phoenix.service.executor.JobTask;
@@ -124,6 +125,36 @@ public class RevocationExecutor extends BackgroundThreadService {
         if (blockUntilFinished){
             final boolean waitOk = task.waitCompletionUntil(1, TimeUnit.DAYS);
             log.info("newCrlEntry: Execution finished {}", waitOk);
+        }
+    }
+
+    /**
+     * Enqueues CRL refresh to the executor.
+     *
+     * Has to be done here, outside of manager. If async method is in the same class as transactional method no proxy
+     * would be used as direct call on the transactional method is invoked. Here transactional proxy wraps
+     * calls to revocation manager.
+     *
+     * @param blockUntilFinished
+     */
+    public void propagateCrlAsync(final CrlHolder newCrl, boolean blockUntilFinished){
+        final RevocationManager localRevocationManager = revocationManager;
+        final JobTask task = new JobTask("propagateCrlRefresh", new JobRunnable() {
+            @Override
+            public void run() {
+                try {
+                    log.info("Going to propagate CRL refresh");
+                    localRevocationManager.propagateCrlRefresh(newCrl);
+                } catch (Exception e) {
+                    log.error("Exception when propagating CRL refresh", e);
+                }
+            }
+        });
+
+        enqueueJob(task);
+        if (blockUntilFinished){
+            final boolean waitOk = task.waitCompletionUntil(1, TimeUnit.DAYS);
+            log.info("newCrl: Execution finished {}", waitOk);
         }
     }
 }
