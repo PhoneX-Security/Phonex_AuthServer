@@ -87,6 +87,12 @@ public class SubscriberExtras {
     @Column(name = "date_current_logout", nullable = true, columnDefinition = "DATETIME")
     private java.util.Calendar dateCurrentLogout;
 
+    @Column(name = "pref_mute_until", nullable = false)
+    private long prefMuteUntil = 0;
+
+    @Column(name = "recovery_email", nullable = true)
+    private String recoveryEmail;
+
     @Lob
     @Column(name = "account_settings", nullable = true, columnDefinition = "TEXT")
     private String accountSettings;
@@ -312,5 +318,21 @@ public class SubscriberExtras {
 
     public void setAccountSettings(String accountSettings) {
         this.accountSettings = accountSettings;
+    }
+
+    public long getPrefMuteUntil() {
+        return prefMuteUntil;
+    }
+
+    public void setPrefMuteUntil(long prefMuteUntil) {
+        this.prefMuteUntil = prefMuteUntil;
+    }
+
+    public String getRecoveryEmail() {
+        return recoveryEmail;
+    }
+
+    public void setRecoveryEmail(String recoveryEmail) {
+        this.recoveryEmail = recoveryEmail;
     }
 }

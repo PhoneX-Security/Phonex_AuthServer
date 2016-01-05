@@ -37,6 +37,7 @@ public class AccountManager {
     public static final String JSON_SETTINGS_UPDATE = "settingsUpdate";
     public static final String JSON_SETTINGS_LOGIN = "loggedIn";
     public static final String JSON_SETTINGS_MUTE_PUSH = "mutePush";
+    public static final String JSON_SETTINGS_RECOVERY_EMAIL = "recoveryEmail";
 
     public static final String AUTH_TURN_PASSWD_KEY = "turnPwd";
     public static final String JSON_SETTINGS_LOGOUT_DATE = "logoutDate";
@@ -105,6 +106,11 @@ public class AccountManager {
             caller.setPrefMuteUntil(muteUntil);
         }
 
+        // Recovery email
+        if (settingReq.has(JSON_SETTINGS_RECOVERY_EMAIL)){
+            caller.setRecoveryEmail(settingReq.getString(JSON_SETTINGS_RECOVERY_EMAIL));
+        }
+
         dataService.persist(caller, true);
 
         JSONObject jsonResponse = new JSONObject();
@@ -149,6 +155,9 @@ public class AccountManager {
 
             accountSettingsRoot.put(JSON_SETTINGS_MUTE_PUSH,
                     localUser.getPrefMuteUntil());
+
+            accountSettingsRoot.put(JSON_SETTINGS_RECOVERY_EMAIL,
+                    localUser.getRecoveryEmail());
 
             jsonAuxObj.put("accountSettings", accountSettingsRoot);
 

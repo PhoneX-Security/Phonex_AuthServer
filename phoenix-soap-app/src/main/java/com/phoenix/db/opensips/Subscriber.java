@@ -125,6 +125,9 @@ public class Subscriber implements java.io.Serializable {
     @Column(name = "pref_mute_until", nullable = false)
     private long prefMuteUntil = 0;
 
+    @Column(name = "recovery_email", nullable = true)
+    private String recoveryEmail;
+
     @Lob
     @Column(name = "account_settings", nullable = true, columnDefinition = "TEXT")
     private String accountSettings;
@@ -458,5 +461,13 @@ public class Subscriber implements java.io.Serializable {
 
     public void setAccountSettings(String accountSettings) {
         this.accountSettings = accountSettings;
+    }
+
+    public String getRecoveryEmail() {
+        return recoveryEmail;
+    }
+
+    public void setRecoveryEmail(String recoveryEmail) {
+        this.recoveryEmail = recoveryEmail;
     }
 }
