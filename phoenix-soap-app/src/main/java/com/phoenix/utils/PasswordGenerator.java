@@ -29,8 +29,8 @@ public class PasswordGenerator {
             chars.add(c);
         }
 
-        // add uppercase A–Z and '@'
-        for (char c = '@'; c <= 'Z'; c++) {
+        // add uppercase A–Z
+        for (char c = 'A'; c <= 'Z'; c++) {
             chars.add(c);
         }
 
