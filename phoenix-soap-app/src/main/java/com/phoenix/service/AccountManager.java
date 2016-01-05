@@ -409,17 +409,8 @@ public class AccountManager {
     public void processGetRecoveryCodeRequest(Subscriber caller, String resource, String appVersion,
                                               RecoveryCodeResponse resp, HttpServletRequest request)
     {
-        // Empty recovery email?
-        if (StringUtils.isEmpty(caller.getRecoveryEmail())){
-            resp.setStatusCode(-3);
-            resp.setStatusText("EmptyRecoveryMail");
-            return;
-        }
-
         try {
             final String sip = PhoenixDataService.getSIP(caller);
-            final String newRecoveryCode = generateRecoveryCode();
-            final RecoveryCode recCodeDb = new RecoveryCode();
             final String ip = auth.getIp(request);
             final String userIpKey = sip+";"+ip;
             final long now = System.currentTimeMillis();
@@ -442,6 +433,15 @@ public class AccountManager {
                 recoveryIpMap.put(ip, now);
             }
 
+            // Empty recovery email?
+            if (StringUtils.isEmpty(caller.getRecoveryEmail())){
+                resp.setStatusCode(-3);
+                resp.setStatusText("EmptyRecoveryMail");
+                return;
+            }
+
+            final String newRecoveryCode = generateRecoveryCode();
+            final RecoveryCode recCodeDb = new RecoveryCode();
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.HOUR, 1);
 

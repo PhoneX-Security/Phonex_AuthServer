@@ -184,6 +184,8 @@ public class RESTController {
     
     /**
      * Simple demonstration URL to test JSON output converter and dependency injection.
+     * https://phone-x.net:8442/phoenix/rest/simple
+     *
      * @param request
      * @param response
      * @return 
