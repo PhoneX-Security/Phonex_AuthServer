@@ -239,7 +239,7 @@ public class RESTController {
     @RequestMapping(value = "/rest/recoveryCode", method=RequestMethod.GET, produces=MediaType.TEXT_PLAIN_VALUE)
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public  @ResponseBody String getRecoveryCode(
-            @RequestParam("resource") String userName,
+            @RequestParam("userName") String userName,
             @RequestParam("resource") String resource,
             @RequestParam("appVersion") String appVersion,
             @RequestParam("auxJSON") String auxJSON,
@@ -277,7 +277,7 @@ public class RESTController {
     @RequestMapping(value = "/rest/verifyRecoveryCode", method=RequestMethod.GET, produces=MediaType.TEXT_PLAIN_VALUE)
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public  @ResponseBody String verifyRecoveryCode(
-            @RequestParam("resource") String userName,
+            @RequestParam("userName") String userName,
             @RequestParam("resource") String resource,
             @RequestParam("recoveryCode") String recoveryCode,
             @RequestParam("appVersion") String appVersion,
