@@ -29,5 +29,5 @@ phoenix-soap-app/target/test-classes/db.properties
 phoenix-soap-ftest/target/
 *db.properties*
 /phoenix-soap-ftest/target/
-
+/phoenix-soap-app/node_modules/
 /phoenix-soap-app/src/test/resources/testCards/vizitka.jpg
