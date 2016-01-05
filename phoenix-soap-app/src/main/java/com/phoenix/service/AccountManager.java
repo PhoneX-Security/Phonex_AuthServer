@@ -79,8 +79,6 @@ public class AccountManager {
     @Autowired
     private AMQPListener amqpListener;
 
-    private static TemplateEngine templateEngine;
-
     /**
      * Username+IP -> last recovery attempt in milliseconds, throttling recovery code requests.
      */
@@ -644,14 +642,6 @@ public class AccountManager {
         return Collections.emptyList();
     }
 
-    public static synchronized TemplateEngine getTemplateEngine(){
-        if (templateEngine == null){
-            templateEngine = new TemplateEngine();
-        }
-
-        return templateEngine;
-    }
-
     /**
      *
      * Source: http://www.thymeleaf.org/doc/articles/springmail.html
@@ -689,27 +679,27 @@ public class AccountManager {
 
     public void sendPasswordRecoveredMail(Subscriber caller, RecoveryCode recCodeDb, List<Locale> locales){
         try {
-        final PhxStrings mailRecoveredHtml = strings.loadString("mail_password_recovered_html", locales);
-        final PhxStrings mailRecoveredTxt = strings.loadString("mail_password_recovered_txt", locales);
-        final PhxStrings mailRecoveredSubject = strings.loadString("mail_password_recovered_subject", locales);
-        final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
-        final String subject = mailRecoveredSubject != null ? mailRecoveredSubject.getValue() : "PhoneX Password recovered";
+            final PhxStrings mailRecoveredHtml = strings.loadString("mail_password_recovered_html", locales);
+            final PhxStrings mailRecoveredTxt = strings.loadString("mail_password_recovered_txt", locales);
+            final PhxStrings mailRecoveredSubject = strings.loadString("mail_password_recovered_subject", locales);
+            final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
+            final String subject = mailRecoveredSubject != null ? mailRecoveredSubject.getValue() : "PhoneX Password recovered";
 
-        final TemplateEngine templateEngine = new TemplateEngine();
-        final Context ctx = new Context(fixedLocales.get(0));
-        ctx.setVariable("caller", caller);
-        ctx.setVariable("recovery", recCodeDb);
-        ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
+            final TemplateEngine templateEngine = new TemplateEngine();
+            final Context ctx = new Context(fixedLocales.get(0));
+            ctx.setVariable("caller", caller);
+            ctx.setVariable("recovery", recCodeDb);
+            ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
 
-        final String htmlContent = mailRecoveredHtml == null ? null : templateEngine.process(mailRecoveredHtml.getValue(), ctx);
-        final String txtContent = mailRecoveredTxt == null ? null : templateEngine.process(mailRecoveredTxt.getValue(), ctx);
+            final String htmlContent = mailRecoveredHtml == null ? null : templateEngine.process(mailRecoveredHtml.getValue(), ctx);
+            final String txtContent = mailRecoveredTxt == null ? null : templateEngine.process(mailRecoveredTxt.getValue(), ctx);
 
-        mailSender.sendMailAsync(
-                PASSWORD_EMAIL_FROM,
-                caller.getRecoveryEmail(),
-                subject,
-                txtContent,
-                htmlContent);
+            mailSender.sendMailAsync(
+                    PASSWORD_EMAIL_FROM,
+                    caller.getRecoveryEmail(),
+                    subject,
+                    txtContent,
+                    htmlContent);
         } catch(Exception e){
             log.error("Exception in sending mail", e);
         }

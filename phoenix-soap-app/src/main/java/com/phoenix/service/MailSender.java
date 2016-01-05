@@ -77,7 +77,7 @@ public class MailSender {
             final JavaMailSender sender = executor.mailSender();
 
             final MimeMessage mimeMessage = sender.createMimeMessage();
-            final MimeMessageHelper message = new MimeMessageHelper(mimeMessage);
+            final MimeMessageHelper message = new MimeMessageHelper(mimeMessage, "utf-8");
 
             message.setFrom(from);
             message.setTo(to);

@@ -78,6 +78,7 @@ public class MailSendExecutor extends BackgroundThreadService {
         mailSender.setProtocol(jiveGlobals.getProperty("mail.server.protocol"));
         mailSender.setUsername(jiveGlobals.getProperty("mail.server.username"));
         mailSender.setPassword(jiveGlobals.getProperty("mail.server.password"));
+        mailSender.setDefaultEncoding("utf-8");
         mailSender.setJavaMailProperties(javaMailProperties());
         return mailSender;
     }
