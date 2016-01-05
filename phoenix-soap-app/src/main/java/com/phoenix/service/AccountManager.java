@@ -10,6 +10,7 @@ import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.PasswordGenerator;
 import com.phoenix.utils.StringUtils;
 import org.apache.commons.collections.map.LRUMap;
+import org.apache.commons.lang.LocaleUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -21,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -30,10 +33,7 @@ import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.security.SecureRandom;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Manager for account settings logic.
@@ -58,7 +58,8 @@ public class AccountManager {
     public static final String AMQP_OFFLINE_MSG_TYPE = "msgType";
     public static final String AMQP_OFFLINE_TIMESTAMP_SECONDS = "timestampSeconds";
 
-    static final String RECOVERY_CODE_CHARSET = "0123456789abcdefghijkmnopqrstuvwxz";
+    public static final String RECOVERY_CODE_CHARSET = "0123456789abcdefghijkmnopqrstuvwxz";
+    public static final String PASSWORD_EMAIL_FROM = "system@phone-x.net";
 
     @PersistenceContext
     protected EntityManager em;
@@ -70,7 +71,15 @@ public class AccountManager {
     private EndpointAuth auth;
 
     @Autowired
+    private StringsManager strings;
+
+    @Autowired
+    private MailSender mailSender;
+
+    @Autowired
     private AMQPListener amqpListener;
+
+    private static TemplateEngine templateEngine;
 
     /**
      * Username+IP -> last recovery attempt in milliseconds, throttling recovery code requests.
@@ -427,14 +436,14 @@ public class AccountManager {
             final long now = System.currentTimeMillis();
             synchronized (recoveryMapsLock) {
                 final Long userIpTime = (Long)recoveryMap.get(userIpKey);
-                if (userIpTime != null && now-userIpTime < 1000*60){
+                if (userIpTime != null && now-userIpTime < 1000*5){
                     resp.setStatusCode(-4);
                     resp.setStatusText("RecoveryTooOften");
                     return;
                 }
 
                 final Long ipTime = (Long) recoveryIpMap.get(ip);
-                if (ipTime != null && now-ipTime < 1000*60){
+                if (ipTime != null && now-ipTime < 1000*5){
                     resp.setStatusCode(-5);
                     resp.setStatusText("RecoveryTooOftenIp");
                     return;
@@ -476,7 +485,8 @@ public class AccountManager {
             recCodeDb.setResource(StringUtils.takeMaxN(resource, 32));
             dataService.persist(recCodeDb, true);
 
-            // TODO: send templated email to a given recovery mail.
+            // Send templated email to a given recovery mail.
+            sendRecoveryMail(caller, recCodeDb, extractLocalesFromAppVersion(appVersion));
 
             resp.setValidTo(cal.getTime().getTime());
             resp.setStatusCode(0);
@@ -582,12 +592,126 @@ public class AccountManager {
             resp.setStatusCode(0);
             resp.setStatusText("OK");
 
-            // TODO: send templated email to a given recovery mail that password was reset from given IP address.
-            // ...
+            // Send templated email to a given recovery mail that password was reset from given IP address.
+            sendPasswordRecoveredMail(caller, codeDb, extractLocalesFromAppVersion(appVersion));
 
         } catch(Exception e){
             log.error("Exception in processing verification of a recovery code.", e);
             resp.setStatusCode(-1);
+        }
+    }
+
+    /**
+     * Extracs available locales from app version.
+     * @param appVersion
+     * @return
+     */
+    public List<Locale> extractLocalesFromAppVersion(String appVersion){
+        if (StringUtils.isEmpty(appVersion)){
+            return Collections.emptyList();
+        }
+
+        try {
+            final List<Locale> localesToReturn = new ArrayList<Locale>();
+            final JSONObject appJson = new JSONObject(appVersion);
+            if (!appJson.has("locales")){
+                return localesToReturn;
+            }
+
+            final JSONArray locales = appJson.getJSONArray("locales");
+            final int len = locales.length();
+            if (len == 0){
+                return localesToReturn;
+            }
+
+            for(int i=0; i<len; i++){
+                try {
+                    final String locString = locales.getString(i);
+                    final Locale curLoc = LocaleUtils.toLocale(locString);
+                    localesToReturn.add(curLoc);
+
+                } catch(Exception ex){
+                    log.error("Exception in subparse", ex);
+                }
+            }
+
+            return localesToReturn;
+
+        } catch(Exception e){
+            log.error("Exception in parsing app version", e);
+        }
+
+        return Collections.emptyList();
+    }
+
+    public static synchronized TemplateEngine getTemplateEngine(){
+        if (templateEngine == null){
+            templateEngine = new TemplateEngine();
+        }
+
+        return templateEngine;
+    }
+
+    /**
+     *
+     * Source: http://www.thymeleaf.org/doc/articles/springmail.html
+     * @param caller
+     * @param recCodeDb
+     * @param locales
+     */
+    public void sendRecoveryMail(Subscriber caller, RecoveryCode recCodeDb, List<Locale> locales){
+        try {
+            final PhxStrings mailRecoveryHtml = strings.loadString("mail_recovery_html", locales);
+            final PhxStrings mailRecoveryTxt = strings.loadString("mail_recovery_txt", locales);
+            final PhxStrings mailRecoverySubject = strings.loadString("mail_recovery_html_subject", locales);
+            final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
+            final String subject = mailRecoverySubject != null ? mailRecoverySubject.getValue() : "PhoneX Password recovery";
+
+            final TemplateEngine templateEngine = new TemplateEngine();
+            final Context ctx = new Context(fixedLocales.get(0));
+            ctx.setVariable("caller", caller);
+            ctx.setVariable("recovery", recCodeDb);
+            ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
+
+            final String htmlContent = mailRecoveryHtml == null ? null : templateEngine.process(mailRecoveryHtml.getValue(), ctx);
+            final String txtContent = mailRecoveryTxt == null ? null : templateEngine.process(mailRecoveryTxt.getValue(), ctx);
+
+            mailSender.sendMailAsync(
+                    PASSWORD_EMAIL_FROM,
+                    caller.getRecoveryEmail(),
+                    subject,
+                    txtContent,
+                    htmlContent);
+        } catch(Exception e){
+            log.error("Exception in sending mail", e);
+        }
+    }
+
+    public void sendPasswordRecoveredMail(Subscriber caller, RecoveryCode recCodeDb, List<Locale> locales){
+        try {
+        final PhxStrings mailRecoveredHtml = strings.loadString("mail_password_recovered_html", locales);
+        final PhxStrings mailRecoveredTxt = strings.loadString("mail_password_recovered_txt", locales);
+        final PhxStrings mailRecoveredSubject = strings.loadString("mail_password_recovered_subject", locales);
+        final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
+        final String subject = mailRecoveredSubject != null ? mailRecoveredSubject.getValue() : "PhoneX Password recovered";
+
+        final TemplateEngine templateEngine = new TemplateEngine();
+        final Context ctx = new Context(fixedLocales.get(0));
+        ctx.setVariable("caller", caller);
+        ctx.setVariable("recovery", recCodeDb);
+        ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
+
+        final String htmlContent = mailRecoveredHtml == null ? null : templateEngine.process(mailRecoveredHtml.getValue(), ctx);
+        final String txtContent = mailRecoveredTxt == null ? null : templateEngine.process(mailRecoveredTxt.getValue(), ctx);
+
+        mailSender.sendMailAsync(
+                PASSWORD_EMAIL_FROM,
+                caller.getRecoveryEmail(),
+                subject,
+                txtContent,
+                htmlContent);
+        } catch(Exception e){
+            log.error("Exception in sending mail", e);
         }
     }
 

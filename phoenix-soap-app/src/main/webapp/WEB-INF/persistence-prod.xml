@@ -18,12 +18,14 @@
     <class>com.phoenix.db.LicenseNotifications</class>
     <class>com.phoenix.db.PairingRequest</class>
     <class>com.phoenix.db.DbProperty</class>
+    <class>com.phoenix.db.RecoveryCode</class>
     <class>com.phoenix.db.StoredFiles</class>
     <class>com.phoenix.db.TrialEventLog</class>
     <class>com.phoenix.db.UsageLogs</class>
     <class>com.phoenix.db.SubscriberExtras</class>
     <class>com.phoenix.db.PhxAuthState</class>
     <class>com.phoenix.db.PhxErrorReport</class>
+    <class>com.phoenix.db.PhxStrings</class>
     <class>com.phoenix.db.opensips.Acc</class>
     <class>com.phoenix.db.opensips.ActiveWatchers</class>
     <class>com.phoenix.db.opensips.Address</class>
