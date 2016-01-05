@@ -2,6 +2,7 @@ package com.phoenix.service;
 
 import com.phoenix.db.*;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.geoip.GeoIpManager;
 import com.phoenix.rest.RecoveryCodeResponse;
 import com.phoenix.rest.VerifyRecoveryCodeResponse;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Request;
@@ -75,6 +76,9 @@ public class AccountManager {
 
     @Autowired
     private MailSender mailSender;
+
+    @Autowired
+    private GeoIpManager geoIp;
 
     @Autowired
     private AMQPListener amqpListener;
@@ -662,6 +666,7 @@ public class AccountManager {
             ctx.setVariable("caller", caller);
             ctx.setVariable("recovery", recCodeDb);
             ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
+            ctx.setVariable("geoIp", geoIp.getGeoIp(recCodeDb.getRequestIp()));
 
             final String htmlContent = mailRecoveryHtml == null ? null : templateEngine.process(mailRecoveryHtml.getValue(), ctx);
             final String txtContent = mailRecoveryTxt == null ? null : templateEngine.process(mailRecoveryTxt.getValue(), ctx);
@@ -690,6 +695,7 @@ public class AccountManager {
             ctx.setVariable("caller", caller);
             ctx.setVariable("recovery", recCodeDb);
             ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
+            ctx.setVariable("geoIp", geoIp.getGeoIp(recCodeDb.getConfirmIp()));
 
             final String htmlContent = mailRecoveredHtml == null ? null : templateEngine.process(mailRecoveredHtml.getValue(), ctx);
             final String txtContent = mailRecoveredTxt == null ? null : templateEngine.process(mailRecoveredTxt.getValue(), ctx);
