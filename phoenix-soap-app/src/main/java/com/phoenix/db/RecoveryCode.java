@@ -51,10 +51,10 @@ public class RecoveryCode {
     @Column(name = "recovery_email", nullable = false, length = 250)
     private String recoveryEmail;
 
-    @Column(name = "request_ip", nullable = false, length = 64)
+    @Column(name = "request_ip", nullable = true, length = 64)
     private String requestIp;
 
-    @Column(name = "confirm_ip", nullable = false, length = 64)
+    @Column(name = "confirm_ip", nullable = true, length = 64)
     private String confirmIp;
 
     @Column(name = "request_appversion", nullable = true, columnDefinition = "TEXT")
