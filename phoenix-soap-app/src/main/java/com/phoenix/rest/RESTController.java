@@ -12,6 +12,7 @@ import com.phoenix.db.PhxErrorReport;
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.rest.json.TestReturn;
+import com.phoenix.service.AccountManager;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.files.FileManager;
 import com.phoenix.service.PhoenixDataService;
@@ -87,7 +88,10 @@ public class RESTController {
     
     @Autowired(required = true)
     private PresenceManager pmanager;
-    
+
+    @Autowired
+    private AccountManager accountMgr;
+
     // owner SIP obtained from certificate
     private String owner_sip;
     
@@ -223,6 +227,83 @@ public class RESTController {
     }
 
     /**
+     * Send recovery code to the user via registered email.
+     *
+     * @param userName
+     * @param appVersion
+     * @param auxJSON
+     * @return
+     * @throws IOException
+     * @throws java.security.cert.CertificateException
+     */
+    @RequestMapping(value = "/rest/recoveryCode", method=RequestMethod.GET, produces=MediaType.TEXT_PLAIN_VALUE)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public  @ResponseBody String getRecoveryCode(
+            @RequestParam("resource") String userName,
+            @RequestParam("resource") String resource,
+            @RequestParam("appVersion") String appVersion,
+            @RequestParam("auxJSON") String auxJSON,
+            HttpServletRequest request,
+            HttpServletResponse response) throws IOException, CertificateException {
+
+        // Some SSL check at first
+        this.checkOneSideSSL(request);
+
+        // Prepare JSON response body
+        final RecoveryCodeResponse resp = new RecoveryCodeResponse();
+        resp.setStatusCode(-1);
+        resp.setStatusText("GeneralError");
+
+        log.info("recoveryCode: [" + userName + "]");
+        final Subscriber caller = this.dataService.getLocalUser(userName);
+        if (caller==null || caller.isDeleted()){
+            return resp.tryToJSONString();
+        }
+
+        accountMgr.processGetRecoveryCodeRequest(caller, resource, appVersion, resp, request);
+        return resp.tryToJSONString();
+    }
+
+    /**
+     * Send recovery code to the user via registered email.
+     *
+     * @param userName
+     * @param appVersion
+     * @param auxJSON
+     * @return
+     * @throws IOException
+     * @throws java.security.cert.CertificateException
+     */
+    @RequestMapping(value = "/rest/verifyRecoveryCode", method=RequestMethod.GET, produces=MediaType.TEXT_PLAIN_VALUE)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public  @ResponseBody String verifyRecoveryCode(
+            @RequestParam("resource") String userName,
+            @RequestParam("resource") String resource,
+            @RequestParam("recoveryCode") String recoveryCode,
+            @RequestParam("appVersion") String appVersion,
+            @RequestParam("auxJSON") String auxJSON,
+            HttpServletRequest request,
+            HttpServletResponse response) throws IOException, CertificateException {
+
+        // Some SSL check at first
+        this.checkOneSideSSL(request);
+
+        // Prepare JSON response body
+        final VerifyRecoveryCodeResponse resp = new VerifyRecoveryCodeResponse();
+        resp.setStatusCode(-1);
+        resp.setStatusText("GeneralError");
+
+        log.info("verifyRecoveryCode: [" + userName + "]");
+        final Subscriber caller = this.dataService.getLocalUser(userName);
+        if (caller==null || caller.isDeleted()){
+            return resp.tryToJSONString();
+        }
+
+        accountMgr.processVerifyRecoveryCodeRequest(caller, resource, appVersion, recoveryCode, resp, request);
+        return resp.tryToJSONString();
+    }
+
+    /**
      * Procedure for log file upload from device.
      *
      * @param version
@@ -265,6 +346,9 @@ public class RESTController {
                 resp.setStatusCode(-10);
                 return resp.toJSONString();
             }
+
+            // TODO: Since uploading a log files is quite space demanding, user can report maximally 250MB of data a day.
+            // ...
 
             // Read uploaded file & write to persistent storage - drive.
             final InputStream logInputStream = hasLogFile ? logfile.getInputStream() : null;

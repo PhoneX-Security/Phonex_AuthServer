@@ -1,13 +1,15 @@
 package com.phoenix.service;
 
-import com.phoenix.db.Contactlist;
-import com.phoenix.db.TrialEventLog;
+import com.phoenix.db.*;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.rest.RecoveryCodeResponse;
+import com.phoenix.rest.VerifyRecoveryCodeResponse;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Request;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Response;
 import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.PasswordGenerator;
 import com.phoenix.utils.StringUtils;
+import org.apache.commons.collections.map.LRUMap;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -16,13 +18,22 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Manager for account settings logic.
@@ -47,11 +58,30 @@ public class AccountManager {
     public static final String AMQP_OFFLINE_MSG_TYPE = "msgType";
     public static final String AMQP_OFFLINE_TIMESTAMP_SECONDS = "timestampSeconds";
 
+    static final String RECOVERY_CODE_CHARSET = "0123456789abcdefghijkmnopqrstuvwxz";
+
+    @PersistenceContext
+    protected EntityManager em;
+
     @Autowired
     private PhoenixDataService dataService;
 
+    @Autowired(required = true)
+    private EndpointAuth auth;
+
     @Autowired
     private AMQPListener amqpListener;
+
+    /**
+     * Username+IP -> last recovery attempt in milliseconds, throttling recovery code requests.
+     */
+    private final LRUMap recoveryMap = new LRUMap(1024);
+
+    /**
+     * IP -> last recovery attempt in milliseconds, throttling recovery code requests.
+     */
+    private final LRUMap recoveryIpMap = new LRUMap(1024);
+    private final Object recoveryMapsLock = new Object();
 
     @PostConstruct
     public synchronized void init() {
@@ -361,5 +391,184 @@ public class AccountManager {
         }catch (Exception e){
             log.error("Exception when processing new offline message event", e);
         }
+    }
+
+    /**
+     * Get recovery code request.
+     * Creates new recovery code record and send an email with the recovery code.
+     *
+     * Throttling username / ip to 1 attempt per minute.
+     *
+     * @param caller
+     * @param resource
+     * @param appVersion
+     * @param resp
+     * @param request
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public void processGetRecoveryCodeRequest(Subscriber caller, String resource, String appVersion,
+                                              RecoveryCodeResponse resp, HttpServletRequest request)
+    {
+        // Empty recovery email?
+        if (StringUtils.isEmpty(caller.getRecoveryEmail())){
+            resp.setStatusCode(-3);
+            resp.setStatusText("EmptyRecoveryMail");
+            return;
+        }
+
+        try {
+            final String sip = PhoenixDataService.getSIP(caller);
+            final String newRecoveryCode = generateRecoveryCode();
+            final RecoveryCode recCodeDb = new RecoveryCode();
+            final String ip = auth.getIp(request);
+            final String userIpKey = sip+";"+ip;
+            final long now = System.currentTimeMillis();
+            synchronized (recoveryMapsLock) {
+                final Long userIpTime = (Long)recoveryMap.get(userIpKey);
+                if (userIpTime != null && now-userIpTime < 1000*60){
+                    resp.setStatusCode(-4);
+                    resp.setStatusText("RecoveryTooOften");
+                    return;
+                }
+
+                final Long ipTime = (Long) recoveryIpMap.get(ip);
+                if (ipTime != null && now-ipTime < 1000*60){
+                    resp.setStatusCode(-5);
+                    resp.setStatusText("RecoveryTooOftenIp");
+                    return;
+                }
+
+                recoveryMap.put(userIpKey, now);
+                recoveryIpMap.put(ip, now);
+            }
+
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.HOUR, 1);
+
+            recCodeDb.setSubscriberSip(sip);
+            recCodeDb.setOwner(caller);
+            recCodeDb.setRecoveryEmail(caller.getRecoveryEmail());
+            recCodeDb.setRequestIp(ip);
+            recCodeDb.setDateCreated(new Date());
+            recCodeDb.setDateValid(cal.getTime());
+            recCodeDb.setCodeIsValid(true);
+            recCodeDb.setRecoveryCode(newRecoveryCode);
+            recCodeDb.setRequestAppVersion(StringUtils.takeMaxN(appVersion, 4096));
+            recCodeDb.setResource(StringUtils.takeMaxN(appVersion, 32));
+            dataService.persist(recCodeDb, true);
+
+            // TODO: send templated email to a given recovery mail.
+
+            resp.setValidTo(cal.getTime().getTime());
+            resp.setStatusCode(0);
+            resp.setStatusText("CodeSent");
+
+        } catch(Exception e){
+            log.error("Exception in processing verification code request.", e);
+            resp.setStatusCode(-1);
+        }
+    }
+
+    /**
+     * Get recovery code request.
+     *
+     * @param caller
+     * @param resource
+     * @param appVersion
+     * @param recoveryCode
+     * @param resp
+     * @param request
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public void processVerifyRecoveryCodeRequest(Subscriber caller, String resource, String appVersion,
+                                                 String recoveryCode,
+                                                 VerifyRecoveryCodeResponse resp, HttpServletRequest request)
+    {
+        // Empty recovery email?
+        if (StringUtils.isEmpty(caller.getRecoveryEmail())){
+            resp.setStatusCode(-3);
+            resp.setStatusText("EmptyRecoveryMail");
+            return;
+        }
+
+        try {
+            final String sip = PhoenixDataService.getSIP(caller);
+            final String ip = auth.getIp(request);
+            final String userIpKey = sip+";"+ip;
+            final long now = System.currentTimeMillis();
+
+            // Load recovery.
+            // Fetch newest auth state record.
+            final TypedQuery<RecoveryCode> dbQuery = em.createQuery("SELECT rcode FROM RecoveryCode rcode " +
+                    " WHERE rcode.owner=:owner AND rcode.recoveryCode=:recoveryCode AND rcode.codeIsValid=1 " +
+                    " ORDER BY rcode.dateCreated DESC", RecoveryCode.class);
+            dbQuery.setParameter("owner", caller);
+            dbQuery.setParameter("recoveryCode", recoveryCode);
+
+            final List<RecoveryCode> recoveryCodes = dbQuery.getResultList();
+            if (recoveryCodes.isEmpty()){
+                // TODO: throttle invalid request.
+                resp.setStatusCode(-10);
+                resp.setStatusText("InvalidRecoveryCode");
+                return;
+            }
+
+            final RecoveryCode codeDb = recoveryCodes.get(0);
+            codeDb.setCodeIsValid(false);
+            codeDb.setConfirmAppVersion(StringUtils.takeMaxN(appVersion, 4096));
+            codeDb.setConfirmIp(ip);
+            codeDb.setDateConfirmed(new Date());
+            em.persist(codeDb);
+
+            // Generate a new password.
+            final String newPassword = PasswordGenerator.genPassword(24, false);
+            final String ha1 = MiscUtils.getHA1(sip, newPassword);
+            final String ha1b = MiscUtils.getHA1b(sip, newPassword);
+            caller.setHa1(ha1);
+            caller.setHa1b(ha1b);
+            em.persist(caller);
+
+            resp.setNewPassword(newPassword);
+            resp.setStatusCode(0);
+            resp.setStatusText("OK");
+
+            // TODO: send templated email to a given recovery mail that password was reset from given IP address.
+            // ...
+
+        } catch(Exception e){
+            log.error("Exception in processing verification of a recovery code.", e);
+            resp.setStatusCode(-1);
+        }
+    }
+
+    /**
+     * Generates a new random recovery code.
+     * @return
+     */
+    public String generateRecoveryCode(){
+        final Random rnd = new SecureRandom();
+        final StringBuilder sb = new StringBuilder(3*3+2);
+        for( int i = 0; i < 9; i++ ) {
+            sb.append(RECOVERY_CODE_CHARSET.charAt(rnd.nextInt(RECOVERY_CODE_CHARSET.length())));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Turns 123456789 into 123-456-789.
+     * @param originalCode
+     * @return
+     */
+    public String recoveryCodeToDisplayFormat(String originalCode){
+        final StringBuilder sb = new StringBuilder();
+        final int len = originalCode.length();
+        for(int i=0; i<len; i++){
+            sb.append(originalCode.charAt(i));
+            if (((i+1) % 3) == 0 && (i+1) < len){
+                sb.append("-");
+            }
+        }
+
+        return sb.toString();
     }
 }

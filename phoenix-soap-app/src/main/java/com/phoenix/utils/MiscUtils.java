@@ -107,6 +107,23 @@ public class MiscUtils {
         return getHA1(arr[0], arr[1], password);
     }
 
+    /**
+     * Generates HA1B password field from user SIP and password
+     * @param sip
+     * @param password
+     * @return
+     * @throws NoSuchAlgorithmException
+     */
+    public static String getHA1b(String sip, String password) throws NoSuchAlgorithmException {
+        // split sip by @
+        String arr[] = sip.split("@", 2);
+        if (arr==null || arr.length!=2) {
+            throw new IllegalArgumentException("Invalid SIP format");
+        }
+
+        return getHA1(sip, arr[1], password);
+    }
+
     public static String getHA1(String username, String domain, String password) throws NoSuchAlgorithmException{
         return generateMD5Hash((username + ":" + domain + ":" + password).getBytes());
     }
