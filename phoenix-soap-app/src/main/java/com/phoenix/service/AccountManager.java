@@ -83,6 +83,17 @@ public class AccountManager {
     private final LRUMap recoveryIpMap = new LRUMap(1024);
     private final Object recoveryMapsLock = new Object();
 
+    /**
+     * Username+IP -> last recovery attempt in milliseconds, throttling recovery code confirm requests.
+     */
+    private final LRUMap recoveryConfirmMap = new LRUMap(1024);
+
+    /**
+     * IP -> last recovery attempt in milliseconds, throttling recovery code confirm requests.
+     */
+    private final LRUMap recoveryIpConfirmMap = new LRUMap(1024);
+    private final Object recoveryConfirmMapsLock = new Object();
+
     @PostConstruct
     public synchronized void init() {
         log.info("Initializing AccountManager");
@@ -399,18 +410,18 @@ public class AccountManager {
      *
      * Throttling username / ip to 1 attempt per minute.
      *
-     * @param caller
+     * @param sipUser
      * @param resource
      * @param appVersion
      * @param resp
      * @param request
      */
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    public void processGetRecoveryCodeRequest(Subscriber caller, String resource, String appVersion,
+    public void processGetRecoveryCodeRequest(String sipUser, String resource, String appVersion,
                                               RecoveryCodeResponse resp, HttpServletRequest request)
     {
         try {
-            final String sip = PhoenixDataService.getSIP(caller);
+            final String sip = StringUtils.takeMaxN(sipUser, 256);
             final String ip = auth.getIp(request);
             final String userIpKey = sip+";"+ip;
             final long now = System.currentTimeMillis();
@@ -431,6 +442,14 @@ public class AccountManager {
 
                 recoveryMap.put(userIpKey, now);
                 recoveryIpMap.put(ip, now);
+            }
+
+            // Load user, if not found, mask as if no email was set.
+            final Subscriber caller = this.dataService.getLocalUser(sip);
+            if (caller == null){
+                resp.setStatusCode(-3);
+                resp.setStatusText("EmptyRecoveryMail");
+                return;
             }
 
             // Empty recovery email?
@@ -454,7 +473,7 @@ public class AccountManager {
             recCodeDb.setCodeIsValid(true);
             recCodeDb.setRecoveryCode(newRecoveryCode);
             recCodeDb.setRequestAppVersion(StringUtils.takeMaxN(appVersion, 4096));
-            recCodeDb.setResource(StringUtils.takeMaxN(appVersion, 32));
+            recCodeDb.setResource(StringUtils.takeMaxN(resource, 32));
             dataService.persist(recCodeDb, true);
 
             // TODO: send templated email to a given recovery mail.
@@ -472,7 +491,7 @@ public class AccountManager {
     /**
      * Get recovery code request.
      *
-     * @param caller
+     * @param sipUser
      * @param resource
      * @param appVersion
      * @param recoveryCode
@@ -480,34 +499,64 @@ public class AccountManager {
      * @param request
      */
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
-    public void processVerifyRecoveryCodeRequest(Subscriber caller, String resource, String appVersion,
+    public void processVerifyRecoveryCodeRequest(String sipUser, String resource, String appVersion,
                                                  String recoveryCode,
                                                  VerifyRecoveryCodeResponse resp, HttpServletRequest request)
     {
-        // Empty recovery email?
-        if (StringUtils.isEmpty(caller.getRecoveryEmail())){
-            resp.setStatusCode(-3);
-            resp.setStatusText("EmptyRecoveryMail");
-            return;
-        }
-
         try {
-            final String sip = PhoenixDataService.getSIP(caller);
+            final String sip = StringUtils.takeMaxN(sipUser, 256);
             final String ip = auth.getIp(request);
             final String userIpKey = sip+";"+ip;
             final long now = System.currentTimeMillis();
 
+            // Throttling requests.
+            synchronized (recoveryConfirmMapsLock) {
+                final Long userIpTime = (Long)recoveryConfirmMap.get(userIpKey);
+                if (userIpTime != null && now-userIpTime < 1000*5){
+                    resp.setStatusCode(-4);
+                    resp.setStatusText("RecoveryTooOften");
+                    return;
+                }
+
+                final Long ipTime = (Long) recoveryIpConfirmMap.get(ip);
+                if (ipTime != null && now-ipTime < 1000*5){
+                    resp.setStatusCode(-5);
+                    resp.setStatusText("RecoveryTooOftenIp");
+                    return;
+                }
+
+                recoveryConfirmMap.put(userIpKey, now);
+                recoveryIpConfirmMap.put(ip, now);
+            }
+
+            // Load user, if not found, mask as if no email was set.
+            final Subscriber caller = this.dataService.getLocalUser(sip);
+            if (caller == null){
+                resp.setStatusCode(-3);
+                resp.setStatusText("EmptyRecoveryMail");
+                return;
+            }
+
+            // Empty recovery email?
+            if (StringUtils.isEmpty(caller.getRecoveryEmail())){
+                resp.setStatusCode(-3);
+                resp.setStatusText("EmptyRecoveryMail");
+                return;
+            }
+
             // Load recovery.
             // Fetch newest auth state record.
             final TypedQuery<RecoveryCode> dbQuery = em.createQuery("SELECT rcode FROM RecoveryCode rcode " +
-                    " WHERE rcode.owner=:owner AND rcode.recoveryCode=:recoveryCode AND rcode.codeIsValid=1 " +
+                    " WHERE rcode.owner=:owner " +
+                    " AND rcode.recoveryCode=:recoveryCode " +
+                    " AND rcode.dateValid >= NOW() " +
+                    " AND rcode.codeIsValid=1 " +
                     " ORDER BY rcode.dateCreated DESC", RecoveryCode.class);
             dbQuery.setParameter("owner", caller);
             dbQuery.setParameter("recoveryCode", recoveryCode);
 
             final List<RecoveryCode> recoveryCodes = dbQuery.getResultList();
             if (recoveryCodes.isEmpty()){
-                // TODO: throttle invalid request.
                 resp.setStatusCode(-10);
                 resp.setStatusText("InvalidRecoveryCode");
                 return;

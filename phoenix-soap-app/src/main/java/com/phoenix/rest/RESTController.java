@@ -257,12 +257,7 @@ public class RESTController {
         resp.setStatusText("GeneralError");
 
         log.info("recoveryCode: [" + userName + "]");
-        final Subscriber caller = this.dataService.getLocalUser(userName);
-        if (caller==null || caller.isDeleted()){
-            return resp.tryToJSONString();
-        }
-
-        accountMgr.processGetRecoveryCodeRequest(caller, resource, appVersion, resp, request);
+        accountMgr.processGetRecoveryCodeRequest(userName, resource, appVersion, resp, request);
         return resp.tryToJSONString();
     }
 
@@ -296,12 +291,7 @@ public class RESTController {
         resp.setStatusText("GeneralError");
 
         log.info("verifyRecoveryCode: [" + userName + "]");
-        final Subscriber caller = this.dataService.getLocalUser(userName);
-        if (caller==null || caller.isDeleted()){
-            return resp.tryToJSONString();
-        }
-
-        accountMgr.processVerifyRecoveryCodeRequest(caller, resource, appVersion, recoveryCode, resp, request);
+        accountMgr.processVerifyRecoveryCodeRequest(userName, resource, appVersion, recoveryCode, resp, request);
         return resp.tryToJSONString();
     }
 

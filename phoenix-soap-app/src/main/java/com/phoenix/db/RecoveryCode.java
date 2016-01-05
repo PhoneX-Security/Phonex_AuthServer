@@ -42,7 +42,7 @@ public class RecoveryCode {
     @Column(name = "date_confirmed", nullable = true, columnDefinition = "TIMESTAMP")
     private Date dateConfirmed;
 
-    @Column(name = "code_valid", nullable = false)
+    @Column(name = "code_valid", nullable = false, columnDefinition = "TINYINT")
     private Boolean codeIsValid = true;
 
     @Column(name = "recovery_code", nullable = false, length = 32)
@@ -64,14 +64,6 @@ public class RecoveryCode {
     @Column(name = "confirm_appversion", nullable = true, columnDefinition = "TEXT")
     @Lob
     private String confirmAppVersion;
-
-    @Column(name = "aextra", nullable = true, columnDefinition = "TEXT")
-    @Lob
-    private String extra;
-
-    @Column(name = "aaux", nullable = true, columnDefinition = "TEXT")
-    @Lob
-    private String aux;
 
     public Long getId() {
         return id;
@@ -185,22 +177,6 @@ public class RecoveryCode {
         this.confirmAppVersion = confirmAppVersion;
     }
 
-    public String getExtra() {
-        return extra;
-    }
-
-    public void setExtra(String extra) {
-        this.extra = extra;
-    }
-
-    public String getAux() {
-        return aux;
-    }
-
-    public void setAux(String aux) {
-        this.aux = aux;
-    }
-
     @Override
     public String toString() {
         return "RecoveryCode{" +
@@ -218,8 +194,6 @@ public class RecoveryCode {
                 ", confirmIp='" + confirmIp + '\'' +
                 ", requestAppVersion='" + requestAppVersion + '\'' +
                 ", confirmAppVersion='" + confirmAppVersion + '\'' +
-                ", extra='" + extra + '\'' +
-                ", aux='" + aux + '\'' +
                 '}';
     }
 }
