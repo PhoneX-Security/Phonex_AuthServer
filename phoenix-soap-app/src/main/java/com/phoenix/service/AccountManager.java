@@ -570,11 +570,12 @@ public class AccountManager {
             em.persist(codeDb);
 
             // Generate a new password.
-            final String newPassword = PasswordGenerator.genPassword(24, false);
+            final String newPassword = PasswordGenerator.genPassword(16, false);
             final String ha1 = MiscUtils.getHA1(sip, newPassword);
             final String ha1b = MiscUtils.getHA1b(sip, newPassword);
             caller.setHa1(ha1);
             caller.setHa1b(ha1b);
+            caller.setForcePasswordChange(true);
             em.persist(caller);
 
             resp.setNewPassword(newPassword);
