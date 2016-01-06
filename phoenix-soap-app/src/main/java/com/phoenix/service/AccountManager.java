@@ -34,6 +34,7 @@ import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.*;
 
 /**
@@ -682,6 +683,12 @@ public class AccountManager {
         }
     }
 
+    /**
+     * Sends password recovered notification after successful forgotten-password procedure.
+     * @param caller
+     * @param recCodeDb
+     * @param locales
+     */
     public void sendPasswordRecoveredMail(Subscriber caller, RecoveryCode recCodeDb, List<Locale> locales){
         try {
             final PhxStrings mailRecoveredHtml = strings.loadString("mail_password_recovered_html", locales);
@@ -699,6 +706,94 @@ public class AccountManager {
 
             final String htmlContent = mailRecoveredHtml == null ? null : templateEngine.process(mailRecoveredHtml.getValue(), ctx);
             final String txtContent = mailRecoveredTxt == null ? null : templateEngine.process(mailRecoveredTxt.getValue(), ctx);
+
+            mailSender.sendMailAsync(
+                    PASSWORD_EMAIL_FROM,
+                    caller.getRecoveryEmail(),
+                    subject,
+                    txtContent,
+                    htmlContent);
+        } catch(Exception e){
+            log.error("Exception in sending mail", e);
+        }
+    }
+
+    /**
+     * Sends email with password changed notification
+     * @param caller
+     * @param ip
+     */
+    public void sendPasswordChangedMail(Subscriber caller, String ip){
+        try {
+            if (caller == null || StringUtils.isEmpty(caller.getRecoveryEmail())){
+                return;
+            }
+
+            final List<Locale> locales = extractLocalesFromAppVersion(caller.getAppVersion());
+            final PhxStrings mailHtml = strings.loadString("mail_password_changed_html", locales);
+            final PhxStrings mailTxt = strings.loadString("mail_password_changed_txt", locales);
+            final PhxStrings mailSubject = strings.loadString("mail_password_changed_subject", locales);
+            if (mailSubject == null || (mailHtml == null && mailTxt == null)){
+                log.error("Could not send password changed email, mail templates not defined");
+                return;
+            }
+
+            final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
+            final String subject = mailSubject.getValue();
+
+            final TemplateEngine templateEngine = new TemplateEngine();
+            final Context ctx = new Context(fixedLocales.get(0));
+            ctx.setVariable("caller", caller);
+            ctx.setVariable("changeDate", new Date());
+            ctx.setVariable("geoIp", geoIp.getGeoIp(ip));
+
+            final String htmlContent = mailHtml == null ? null : templateEngine.process(mailHtml.getValue(), ctx);
+            final String txtContent = mailTxt == null ? null : templateEngine.process(mailTxt.getValue(), ctx);
+
+            mailSender.sendMailAsync(
+                    PASSWORD_EMAIL_FROM,
+                    caller.getRecoveryEmail(),
+                    subject,
+                    txtContent,
+                    htmlContent);
+        } catch(Exception e){
+            log.error("Exception in sending mail", e);
+        }
+    }
+
+    /**
+     * Sends email with new certificate notification.
+     * @param caller
+     * @param ip
+     * @param cert
+     */
+    public void sendNewCertificateMail(Subscriber caller, String ip, X509Certificate cert){
+        try {
+            if (caller == null || StringUtils.isEmpty(caller.getRecoveryEmail())){
+                return;
+            }
+
+            final List<Locale> locales = extractLocalesFromAppVersion(caller.getAppVersion());
+            final PhxStrings mailHtml = strings.loadString("mail_new_cert_html", locales);
+            final PhxStrings mailTxt = strings.loadString("mail_new_cert_txt", locales);
+            final PhxStrings mailSubject = strings.loadString("mail_new_cert_subject", locales);
+            if (mailSubject == null || (mailHtml == null && mailTxt == null)){
+                log.error("Could not send new certificate notification email, mail templates not defined");
+                return;
+            }
+
+            final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
+            final String subject = mailSubject.getValue();
+
+            final TemplateEngine templateEngine = new TemplateEngine();
+            final Context ctx = new Context(fixedLocales.get(0));
+            ctx.setVariable("caller", caller);
+            ctx.setVariable("cert", cert);
+            ctx.setVariable("changeDate", new Date());
+            ctx.setVariable("geoIp", geoIp.getGeoIp(ip));
+
+            final String htmlContent = mailHtml == null ? null : templateEngine.process(mailHtml.getValue(), ctx);
+            final String txtContent = mailTxt == null ? null : templateEngine.process(mailTxt.getValue(), ctx);
 
             mailSender.sendMailAsync(
                     PASSWORD_EMAIL_FROM,

@@ -1808,6 +1808,9 @@ public class PhoenixEndpoint {
             response.setResult(1);
             response.setTargetUser(request.getTargetUser());
             response.setReason("Password changes successfully");
+
+            // Notify user that password has been changed.
+            accountMgr.sendPasswordChangedMail(targetUserObj, auth.getIp(this.request));
          } catch(Exception e){
              log.warn("Exception in password change procedure", e);
              throw new RuntimeException(e);
@@ -2489,6 +2492,9 @@ public class PhoenixEndpoint {
             } catch(Exception ex){
                 log.error("Error in pushing contact cert update event", ex);
             }
+
+            // Notify user of a certificate change.
+            accountMgr.sendNewCertificateMail(localUser, auth.getIp(this.request), sign);
 
             // Regenerate CRL.
             if (userCert != null) {
