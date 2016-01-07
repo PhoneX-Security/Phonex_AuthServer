@@ -33,6 +33,7 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.*;
@@ -670,7 +671,12 @@ public class AccountManager {
             ctx.setVariable("caller", caller);
             ctx.setVariable("recovery", recCodeDb);
             ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
-            ctx.setVariable("codeLink", "phonex://recoverycode/"+recCodeDb.getRecoveryCode());
+            ctx.setVariable("codeLink", String.format("phonex://recoverycode/%s/%s",
+                    URLEncoder.encode(recCodeDb.getSubscriberSip(), "UTF-8"),
+                    recCodeDb.getRecoveryCode()));
+            ctx.setVariable("codeLinkDisplay", String.format("phonex://recoverycode/%s/%s",
+                    recCodeDb.getSubscriberSip(),
+                    recCodeDb.getRecoveryCode()));
             ctx.setVariable("geoIp", geoIp.getGeoIp(recCodeDb.getRequestIp()));
 
             final String htmlContent = mailRecoveryHtml == null ? null : templateEngine.process(mailRecoveryHtml.getValue(), ctx);
