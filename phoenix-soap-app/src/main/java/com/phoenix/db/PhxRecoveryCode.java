@@ -65,6 +65,9 @@ public class PhxRecoveryCode {
     @Lob
     private String confirmAppVersion;
 
+    @Column(name = "confirm_resource", nullable = true, length = 32)
+    private String confirmResource;
+
     public Long getId() {
         return id;
     }
@@ -177,6 +180,14 @@ public class PhxRecoveryCode {
         this.confirmAppVersion = confirmAppVersion;
     }
 
+    public String getConfirmResource() {
+        return confirmResource;
+    }
+
+    public void setConfirmResource(String confirmResource) {
+        this.confirmResource = confirmResource;
+    }
+
     @Override
     public String toString() {
         return "PhxRecoveryCode{" +
@@ -194,6 +205,7 @@ public class PhxRecoveryCode {
                 ", confirmIp='" + confirmIp + '\'' +
                 ", requestAppVersion='" + requestAppVersion + '\'' +
                 ", confirmAppVersion='" + confirmAppVersion + '\'' +
+                ", confirmResource='" + confirmResource + '\'' +
                 '}';
     }
 }

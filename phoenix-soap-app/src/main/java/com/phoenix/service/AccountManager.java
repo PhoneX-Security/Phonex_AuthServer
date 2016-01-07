@@ -578,6 +578,7 @@ public class AccountManager {
             final PhxRecoveryCode codeDb = phxRecoveryCodes.get(0);
             codeDb.setCodeIsValid(false);
             codeDb.setConfirmAppVersion(StringUtils.takeMaxN(appVersion, 4096));
+            codeDb.setConfirmResource(StringUtils.takeMaxN(resource, 32));
             codeDb.setConfirmIp(ip);
             codeDb.setDateConfirmed(new Date());
             em.persist(codeDb);
