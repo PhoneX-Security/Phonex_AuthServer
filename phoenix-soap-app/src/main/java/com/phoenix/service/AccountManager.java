@@ -161,7 +161,8 @@ public class AccountManager {
 
         // Recovery email
         if (settingReq.has(JSON_SETTINGS_RECOVERY_EMAIL)){
-            caller.setRecoveryEmail(settingReq.getString(JSON_SETTINGS_RECOVERY_EMAIL));
+            final String newRecoveryMail = settingReq.getString(JSON_SETTINGS_RECOVERY_EMAIL);
+            caller.setRecoveryEmail(StringUtils.isEmpty(newRecoveryMail) ? null : newRecoveryMail);
         }
 
         dataService.persist(caller, true);
