@@ -33,9 +33,9 @@ public class MailSender {
      * @param txtBody
      * @param htmlBody
      */
-    public void sendMailAsync(String from, String to, String subject, String txtBody, String htmlBody){
+    public void sendMailAsync(String from, String fromName, String to, String subject, String txtBody, String htmlBody){
         try {
-            final MimeMessage mime = buildMimeMessage(from, to, subject, txtBody, htmlBody);
+            final MimeMessage mime = buildMimeMessage(from, fromName, to, subject, txtBody, htmlBody);
             executor.sendMimeMessageAsync(mime, false);
 
         } catch (Exception e) {
@@ -53,10 +53,10 @@ public class MailSender {
         }
     }
 
-    public void sendMail(String from, String to, String subject, String txtBody, String htmlBody){
+    public void sendMail(String from, String fromName, String to, String subject, String txtBody, String htmlBody){
         try {
             final JavaMailSender sender = executor.mailSender();
-            final MimeMessage mime = buildMimeMessage(from, to, subject, txtBody, htmlBody);
+            final MimeMessage mime = buildMimeMessage(from, fromName, to, subject, txtBody, htmlBody);
             sender.send(mime);
 
         } catch (Exception e) {
@@ -72,14 +72,19 @@ public class MailSender {
      * @param txtBody
      * @param htmlBody
      */
-    public MimeMessage buildMimeMessage(String from, String to, String subject, String txtBody, String htmlBody){
+    public MimeMessage buildMimeMessage(String from, String fromName, String to, String subject, String txtBody, String htmlBody){
         try {
             final JavaMailSender sender = executor.mailSender();
 
             final MimeMessage mimeMessage = sender.createMimeMessage();
             final MimeMessageHelper message = new MimeMessageHelper(mimeMessage, "utf-8");
 
-            message.setFrom(from);
+            if (!StringUtils.isEmpty(fromName)){
+                message.setFrom(from, fromName);
+            } else {
+                message.setFrom(from);
+            }
+
             message.setTo(to);
             message.setSubject(subject);
 
