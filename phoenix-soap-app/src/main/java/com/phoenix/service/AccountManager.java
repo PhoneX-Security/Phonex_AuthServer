@@ -746,6 +746,8 @@ public class AccountManager {
             final TemplateEngine templateEngine = new TemplateEngine();
             final Context ctx = new Context(fixedLocales.get(0));
             ctx.setVariable("caller", caller);
+            ctx.setVariable("sip", PhoenixDataService.getSIP(caller));
+            ctx.setVariable("ip", ip);
             ctx.setVariable("changeDate", new Date());
             ctx.setVariable("geoIp", geoIp.getGeoIp(ip));
 
@@ -791,6 +793,8 @@ public class AccountManager {
             final Context ctx = new Context(fixedLocales.get(0));
             ctx.setVariable("caller", caller);
             ctx.setVariable("cert", cert);
+            ctx.setVariable("sip", PhoenixDataService.getSIP(caller));
+            ctx.setVariable("ip", ip);
             ctx.setVariable("changeDate", new Date());
             ctx.setVariable("geoIp", geoIp.getGeoIp(ip));
 
