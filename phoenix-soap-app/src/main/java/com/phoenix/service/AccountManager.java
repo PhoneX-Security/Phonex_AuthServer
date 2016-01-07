@@ -670,6 +670,7 @@ public class AccountManager {
             ctx.setVariable("caller", caller);
             ctx.setVariable("recovery", recCodeDb);
             ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
+            ctx.setVariable("codeLink", "phonex://recoverycode/"+recCodeDb.getRecoveryCode());
             ctx.setVariable("geoIp", geoIp.getGeoIp(recCodeDb.getRequestIp()));
 
             final String htmlContent = mailRecoveryHtml == null ? null : templateEngine.process(mailRecoveryHtml.getValue(), ctx);
