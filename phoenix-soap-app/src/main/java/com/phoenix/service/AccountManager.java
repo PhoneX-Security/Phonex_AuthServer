@@ -671,10 +671,10 @@ public class AccountManager {
             ctx.setVariable("caller", caller);
             ctx.setVariable("recovery", recCodeDb);
             ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
-            ctx.setVariable("codeLink", String.format("phonex://recoverycode/%s/%s",
+            ctx.setVariable("codeLink", String.format("https://www.phone-x.net/recoverycode/%s/%s",
                     URLEncoder.encode(recCodeDb.getSubscriberSip(), "UTF-8"),
                     recCodeDb.getRecoveryCode()));
-            ctx.setVariable("codeLinkDisplay", String.format("phonex://recoverycode/%s/%s",
+            ctx.setVariable("codeLinkDisplay", String.format("https://www.phone-x.net/recoverycode/%s/%s",
                     recCodeDb.getSubscriberSip(),
                     recCodeDb.getRecoveryCode()));
             ctx.setVariable("geoIp", geoIp.getGeoIp(recCodeDb.getRequestIp()));
