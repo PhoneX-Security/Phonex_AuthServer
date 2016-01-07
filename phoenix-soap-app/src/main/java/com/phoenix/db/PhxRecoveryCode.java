@@ -12,8 +12,8 @@ import java.util.Date;
  * Created by dusanklinec on 05.01.16.
  */
 @Entity
-@Table(name = "recoveryCode")
-public class RecoveryCode {
+@Table(name = "phxRecoveryCode")
+public class PhxRecoveryCode {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", unique = true, nullable = false)
@@ -179,7 +179,7 @@ public class RecoveryCode {
 
     @Override
     public String toString() {
-        return "RecoveryCode{" +
+        return "PhxRecoveryCode{" +
                 "id=" + id +
                 ", owner=" + owner +
                 ", subscriberSip='" + subscriberSip + '\'' +

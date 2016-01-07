@@ -18,7 +18,7 @@
     <class>com.phoenix.db.LicenseNotifications</class>
     <class>com.phoenix.db.PairingRequest</class>
     <class>com.phoenix.db.DbProperty</class>
-    <class>com.phoenix.db.RecoveryCode</class>
+    <class>com.phoenix.db.PhxRecoveryCode</class>
     <class>com.phoenix.db.StoredFiles</class>
     <class>com.phoenix.db.TrialEventLog</class>
     <class>com.phoenix.db.UsageLogs</class>

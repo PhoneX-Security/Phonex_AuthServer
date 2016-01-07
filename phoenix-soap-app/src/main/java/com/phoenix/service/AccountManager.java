@@ -472,7 +472,7 @@ public class AccountManager {
             }
 
             final String newRecoveryCode = generateRecoveryCode();
-            final RecoveryCode recCodeDb = new RecoveryCode();
+            final PhxRecoveryCode recCodeDb = new PhxRecoveryCode();
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.HOUR, 1);
 
@@ -559,23 +559,23 @@ public class AccountManager {
 
             // Load recovery.
             // Fetch newest auth state record.
-            final TypedQuery<RecoveryCode> dbQuery = em.createQuery("SELECT rcode FROM RecoveryCode rcode " +
+            final TypedQuery<PhxRecoveryCode> dbQuery = em.createQuery("SELECT rcode FROM PhxRecoveryCode rcode " +
                     " WHERE rcode.owner=:owner " +
                     " AND rcode.recoveryCode=:recoveryCode " +
                     " AND rcode.dateValid >= NOW() " +
                     " AND rcode.codeIsValid=1 " +
-                    " ORDER BY rcode.dateCreated DESC", RecoveryCode.class);
+                    " ORDER BY rcode.dateCreated DESC", PhxRecoveryCode.class);
             dbQuery.setParameter("owner", caller);
             dbQuery.setParameter("recoveryCode", recoveryCode);
 
-            final List<RecoveryCode> recoveryCodes = dbQuery.getResultList();
-            if (recoveryCodes.isEmpty()){
+            final List<PhxRecoveryCode> phxRecoveryCodes = dbQuery.getResultList();
+            if (phxRecoveryCodes.isEmpty()){
                 resp.setStatusCode(-10);
                 resp.setStatusText("InvalidRecoveryCode");
                 return;
             }
 
-            final RecoveryCode codeDb = recoveryCodes.get(0);
+            final PhxRecoveryCode codeDb = phxRecoveryCodes.get(0);
             codeDb.setCodeIsValid(false);
             codeDb.setConfirmAppVersion(StringUtils.takeMaxN(appVersion, 4096));
             codeDb.setConfirmIp(ip);
@@ -654,7 +654,7 @@ public class AccountManager {
      * @param recCodeDb
      * @param locales
      */
-    public void sendRecoveryMail(Subscriber caller, RecoveryCode recCodeDb, List<Locale> locales){
+    public void sendRecoveryMail(Subscriber caller, PhxRecoveryCode recCodeDb, List<Locale> locales){
         try {
             final PhxStrings mailRecoveryHtml = strings.loadString("mail_recovery_html", locales);
             final PhxStrings mailRecoveryTxt = strings.loadString("mail_recovery_txt", locales);
@@ -689,7 +689,7 @@ public class AccountManager {
      * @param recCodeDb
      * @param locales
      */
-    public void sendPasswordRecoveredMail(Subscriber caller, RecoveryCode recCodeDb, List<Locale> locales){
+    public void sendPasswordRecoveredMail(Subscriber caller, PhxRecoveryCode recCodeDb, List<Locale> locales){
         try {
             final PhxStrings mailRecoveredHtml = strings.loadString("mail_password_recovered_html", locales);
             final PhxStrings mailRecoveredTxt = strings.loadString("mail_password_recovered_txt", locales);

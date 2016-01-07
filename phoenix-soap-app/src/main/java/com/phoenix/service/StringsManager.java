@@ -1,7 +1,6 @@
 package com.phoenix.service;
 
 import com.phoenix.db.PhxStrings;
-import com.phoenix.db.RecoveryCode;
 import com.phoenix.db.extra.PluralFormsEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
