@@ -61,8 +61,6 @@ public class AccountManager {
     public static final String AMQP_OFFLINE_TIMESTAMP_SECONDS = "timestampSeconds";
 
     public static final String RECOVERY_CODE_CHARSET = "123456789abcdefghijkmnopqrstuvwxz";
-    public static final String PASSWORD_EMAIL_FROM = "system@phone-x.net";
-    public static final String PASSWORD_EMAIL_FROM_NAME = "PhoneX Security";
 
     @PersistenceContext
     protected EntityManager em;
