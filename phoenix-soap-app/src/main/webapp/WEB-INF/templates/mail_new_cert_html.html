@@ -11,7 +11,7 @@
 
 <p>
     The change has been done by IP address
-    <span th:text="${ip}">127.0.0.1</span><span th:if="${geoIp!=null}">, estimated location: <span th:text="${geoIp.toString()}">unknown</span>
+    <span th:text="${ip}">127.0.0.1</span><span th:if="${geoIp!=null}">, estimated location: <span th:text="${geoIp.toString()}">unknown</span></span>
   on <span th:text="${#dates.format(changeDate)}">01-01-1970</span>
 </p>
 

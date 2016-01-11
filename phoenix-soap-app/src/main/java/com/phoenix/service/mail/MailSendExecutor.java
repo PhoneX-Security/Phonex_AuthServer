@@ -1,6 +1,6 @@
-package com.phoenix.service;
+package com.phoenix.service.mail;
 
-import com.phoenix.db.CrlHolder;
+import com.phoenix.service.BackgroundThreadService;
 import com.phoenix.service.executor.JobRunnable;
 import com.phoenix.service.executor.JobTask;
 import com.phoenix.service.revocation.RevocationManager;

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title th:remove="all">New notification email</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+<p>
+    User <strong><span th:text="${sip}">N/A</span></strong> has set this email address as PhoneX password reset email address.
+</p>
+
+<p>
+    The change was performed by IP address
+    <span th:text="${ip}">127.0.0.1</span><span th:if="${geoIp!=null}">, estimated location: <span th:text="${geoIp.toString()}">unknown</span></span>
+on <span th:text="${#dates.format(changeDate)}">01-01-1970</span>.
+    </strong>
+</p>
+
+<p>
+    If you forget your PhoneX login password, you can reset your password. A recovery code will be sent to this email address
+    which is required to finish password reset procedure.
+</p>
+
+<p>
+    Please note the provided email address is kept confidential, not shared with third-parties and used solely for password reset
+    purposes and sending important security notifications (e.g., password change).
+</p>
+
+<p>
+    If the change was not initiated by you please report this incident to abuse@phone-x.net.
+</p>
+
+<p>
+    Regards, <br />
+    <em>The PhoneX Team</em>
+</p>
+</body>
+</html>

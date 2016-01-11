@@ -1,4 +1,4 @@
-package com.phoenix.service;
+package com.phoenix.service.mail;
 
 import com.phoenix.utils.JiveGlobals;
 import com.phoenix.utils.StringUtils;

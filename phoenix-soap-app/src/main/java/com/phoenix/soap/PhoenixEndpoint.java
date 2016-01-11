@@ -4046,7 +4046,7 @@ public class PhoenixEndpoint {
         response.setErrCode(0);
 
         try {
-            accountMgr.processSettingsUpdateRequest(caller, request, response);
+            accountMgr.processSettingsUpdateRequest(caller, request, response, this.request);
 
             logAction(callerSip, "accountSettingsUpdate", "");
         } catch(Throwable e){

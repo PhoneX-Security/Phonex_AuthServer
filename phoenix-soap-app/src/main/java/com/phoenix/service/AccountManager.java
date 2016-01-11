@@ -5,13 +5,16 @@ import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.geoip.GeoIpManager;
 import com.phoenix.rest.RecoveryCodeResponse;
 import com.phoenix.rest.VerifyRecoveryCodeResponse;
+import com.phoenix.service.mail.MailNotificationManager;
+import com.phoenix.service.mail.MailSender;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Request;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Response;
+import com.phoenix.utils.AccountUtils;
 import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.PasswordGenerator;
 import com.phoenix.utils.StringUtils;
 import org.apache.commons.collections.map.LRUMap;
-import org.apache.commons.lang.LocaleUtils;
+import org.jboss.util.Strings;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -86,6 +89,9 @@ public class AccountManager {
     @Autowired
     private AMQPListener amqpListener;
 
+    @Autowired
+    private MailNotificationManager mailNotif;
+
     /**
      * Username+IP -> last recovery attempt in milliseconds, throttling recovery code requests.
      */
@@ -132,7 +138,11 @@ public class AccountManager {
      * @param response
      * @throws JSONException
      */
-    public void processSettingsUpdateRequest(Subscriber caller, AccountSettingsUpdateV1Request request, AccountSettingsUpdateV1Response response) throws JSONException {
+    public void processSettingsUpdateRequest(Subscriber caller,
+                                             AccountSettingsUpdateV1Request request,
+                                             AccountSettingsUpdateV1Response response,
+                                             HttpServletRequest httpRequest) throws JSONException
+    {
         final String reqBody = request.getRequestBody();
         final JSONObject jReq = new JSONObject(reqBody);
 
@@ -163,8 +173,23 @@ public class AccountManager {
 
         // Recovery email
         if (settingReq.has(JSON_SETTINGS_RECOVERY_EMAIL)){
-            final String newRecoveryMail = settingReq.getString(JSON_SETTINGS_RECOVERY_EMAIL);
+            final String previousMail = caller.getRecoveryEmail();
+            String newRecoveryMail = settingReq.getString(JSON_SETTINGS_RECOVERY_EMAIL);
+            if (newRecoveryMail != null) {
+                newRecoveryMail = newRecoveryMail.trim();
+            }
+
             caller.setRecoveryEmail(StringUtils.isEmpty(newRecoveryMail) ? null : newRecoveryMail);
+
+            // Send notification email to an old address that a new one has been changed.
+            if (!StringUtils.isEmpty(previousMail) && (StringUtils.isEmpty(newRecoveryMail) || !previousMail.equals(newRecoveryMail))){
+                sendEmailChangedMail(caller, previousMail, auth.getIp(httpRequest));
+            }
+
+            // Send confirmation email to a new email address.
+            if (!StringUtils.isEmpty(newRecoveryMail)){
+                sendEmailSetConfirmationMail(caller, auth.getIp(httpRequest));
+            }
         }
 
         dataService.persist(caller, true);
@@ -492,7 +517,7 @@ public class AccountManager {
             dataService.persist(recCodeDb, true);
 
             // Send templated email to a given recovery mail.
-            sendRecoveryMail(caller, recCodeDb, extractLocalesFromAppVersion(appVersion));
+            sendRecoveryMail(caller, recCodeDb, AccountUtils.extractLocalesFromAppVersion(appVersion));
 
             resp.setValidTo(cal.getTime().getTime());
             resp.setStatusCode(0);
@@ -600,55 +625,12 @@ public class AccountManager {
             resp.setStatusText("OK");
 
             // Send templated email to a given recovery mail that password was reset from given IP address.
-            sendPasswordRecoveredMail(caller, codeDb, extractLocalesFromAppVersion(appVersion));
+            sendPasswordRecoveredMail(caller, codeDb, AccountUtils.extractLocalesFromAppVersion(appVersion));
 
         } catch(Exception e){
             log.error("Exception in processing verification of a recovery code.", e);
             resp.setStatusCode(-1);
         }
-    }
-
-    /**
-     * Extracs available locales from app version.
-     * @param appVersion
-     * @return
-     */
-    public List<Locale> extractLocalesFromAppVersion(String appVersion){
-        if (StringUtils.isEmpty(appVersion)){
-            return Collections.emptyList();
-        }
-
-        try {
-            final List<Locale> localesToReturn = new ArrayList<Locale>();
-            final JSONObject appJson = new JSONObject(appVersion);
-            if (!appJson.has("locales")){
-                return localesToReturn;
-            }
-
-            final JSONArray locales = appJson.getJSONArray("locales");
-            final int len = locales.length();
-            if (len == 0){
-                return localesToReturn;
-            }
-
-            for(int i=0; i<len; i++){
-                try {
-                    final String locString = locales.getString(i);
-                    final Locale curLoc = LocaleUtils.toLocale(locString);
-                    localesToReturn.add(curLoc);
-
-                } catch(Exception ex){
-                    log.error("Exception in subparse", ex);
-                }
-            }
-
-            return localesToReturn;
-
-        } catch(Exception e){
-            log.error("Exception in parsing app version", e);
-        }
-
-        return Collections.emptyList();
     }
 
     /**
@@ -659,39 +641,7 @@ public class AccountManager {
      * @param locales
      */
     public void sendRecoveryMail(Subscriber caller, PhxRecoveryCode recCodeDb, List<Locale> locales){
-        try {
-            final PhxStrings mailRecoveryHtml = strings.loadString("mail_recovery_html", locales);
-            final PhxStrings mailRecoveryTxt = strings.loadString("mail_recovery_txt", locales);
-            final PhxStrings mailRecoverySubject = strings.loadString("mail_recovery_html_subject", locales);
-            final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
-            final String subject = mailRecoverySubject != null ? mailRecoverySubject.getValue() : "PhoneX Password recovery";
-
-            final TemplateEngine templateEngine = new TemplateEngine();
-            final Context ctx = new Context(fixedLocales.get(0));
-            ctx.setVariable("caller", caller);
-            ctx.setVariable("recovery", recCodeDb);
-            ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
-            ctx.setVariable("codeLink", String.format("https://www.phone-x.net/recoverycode/%s/%s",
-                    URLEncoder.encode(recCodeDb.getSubscriberSip(), "UTF-8"),
-                    recCodeDb.getRecoveryCode()));
-            ctx.setVariable("codeLinkDisplay", String.format("https://www.phone-x.net/recoverycode/%s/%s",
-                    recCodeDb.getSubscriberSip(),
-                    recCodeDb.getRecoveryCode()));
-            ctx.setVariable("geoIp", geoIp.getGeoIp(recCodeDb.getRequestIp()));
-
-            final String htmlContent = mailRecoveryHtml == null ? null : templateEngine.process(mailRecoveryHtml.getValue(), ctx);
-            final String txtContent = mailRecoveryTxt == null ? null : templateEngine.process(mailRecoveryTxt.getValue(), ctx);
-
-            mailSender.sendMailAsync(
-                    PASSWORD_EMAIL_FROM,
-                    PASSWORD_EMAIL_FROM_NAME,
-                    caller.getRecoveryEmail(),
-                    subject,
-                    txtContent,
-                    htmlContent);
-        } catch(Exception e){
-            log.error("Exception in sending mail", e);
-        }
+        mailNotif.sendRecoveryMail(caller, recCodeDb, locales);
     }
 
     /**
@@ -701,33 +651,7 @@ public class AccountManager {
      * @param locales
      */
     public void sendPasswordRecoveredMail(Subscriber caller, PhxRecoveryCode recCodeDb, List<Locale> locales){
-        try {
-            final PhxStrings mailRecoveredHtml = strings.loadString("mail_password_recovered_html", locales);
-            final PhxStrings mailRecoveredTxt = strings.loadString("mail_password_recovered_txt", locales);
-            final PhxStrings mailRecoveredSubject = strings.loadString("mail_password_recovered_subject", locales);
-            final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
-            final String subject = mailRecoveredSubject != null ? mailRecoveredSubject.getValue() : "PhoneX Password recovered";
-
-            final TemplateEngine templateEngine = new TemplateEngine();
-            final Context ctx = new Context(fixedLocales.get(0));
-            ctx.setVariable("caller", caller);
-            ctx.setVariable("recovery", recCodeDb);
-            ctx.setVariable("code", recoveryCodeToDisplayFormat(recCodeDb.getRecoveryCode()));
-            ctx.setVariable("geoIp", geoIp.getGeoIp(recCodeDb.getConfirmIp()));
-
-            final String htmlContent = mailRecoveredHtml == null ? null : templateEngine.process(mailRecoveredHtml.getValue(), ctx);
-            final String txtContent = mailRecoveredTxt == null ? null : templateEngine.process(mailRecoveredTxt.getValue(), ctx);
-
-            mailSender.sendMailAsync(
-                    PASSWORD_EMAIL_FROM,
-                    PASSWORD_EMAIL_FROM_NAME,
-                    caller.getRecoveryEmail(),
-                    subject,
-                    txtContent,
-                    htmlContent);
-        } catch(Exception e){
-            log.error("Exception in sending mail", e);
-        }
+        mailNotif.sendPasswordRecoveredMail(caller, recCodeDb, locales);
     }
 
     /**
@@ -736,44 +660,7 @@ public class AccountManager {
      * @param ip
      */
     public void sendPasswordChangedMail(Subscriber caller, String ip){
-        try {
-            if (caller == null || StringUtils.isEmpty(caller.getRecoveryEmail())){
-                return;
-            }
-
-            final List<Locale> locales = extractLocalesFromAppVersion(caller.getAppVersion());
-            final PhxStrings mailHtml = strings.loadString("mail_password_changed_html", locales);
-            final PhxStrings mailTxt = strings.loadString("mail_password_changed_txt", locales);
-            final PhxStrings mailSubject = strings.loadString("mail_password_changed_subject", locales);
-            if (mailSubject == null || (mailHtml == null && mailTxt == null)){
-                log.error("Could not send password changed email, mail templates not defined");
-                return;
-            }
-
-            final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
-            final String subject = mailSubject.getValue();
-
-            final TemplateEngine templateEngine = new TemplateEngine();
-            final Context ctx = new Context(fixedLocales.get(0));
-            ctx.setVariable("caller", caller);
-            ctx.setVariable("sip", PhoenixDataService.getSIP(caller));
-            ctx.setVariable("ip", ip);
-            ctx.setVariable("changeDate", new Date());
-            ctx.setVariable("geoIp", geoIp.getGeoIp(ip));
-
-            final String htmlContent = mailHtml == null ? null : templateEngine.process(mailHtml.getValue(), ctx);
-            final String txtContent = mailTxt == null ? null : templateEngine.process(mailTxt.getValue(), ctx);
-
-            mailSender.sendMailAsync(
-                    PASSWORD_EMAIL_FROM,
-                    PASSWORD_EMAIL_FROM_NAME,
-                    caller.getRecoveryEmail(),
-                    subject,
-                    txtContent,
-                    htmlContent);
-        } catch(Exception e){
-            log.error("Exception in sending mail", e);
-        }
+        mailNotif.sendPasswordChangedMail(caller, ip);
     }
 
     /**
@@ -783,52 +670,33 @@ public class AccountManager {
      * @param cert
      */
     public void sendNewCertificateMail(Subscriber caller, String ip, X509Certificate cert){
-        try {
-            if (caller == null || StringUtils.isEmpty(caller.getRecoveryEmail())){
-                return;
-            }
+        mailNotif.sendNewCertificateMail(caller, ip, cert);
+    }
 
-            final List<Locale> locales = extractLocalesFromAppVersion(caller.getAppVersion());
-            final PhxStrings mailHtml = strings.loadString("mail_new_cert_html", locales);
-            final PhxStrings mailTxt = strings.loadString("mail_new_cert_txt", locales);
-            final PhxStrings mailSubject = strings.loadString("mail_new_cert_subject", locales);
-            if (mailSubject == null || (mailHtml == null && mailTxt == null)){
-                log.error("Could not send new certificate notification email, mail templates not defined");
-                return;
-            }
+    /**
+     * Sends email with confirmation that this address will be used for password reset purposes.
+     * @param caller
+     * @param ip
+     */
+    public void sendEmailSetConfirmationMail(Subscriber caller, String ip){
+        mailNotif.sendEmailSetConfirmationMail(caller, ip);
+    }
 
-            final List<Locale> fixedLocales = strings.fixupLocales(locales, true);
-            final String subject = mailSubject.getValue();
-
-            final TemplateEngine templateEngine = new TemplateEngine();
-            final Context ctx = new Context(fixedLocales.get(0));
-            ctx.setVariable("caller", caller);
-            ctx.setVariable("cert", cert);
-            ctx.setVariable("sip", PhoenixDataService.getSIP(caller));
-            ctx.setVariable("ip", ip);
-            ctx.setVariable("changeDate", new Date());
-            ctx.setVariable("geoIp", geoIp.getGeoIp(ip));
-
-            final String htmlContent = mailHtml == null ? null : templateEngine.process(mailHtml.getValue(), ctx);
-            final String txtContent = mailTxt == null ? null : templateEngine.process(mailTxt.getValue(), ctx);
-
-            mailSender.sendMailAsync(
-                    PASSWORD_EMAIL_FROM,
-                    PASSWORD_EMAIL_FROM_NAME,
-                    caller.getRecoveryEmail(),
-                    subject,
-                    txtContent,
-                    htmlContent);
-        } catch(Exception e){
-            log.error("Exception in sending mail", e);
-        }
+    /**
+     * Mail sent to previous email when password recovery mail has changed.
+     * @param caller
+     * @param oldMail
+     * @param ip
+     */
+    public void sendEmailChangedMail(Subscriber caller, String oldMail, String ip){
+        mailNotif.sendEmailChangedMail(caller, oldMail, ip);
     }
 
     /**
      * Generates a new random recovery code.
      * @return
      */
-    public String generateRecoveryCode(){
+    public static String generateRecoveryCode(){
         final Random rnd = new SecureRandom();
         final StringBuilder sb = new StringBuilder(3*3+2);
         for( int i = 0; i < 9; i++ ) {
@@ -842,7 +710,7 @@ public class AccountManager {
      * @param originalCode
      * @return
      */
-    public String recoveryCodeToDisplayFormat(String originalCode){
+    public static String recoveryCodeToDisplayFormat(String originalCode){
         final StringBuilder sb = new StringBuilder();
         final int len = originalCode.length();
         for(int i=0; i<len; i++){
