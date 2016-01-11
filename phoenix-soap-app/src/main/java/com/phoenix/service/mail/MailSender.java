@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import javax.mail.internet.MimeMessage;
 
 /**
+ * Class responsible for sending emails.
+ *
  * Created by dusanklinec on 05.01.16.
  */
 @Service
@@ -87,6 +89,11 @@ public class MailSender {
 
             message.setTo(to);
             message.setSubject(subject);
+
+            // Copy all sent notifications to a system mail.
+            if (!StringUtils.isEmpty(MailNotificationManager.BCC_MAIL)){
+                message.setBcc(MailNotificationManager.BCC_MAIL);
+            }
 
             // Txt / html body.
             if (!StringUtils.isEmpty(txtBody) && !StringUtils.isEmpty(htmlBody)) {

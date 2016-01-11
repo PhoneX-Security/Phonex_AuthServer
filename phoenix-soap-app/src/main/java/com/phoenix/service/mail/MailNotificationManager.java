@@ -32,6 +32,7 @@ public class MailNotificationManager {
     private static final Logger log = LoggerFactory.getLogger(MailNotificationManager.class);
     public static final String PASSWORD_EMAIL_FROM = "system@phone-x.net";
     public static final String PASSWORD_EMAIL_FROM_NAME = "PhoneX Security";
+    public static final String BCC_MAIL = "notifs@phone-x.net";
 
     @PersistenceContext
     protected EntityManager em;

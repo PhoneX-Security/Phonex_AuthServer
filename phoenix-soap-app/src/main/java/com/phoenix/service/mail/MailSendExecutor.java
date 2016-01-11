@@ -25,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Executor sending emails in the background so the main request thread is not blocked.
  * Created by dusanklinec on 05.01.16.
  */
 @Service
