@@ -1,7 +1,7 @@
 package com.phoenix.service;
 
 import com.phoenix.db.opensips.Subscriber;
-import com.phoenix.service.files.FileManager;
+import com.phoenix.utils.AccountUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -68,7 +67,7 @@ public class LicenseChecker extends BackgroundThreadService {
 
                 // Send push message for this guy.
                 try {
-                    final String sip = PhoenixDataService.getSIP(s);
+                    final String sip = AccountUtils.getSIP(s);
                     log.info("Sending license check notification " + sip);
 
                     amqpListener.pushLicenseCheck(sip);

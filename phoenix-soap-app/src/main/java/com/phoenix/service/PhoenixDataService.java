@@ -11,6 +11,7 @@ import com.phoenix.service.executor.JobFinishedListener;
 import com.phoenix.service.executor.JobRunnable;
 import com.phoenix.service.pres.TransferRosterItem;
 import com.phoenix.service.xmpp.RosterSyncElement;
+import com.phoenix.utils.AccountUtils;
 import com.phoenix.utils.JiveGlobals;
 import com.phoenix.utils.MiscUtils;
 import org.apache.http.HttpResponse;
@@ -108,16 +109,6 @@ public class PhoenixDataService {
     @Autowired
     private AMQPListener amqpListener;
 
-    /**
-     * Returns SIP address from subscriber record
-     * @param s
-     * @return 
-     */
-    public static String getSIP(Subscriber s){
-        if (s==null) return "";
-        return (s.getUsername() + "@" + s.getDomain());
-    }
-    
     /**
      * Returns local subscriber from user SIP
      * @param sip
@@ -246,7 +237,7 @@ public class PhoenixDataService {
         for(Object[] o : resultList){
             final Subscriber s = (Subscriber) o[1];
             final Whitelist wl = (Whitelist) o[0];
-            result.put(getSIP(s), wl);
+            result.put(AccountUtils.getSIP(s), wl);
         }
         
         return result;
@@ -473,7 +464,7 @@ public class PhoenixDataService {
                 continue;
             }
             
-            String sip = PhoenixDataService.getSIP(s);
+            String sip = AccountUtils.getSIP(s);
             
             tri.jid = sip;
             tri.name = ce.getDisplayName();
@@ -520,7 +511,7 @@ public class PhoenixDataService {
                 continue;
             }
 
-            final String sip = PhoenixDataService.getSIP(s);
+            final String sip = AccountUtils.getSIP(s);
 
             tri.jid = sip;
             tri.name = ce.getDisplayName();
@@ -568,7 +559,7 @@ public class PhoenixDataService {
 
         // Init roster database for each user. If some has empty contact list it wont appear in the result set below.
         for (Subscriber user : users) {
-            final String ownerSip = PhoenixDataService.getSIP(user);
+            final String ownerSip = AccountUtils.getSIP(user);
             final RosterSyncElement rs = new RosterSyncElement(user);
             rosterDb.put(ownerSip, rs);
         }
@@ -613,7 +604,7 @@ public class PhoenixDataService {
             }
 
             // Fetch roster sync element / create a new one.
-            final String ownerSip = PhoenixDataService.getSIP(owner);
+            final String ownerSip = AccountUtils.getSIP(owner);
             RosterSyncElement rs = rosterDb.get(ownerSip);
 
             // Add current internal user to the contact list sync element.
@@ -647,7 +638,7 @@ public class PhoenixDataService {
             JSONArray reqArray = new JSONArray();
             for (RosterSyncElement rse : rosterSync) {
                 JSONObject reqElem = new JSONObject();
-                reqElem.put("owner", PhoenixDataService.getSIP(rse.getOwner()));
+                reqElem.put("owner", AccountUtils.getSIP(rse.getOwner()));
 
                 JSONArray roster = new JSONArray();
                 final List<TransferRosterItem> transferRosterItems = buildRoster(rse);
@@ -746,7 +737,7 @@ public class PhoenixDataService {
         final String destination = "http://phone-x.net:9090/plugins/userService/userservice";
         boolean debugRoster = jiveGlobals.getBooleanProperty(PROP_DEBUG_ROSTER, false);
         
-        final String ownerSip = PhoenixDataService.getSIP(owner);
+        final String ownerSip = AccountUtils.getSIP(owner);
         final String username = owner.getUsername();
         
         URL obj = new URL(destination);
@@ -1410,7 +1401,7 @@ public class PhoenixDataService {
     @Transactional
     private void internalNotifyNewCertificateToRoster(Subscriber s, long time, String certHash){
         try {
-            final String sip = PhoenixDataService.getSIP(s);
+            final String sip = AccountUtils.getSIP(s);
 
             // Send notifications to all entries in our contact list.
             List<Contactlist> contactlistForSubscriber = getContactlistForSubscriber(s);
@@ -1430,7 +1421,7 @@ public class PhoenixDataService {
                     continue;
                 }
 
-                final String peerSip = PhoenixDataService.getSIP(peer);
+                final String peerSip = AccountUtils.getSIP(peer);
                 amqpListener.pushContactCertUpdate(peerSip, sip, time, certHash);
             }
 
@@ -1545,7 +1536,7 @@ public class PhoenixDataService {
         JSONObject obj = new JSONObject();
 
         // Destination user this push message is designated.
-        obj.put("user", getSIP(s));
+        obj.put("user", AccountUtils.getSIP(s));
 
         // Array of push messages.
         JSONArray msgArray = new JSONArray();

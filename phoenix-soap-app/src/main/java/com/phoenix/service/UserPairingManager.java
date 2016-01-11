@@ -4,6 +4,7 @@ import com.phoenix.db.PairingRequest;
 import com.phoenix.db.RemoteUser;
 import com.phoenix.db.extra.PairingRequestResolution;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.utils.AccountUtils;
 import com.phoenix.utils.MiscUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,11 +85,11 @@ public class UserPairingManager {
      */
     public void onUserXRemovedYFromContactlist(Subscriber xOwner, Subscriber yUser){
         // Remove X request from the Y pairing request table, Y is local.
-        removePairingRequest(yUser, PhoenixDataService.getSIP(xOwner), true);
+        removePairingRequest(yUser, AccountUtils.getSIP(xOwner), true);
 
         // Remove requests from Y to X if in state accepted, denied, reverted, none.
         // Y can now start from beginning and ask again for a new pairing. Blocked still remains.
-        removePairingRequestNotBlocked(xOwner, PhoenixDataService.getSIP(yUser));
+        removePairingRequestNotBlocked(xOwner, AccountUtils.getSIP(yUser));
     }
 
     /**
@@ -139,7 +140,7 @@ public class UserPairingManager {
 
     public void onUserXAddedYToContactlist(Subscriber xOwner, Subscriber yUser){
         // Set pairing request of Y to X as accepted, if exists.
-        acceptPairingRequest(xOwner, PhoenixDataService.getSIP(yUser));
+        acceptPairingRequest(xOwner, AccountUtils.getSIP(yUser));
 
         // Insert a new pairing request of X to Y pairing database, if does not exist already. Check.
         // If blocked, insert nothing.
@@ -152,7 +153,7 @@ public class UserPairingManager {
         params.put("resblock", PairingRequestResolution.BLOCKED);
         params.put("resdenied", PairingRequestResolution.DENIED);
         params.put("resreverted", PairingRequestResolution.REVERTED);
-        removePairingRequest(xOwner, PhoenixDataService.getSIP(yUser), criteria, params);
+        removePairingRequest(xOwner, AccountUtils.getSIP(yUser), criteria, params);
     }
 
     /**
@@ -193,7 +194,7 @@ public class UserPairingManager {
         final String updateQueryTpl = "UPDATE pairingRequest pr SET %s " +
                 " WHERE pr.toUser=:toUser AND pr.fromUser=:fromUser AND resolution=:resnone ";
 
-        final String ownerSip = PhoenixDataService.getSIP(xOwner);
+        final String ownerSip = AccountUtils.getSIP(xOwner);
         final Map<String, Object> params = new HashMap<String, Object>();
         final List<String> updates = new LinkedList<String>();
 
@@ -282,12 +283,12 @@ public class UserPairingManager {
     public int insertPairingRequest(Subscriber xOwner, Subscriber fromUserSub, boolean bcastPush, PairingRequest aux){
         if (isInContactList(xOwner, fromUserSub)){
             log.info(String.format("Pairing request wont be added, already in contactlist owner %s, target %s",
-                    PhoenixDataService.getSIP(xOwner), PhoenixDataService.getSIP(fromUserSub)));
+                    AccountUtils.getSIP(xOwner), AccountUtils.getSIP(fromUserSub)));
 
             return INSERT_PAIRING_ALREADY_IN_CONTACTS;
         }
 
-        return insertPairingRequestAfterClistCheck(xOwner, PhoenixDataService.getSIP(fromUserSub), bcastPush, aux);
+        return insertPairingRequestAfterClistCheck(xOwner, AccountUtils.getSIP(fromUserSub), bcastPush, aux);
     }
 
     /**
@@ -302,7 +303,7 @@ public class UserPairingManager {
     public int insertPairingRequest(Subscriber xOwner, String fromUser, boolean bcastPush, PairingRequest aux){
         if (isInContactList(xOwner, fromUser)){
             log.info(String.format("Pairing request wont be added, already in contactlist owner %s, target %s",
-                    PhoenixDataService.getSIP(xOwner), fromUser));
+                    AccountUtils.getSIP(xOwner), fromUser));
 
             return INSERT_PAIRING_ALREADY_IN_CONTACTS;
         }
@@ -322,7 +323,7 @@ public class UserPairingManager {
      */
     @Transactional
     protected int insertPairingRequestAfterClistCheck(Subscriber xOwner, String fromUser, boolean bcastPush, PairingRequest aux){
-        final String toUser = PhoenixDataService.getSIP(xOwner);
+        final String toUser = AccountUtils.getSIP(xOwner);
         //
         // Fetch previous pairing request.
         // User might be deleted from the contact list. In this case, there should be no pairing request stored in the database
@@ -436,7 +437,7 @@ public class UserPairingManager {
      */
     @Transactional
     public int removePairingRequest(Subscriber xOwner, String fromUser, Collection<String> criteria, Map<String, Object> auxParams){
-        final String ownerSip = PhoenixDataService.getSIP(xOwner);
+        final String ownerSip = AccountUtils.getSIP(xOwner);
         final Map<String, Object> params = new HashMap<String, Object>();
 
         // Where parameters.

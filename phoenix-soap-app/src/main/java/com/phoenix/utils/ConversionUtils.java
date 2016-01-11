@@ -3,7 +3,6 @@ package com.phoenix.utils;
 import com.phoenix.db.ContactGroup;
 import com.phoenix.db.PairingRequest;
 import com.phoenix.db.extra.PairingRequestResolution;
-import com.phoenix.service.PhoenixDataService;
 import com.phoenix.soap.PhoenixEndpoint;
 import com.phoenix.soap.beans.Cgroup;
 import com.phoenix.soap.beans.PairingRequestElement;
@@ -87,7 +86,7 @@ public class ConversionUtils {
 
         final Cgroup cg = new Cgroup();
         cg.setId(cgroup.getId());
-        cg.setOwner(cgroup.getOwner() == null ? "" : PhoenixDataService.getSIP(cgroup.getOwner()));
+        cg.setOwner(cgroup.getOwner() == null ? "" : AccountUtils.getSIP(cgroup.getOwner()));
         cg.setGroupKey(cgroup.getGroupKey());
         cg.setGroupType(cgroup.getGroupType());
         cg.setGroupName(cgroup.getGroupName());

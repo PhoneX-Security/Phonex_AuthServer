@@ -40,6 +40,7 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.phoenix.utils.AccountUtils;
 import com.phoenix.utils.StringUtils;
 import net.phonex.soap.protobuff.ServerProtoBuff;
 import org.apache.commons.io.IOUtils;
@@ -322,7 +323,7 @@ public class RESTController {
 
         // Some SSL check at first
         final Subscriber caller = this.authUserFromCert(request);
-        final String callerSip = PhoenixDataService.getSIP(caller);
+        final String callerSip = AccountUtils.getSIP(caller);
         final long uploadTstamp = System.currentTimeMillis();
         log.info("Remote user connected (processLogUpload): " + callerSip);
 
@@ -609,7 +610,7 @@ public class RESTController {
                 dataService.persist(sf, true);
 
                 // Get all new nonces - notify user about new files
-                String ownerSip = PhoenixDataService.getSIP(owner);
+                String ownerSip = AccountUtils.getSIP(owner);
                 List<String> nc = fmanager.getStoredFilesNonces(owner);
                 pmanager.notifyNewFiles(ownerSip, nc);
 
@@ -662,7 +663,7 @@ public class RESTController {
         
         // Local verified user is needed
         Subscriber owner = this.authUserFromCert(request);
-        String ownerSip = PhoenixDataService.getSIP(owner);        
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info(String.format("User connected: %s, download. FileType: %s, nonce2: %s, req: %s, resp: %s, controller: %s",
                 ownerSip, filetype, nonce2, request, response, this));
 

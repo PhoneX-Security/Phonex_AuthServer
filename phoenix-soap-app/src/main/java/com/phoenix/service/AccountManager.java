@@ -14,7 +14,6 @@ import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.PasswordGenerator;
 import com.phoenix.utils.StringUtils;
 import org.apache.commons.collections.map.LRUMap;
-import org.jboss.util.Strings;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -26,8 +25,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -36,7 +33,6 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.*;
@@ -339,14 +335,14 @@ public class AccountManager {
             if (turnPasswd == null || turnPasswd.length() == 0) {
                 final String turnPasswdGen = PasswordGenerator.genPassword(24, true);
                 localUser.setTurnPasswd(turnPasswdGen);
-                localUser.setTurnPasswdHa1b(MiscUtils.getHA1(PhoenixDataService.getSIP(localUser), localUser.getDomain(), turnPasswdGen));
+                localUser.setTurnPasswdHa1b(MiscUtils.getHA1(AccountUtils.getSIP(localUser), localUser.getDomain(), turnPasswdGen));
                 // TODO: send AMQP message to the TURN server so it updates auth credentials.
             }
 
             // Fix turn ha1b password if missing.
             final String turnHa1b = localUser.getTurnPasswdHa1b();
             if (turnHa1b == null || turnHa1b.length() == 0){
-                localUser.setTurnPasswdHa1b(MiscUtils.getHA1(PhoenixDataService.getSIP(localUser), localUser.getDomain(), turnPasswd));
+                localUser.setTurnPasswdHa1b(MiscUtils.getHA1(AccountUtils.getSIP(localUser), localUser.getDomain(), turnPasswd));
                 // TODO: send AMQP message to the TURN server so it updates auth credentials.
             }
 

@@ -12,7 +12,7 @@ import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.AMQPListener;
 import com.phoenix.service.EndpointAuth;
-import static com.phoenix.soap.PhoenixEndpoint.getDate;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -29,9 +29,7 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 
-import com.phoenix.service.PhoenixDataService;
-import com.phoenix.soap.beans.FtDHKeyUserInfo;
-import com.phoenix.soap.beans.FtDHkeyState;
+import com.phoenix.utils.AccountUtils;
 import org.apache.commons.io.FileUtils;
 import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.SessionFactory;
@@ -428,7 +426,7 @@ public class FileManager {
             for(Subscriber owner : subs) {
                 // Broadcast push notification about new used key.
                 try {
-                    final String sip = PhoenixDataService.getSIP(owner);
+                    final String sip = AccountUtils.getSIP(owner);
                     log.info("Sending expired DH key event to: " + sip);
                     amqpListener.pushDHKeyUsed(sip);
                 } catch (Exception ex) {

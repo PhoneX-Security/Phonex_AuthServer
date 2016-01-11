@@ -10,6 +10,7 @@ import com.phoenix.soap.beans.AccountingFetchRequest;
 import com.phoenix.soap.beans.AccountingFetchResponse;
 import com.phoenix.soap.beans.AccountingSaveRequest;
 import com.phoenix.soap.beans.AccountingSaveResponse;
+import com.phoenix.utils.AccountUtils;
 import com.phoenix.utils.JSONHelper;
 import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.StringUtils;
@@ -1104,7 +1105,7 @@ public class AccountingManager {
      * @return
      */
     public String getAlogRkeyBase(AccountingLog alog){
-        final String ownerSip = PhoenixDataService.getSIP(alog.getOwner());
+        final String ownerSip = AccountUtils.getSIP(alog.getOwner());
         final StringBuilder sb = new StringBuilder();
         sb.append(ownerSip)
                 .append(";")
@@ -1150,7 +1151,7 @@ public class AccountingManager {
      * @return
      */
     public String getAlogKeyBase(AccountingLog alog){
-        final String ownerSip = PhoenixDataService.getSIP(alog.getOwner());
+        final String ownerSip = AccountUtils.getSIP(alog.getOwner());
         final StringBuilder sb = new StringBuilder();
         sb.append(ownerSip)
                 .append(";")
@@ -1204,7 +1205,7 @@ public class AccountingManager {
      * @return
      */
     public String getPermissionCacheKey(AccountingPermission cperm){
-        final String ownerSip = PhoenixDataService.getSIP(cperm.getOwner());
+        final String ownerSip = AccountUtils.getSIP(cperm.getOwner());
         final StringBuilder sb = new StringBuilder();
         sb.append(ownerSip)
                 .append(";")

@@ -1,5 +1,6 @@
 package com.phoenix.utils;
 
+import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.AccountManager;
 import org.apache.commons.lang.LocaleUtils;
 import org.json.JSONArray;
@@ -61,5 +62,15 @@ public class AccountUtils {
         }
 
         return Collections.emptyList();
+    }
+
+    /**
+     * Returns SIP address from subscriber record
+     * @param s
+     * @return
+     */
+    public static String getSIP(Subscriber s){
+        if (s==null) return "";
+        return (s.getUsername() + "@" + s.getDomain());
     }
 }

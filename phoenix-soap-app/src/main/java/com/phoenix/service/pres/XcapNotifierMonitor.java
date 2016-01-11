@@ -15,6 +15,8 @@ import java.util.List;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.persistence.Query;
+
+import com.phoenix.utils.AccountUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -111,7 +113,7 @@ public class XcapNotifierMonitor extends BackgroundThreadService {
             //List resultList = jpaQuery.getResultList();
             for(Object obj : resultList){
                 Subscriber tmpS = (Subscriber) obj;
-                String tmpSip = PhoenixDataService.getSIP(tmpS);
+                String tmpSip = AccountUtils.getSIP(tmpS);
 
                 ArrayList<String> arrayList = new ArrayList<String>();
                 arrayList.add(tmpSip);

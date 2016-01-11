@@ -7,7 +7,6 @@ import com.phoenix.geoip.GeoIpManager;
 import com.phoenix.service.*;
 import com.phoenix.utils.AccountUtils;
 import com.phoenix.utils.StringUtils;
-import org.apache.commons.collections.map.LRUMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,7 +114,7 @@ public class MailNotificationManager {
             final List<Locale> locales = AccountUtils.extractLocalesFromAppVersion(caller.getAppVersion());
             final Map<String, Object> ctx = new HashMap<String, Object>();
             ctx.put("caller", caller);
-            ctx.put("sip", PhoenixDataService.getSIP(caller));
+            ctx.put("sip", AccountUtils.getSIP(caller));
             ctx.put("ip", ip);
             ctx.put("changeDate", new Date());
             ctx.put("geoIp", geoIp.getGeoIp(ip));
@@ -143,7 +142,7 @@ public class MailNotificationManager {
             final Map<String, Object> ctx = new HashMap<String, Object>();
             ctx.put("caller", caller);
             ctx.put("cert", cert);
-            ctx.put("sip", PhoenixDataService.getSIP(caller));
+            ctx.put("sip", AccountUtils.getSIP(caller));
             ctx.put("ip", ip);
             ctx.put("changeDate", new Date());
             ctx.put("geoIp", geoIp.getGeoIp(ip));
@@ -169,7 +168,7 @@ public class MailNotificationManager {
             final List<Locale> locales = AccountUtils.extractLocalesFromAppVersion(caller.getAppVersion());
             final Map<String, Object> ctx = new HashMap<String, Object>();
             ctx.put("caller", caller);
-            ctx.put("sip", PhoenixDataService.getSIP(caller));
+            ctx.put("sip", AccountUtils.getSIP(caller));
             ctx.put("ip", ip);
             ctx.put("changeDate", new Date());
             ctx.put("geoIp", geoIp.getGeoIp(ip));
@@ -196,7 +195,7 @@ public class MailNotificationManager {
             final List<Locale> locales = AccountUtils.extractLocalesFromAppVersion(caller.getAppVersion());
             final Map<String, Object> ctx = new HashMap<String, Object>();
             ctx.put("caller", caller);
-            ctx.put("sip", PhoenixDataService.getSIP(caller));
+            ctx.put("sip", AccountUtils.getSIP(caller));
             ctx.put("ip", ip);
             ctx.put("changeDate", new Date());
             ctx.put("geoIp", geoIp.getGeoIp(ip));

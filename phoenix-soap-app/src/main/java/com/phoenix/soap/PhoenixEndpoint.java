@@ -277,7 +277,7 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public WhitelistResponse whitelistRequest(@RequestPayload WhitelistRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (whitelistRequest): " + ownerSip);
         
         // obtain all requests to modify whitelist from message
@@ -389,7 +389,7 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public WhitelistGetResponse whitelistGetRequest(@RequestPayload WhitelistGetRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (whitelistGetRequest): " + ownerSip);
         
         // constructing whitelist response
@@ -426,7 +426,7 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public ContactlistGetResponse contactlistGetRequest(@RequestPayload ContactlistGetRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (contactlistGetRequest): " + ownerSip);
         
         // subscriber list
@@ -575,7 +575,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public ContactlistChangeResponse contactlistChangeRequest(@RequestPayload ContactlistChangeRequest request, MessageContext context) throws CertificateException {
         final Subscriber owner = this.authUserFromCert(context, this.request);
-        final String ownerSip = PhoenixDataService.getSIP(owner);
+        final String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (contactlistChangeRequest) : " + ownerSip);
         
         // construct response, then add results iteratively
@@ -630,7 +630,7 @@ public class PhoenixEndpoint {
                 final ContactlistReturn ret = new ContactlistReturn();
                 ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
                 ret.setTargetUser(elem.getTargetUser());
-                ret.setUser(PhoenixDataService.getSIP(s));
+                ret.setUser(AccountUtils.getSIP(s));
                 
                 // null subscriber is not implemented yet
                 if (s==null){
@@ -817,7 +817,7 @@ public class PhoenixEndpoint {
     @ResponsePayload
     public ClistGetV2Response contactlistGetV2Request(@RequestPayload ClistGetV2Request request, MessageContext context) throws CertificateException {
         final Subscriber owner = this.authUserFromCert(context, this.request);
-        final String ownerSip = PhoenixDataService.getSIP(owner);
+        final String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (contactlistGetV2Request): " + ownerSip);
 
         final ClistGetV2Response response = new ClistGetV2Response();
@@ -855,7 +855,7 @@ public class PhoenixEndpoint {
             try {
                 final Subscriber t = (Subscriber) o[0];
                 final Contactlist cl = (Contactlist) o[1];
-                final String userSIP = PhoenixDataService.getSIP(t);
+                final String userSIP = AccountUtils.getSIP(t);
                 final JSONObject jAux = new JSONObject();
 
                 ClistElementV2 elem = new ClistElementV2();
@@ -907,7 +907,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public ClistChangeV2Response clistChangeV2Request(@RequestPayload ClistChangeV2Request request, MessageContext context) throws CertificateException {
         final Subscriber owner = this.authUserFromCert(context, this.request);
-        final String ownerSip = PhoenixDataService.getSIP(owner);
+        final String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (contactlistChangeV2Request) : " + ownerSip);
 
         // construct response, then add results iteratively
@@ -967,7 +967,7 @@ public class PhoenixEndpoint {
 
                 ClistChangeResultV2 ret = new ClistChangeResultV2();
                 ret.setResultCode(CLIST_CHANGE_ERROR_GENERIC);
-                ret.setUser(PhoenixDataService.getSIP(s));
+                ret.setUser(AccountUtils.getSIP(s));
 
                 // Null subscriber is not implemented yet. Remote contacts are not supported yet.
                 if (s==null){
@@ -1266,7 +1266,7 @@ public class PhoenixEndpoint {
 
             // init return structure
             wr.setStatus(CertificateStatus.MISSING);
-            wr.setUser(PhoenixDataService.getSIP(s));
+            wr.setUser(AccountUtils.getSIP(s));
             wr.setCertificate(null);
 
             // If user provided certificate hash, first check whether it is valid
@@ -1473,7 +1473,7 @@ public class PhoenixEndpoint {
 
                 // Process this bulk and prepare state structures, cert hash grouping.
                 for (Subscriber s : subs) {
-                    final String curSip = PhoenixDataService.getSIP(s);
+                    final String curSip = AccountUtils.getSIP(s);
                     foundUsersInDb.add(curSip);
                     subMap.put(curSip, s);
                     loadedSubscribers += 1;
@@ -1558,7 +1558,7 @@ public class PhoenixEndpoint {
 
                 // Here handle response generation for users without any valid certificate.
                 for (Subscriber curSub : subs) {
-                    final String curSip = PhoenixDataService.getSIP(curSub);
+                    final String curSip = AccountUtils.getSIP(curSub);
                     if (sipWithCertDone.contains(curSip)){
                         continue;
                     }
@@ -1636,7 +1636,7 @@ public class PhoenixEndpoint {
         }
 
         try {
-            final String owner = PhoenixDataService.getSIP(sub);
+            final String owner = AccountUtils.getSIP(sub);
 
             // If user does not have first login date filled in, add this one.
             Calendar fUserAdded = sub.getDateFirstUserAdded();
@@ -2438,7 +2438,7 @@ public class PhoenixEndpoint {
             cacertsSigned.setDN(csrr.getSubject().toString());
             cacertsSigned.setDateSigned(new Date());
             cacertsSigned.setSubscriber(localUser);
-            cacertsSigned.setSubscriberName(PhoenixDataService.getSIP(localUser));
+            cacertsSigned.setSubscriberName(AccountUtils.getSIP(localUser));
             cacertsSigned.setRawCert(new byte[0]);
             cacertsSigned.setCertHash("");
             cacertsSigned.setNotValidBefore(notBefore);
@@ -2575,7 +2575,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public FtAddDHKeysResponse ftAddDHKeys(@RequestPayload FtAddDHKeysRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (ftAddDHKeys): " + ownerSip);
         
         // construct response, then add results iteratively
@@ -2651,7 +2651,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public FtRemoveDHKeysResponse ftRemoveDHKeys(@RequestPayload FtRemoveDHKeysRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (ftRemoveDHKeys): " + ownerSip);
         
         // construct response, then add results iteratively
@@ -2768,7 +2768,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public FtGetStoredDHKeysInfoResponse ftGetStoredDHKeysInfo(@RequestPayload FtGetStoredDHKeysInfoRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (ftGetStoredDHKeysInfo): " + ownerSip);
         
         // construct response, then add results iteratively
@@ -3007,7 +3007,7 @@ public class PhoenixEndpoint {
 
             // Broadcast push notification about new used key.
             try {
-                amqpListener.pushDHKeyUsed(PhoenixDataService.getSIP(owner));
+                amqpListener.pushDHKeyUsed(AccountUtils.getSIP(owner));
             } catch(Exception ex){
                 log.error("Error in pushing dh key used event", ex);
             }
@@ -3034,7 +3034,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public FtDeleteFilesResponse ftDeleteFiles(@RequestPayload FtDeleteFilesRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (ftDeleteFiles): " + ownerSip);
         
         // construct response, then add results iteratively
@@ -3135,7 +3135,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public FtGetStoredFilesResponse ftGetStoredFiles(@RequestPayload FtGetStoredFilesRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (ftGetStoredFiles): " + ownerSip);
         
         // Construct response
@@ -3230,7 +3230,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public TrialEventSaveResponse trialEventSave(@RequestPayload TrialEventSaveRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (trialEventSave): " + ownerSip);
 
         // Construct response
@@ -3273,7 +3273,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public TrialEventGetResponse trialEventGet(@RequestPayload TrialEventGetRequest request, MessageContext context) throws CertificateException {
         Subscriber owner = this.authUserFromCert(context, this.request);
-        String ownerSip = PhoenixDataService.getSIP(owner);
+        String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (trialEventGet): " + ownerSip);
 
         // Construct response
@@ -3309,7 +3309,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public PairingRequestFetchResponse pairingRequestFetch(@RequestPayload PairingRequestFetchRequest request, MessageContext context) throws CertificateException {
         final Subscriber caller = this.authUserFromCert(context, this.request);
-        final String callerSip = PhoenixDataService.getSIP(caller);
+        final String callerSip = AccountUtils.getSIP(caller);
         log.info("Remote user connected (pairingRequestFetch): " + callerSip);
 
         // Construct response
@@ -3622,7 +3622,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = true)
     public CgroupGetResponse cgroupFetch(@RequestPayload CgroupGetRequest request, MessageContext context) throws CertificateException {
         final Subscriber caller = this.authUserFromCert(context, this.request);
-        final String callerSip = PhoenixDataService.getSIP(caller);
+        final String callerSip = AccountUtils.getSIP(caller);
         log.info("Remote user connected (cgroupFetch): " + callerSip);
 
         // Construct response
@@ -3683,7 +3683,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public CgroupUpdateResponse cgroupUpdate(@RequestPayload CgroupUpdateRequest request, MessageContext context) throws CertificateException {
         final Subscriber owner = this.authUserFromCert(context, this.request);
-        final String ownerSip = PhoenixDataService.getSIP(owner);
+        final String ownerSip = AccountUtils.getSIP(owner);
         log.info("Remote user connected (cgroupUpdate): " + ownerSip);
 
         // Construct response
@@ -3829,7 +3829,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AuthStateSaveV1Response authStateSave(@RequestPayload AuthStateSaveV1Request request, MessageContext context) throws CertificateException {
         final Subscriber caller = this.authUserFromCert(context, this.request);
-        final String callerSip = PhoenixDataService.getSIP(caller);
+        final String callerSip = AccountUtils.getSIP(caller);
         log.info("Remote user connected (authStateSave): " + callerSip);
 
         // Construct response
@@ -3972,7 +3972,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AccountingSaveResponse accountingSave(@RequestPayload AccountingSaveRequest request, MessageContext context) throws CertificateException {
         final Subscriber caller = this.authUserFromCert(context, this.request);
-        final String callerSip = PhoenixDataService.getSIP(caller);
+        final String callerSip = AccountUtils.getSIP(caller);
         log.info("Remote user connected (accountingSave): " + callerSip);
 
         // Construct response
@@ -4005,7 +4005,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AccountingFetchResponse accountingFetch(@RequestPayload AccountingFetchRequest request, MessageContext context) throws CertificateException {
         final Subscriber caller = this.authUserFromCert(context, this.request);
-        final String callerSip = PhoenixDataService.getSIP(caller);
+        final String callerSip = AccountUtils.getSIP(caller);
         log.info("Remote user connected (accountingSave): " + callerSip);
 
         // Construct response
@@ -4038,7 +4038,7 @@ public class PhoenixEndpoint {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
     public AccountSettingsUpdateV1Response accountSettingsUpdate(@RequestPayload AccountSettingsUpdateV1Request request, MessageContext context) throws CertificateException {
         final Subscriber caller = this.authUserFromCert(context, this.request);
-        final String callerSip = PhoenixDataService.getSIP(caller);
+        final String callerSip = AccountUtils.getSIP(caller);
         log.info("Remote user connected (accountSettingsUpdate): " + callerSip);
 
         // Construct response
