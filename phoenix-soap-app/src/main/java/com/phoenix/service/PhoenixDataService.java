@@ -906,27 +906,6 @@ public class PhoenixDataService {
     }
 
     /**
-     * Reads whole input stream to a byte array.
-     *
-     * @param is
-     * @return
-     * @throws IOException
-     */
-    public static byte[] readInputStream(InputStream is) throws IOException {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-
-        int nRead;
-        byte[] data = new byte[16384];
-
-        while ((nRead = is.read(data, 0, data.length)) != -1) {
-            buffer.write(data, 0, nRead);
-        }
-
-        buffer.flush();
-        return buffer.toByteArray();
-    }
-
-    /**
      * Returns true if user has stored certificate with this hash and it is valid
      * @param s
      * @param hash
@@ -1274,35 +1253,6 @@ public class PhoenixDataService {
         return em.createQuery(s, aClass);
     }
 
-    /**
-     * To convert the InputStream to String we use the Reader.read(char[]
-     * buffer) method. We iterate until the Reader return -1 which means
-     * there's no more data to read. We use the StringWriter class to
-     * produce the string.
-     * @param is
-     * @return 
-     * @throws java.io.IOException 
-     */
-    public static String convertStreamToStr(InputStream is) throws IOException {
-        if (is != null) {
-            Writer writer = new StringWriter();
-
-            char[] buffer = new char[1024];
-            try {
-                Reader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
-                int n;
-                while ((n = reader.read(buffer)) != -1) {
-                    writer.write(buffer, 0, n);
-                }
-            } finally {
-                is.close();
-            }
-            return writer.toString();
-        } else {
-            return "";
-        }
-    }
-    
     public void resyncRoster(Subscriber tuser) throws IOException{
         // Obsoleted, not using XCAP anymore.
 //        Map<Integer, Subscriber> internalUsersInContactlist = getInternalUsersInContactlist(contactlistForSubscriber);

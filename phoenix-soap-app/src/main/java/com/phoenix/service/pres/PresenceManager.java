@@ -24,6 +24,8 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import javax.servlet.ServletContext;
+
+import com.phoenix.utils.MiscUtils;
 import net.phonex.soap.protobuff.PushNotifications.FileDetail;
 import net.phonex.soap.protobuff.PushNotifications.ServerNotificationPush;
 import org.bouncycastle.util.encoders.Base64;
@@ -140,7 +142,7 @@ public class PresenceManager {
      */
     public String loadTemplate(String resource) throws IOException{
         InputStream resourceAsStream = PresenceManager.class.getClassLoader().getResourceAsStream(resource);
-        return PhoenixDataService.convertStreamToStr(resourceAsStream);
+        return MiscUtils.convertStreamToStr(resourceAsStream);
     }
     
     /**

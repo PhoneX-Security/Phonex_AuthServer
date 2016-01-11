@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.concurrent.PriorityBlockingQueue;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+
+import com.phoenix.utils.MiscUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -166,7 +168,7 @@ public class ServerCommandExecutor extends BackgroundThreadService {
             // To capture output from the shell
             InputStream shellIn = p.getInputStream();
             int shellExitStatus = p.waitFor();
-            String response = PhoenixDataService.convertStreamToStr(shellIn);
+            String response = MiscUtils.convertStreamToStr(shellIn);
             shellIn.close();
             
             // Report server commands with non-zero return code (something went wrong)
