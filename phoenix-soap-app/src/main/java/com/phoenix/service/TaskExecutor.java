@@ -18,7 +18,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
- * Executor engine.
+ * Executor engine. Enables to submit a job for parallel background execution or
+ * when using a strip object to execute in a serial queue corresponding to the strip object.
+ * 
  * Created by dusanklinec on 13.03.15.
  */
 @Service
@@ -30,6 +32,11 @@ public class TaskExecutor  extends BackgroundThreadService {
     private volatile boolean running = true;
     private final ConcurrentLinkedQueue<JobTask> jobs = new ConcurrentLinkedQueue<JobTask>();
     private ExecutorService executor;
+
+    /**
+     * Serial queues executor.
+     */
+    private final StripedExecutorService serialExecutors = new StripedExecutorService();
 
     /**
      * Initializes internal running thread.
@@ -56,6 +63,16 @@ public class TaskExecutor  extends BackgroundThreadService {
             job.cancelledFromOutside();
         }
 
+        final List<Runnable> runnables2 = serialExecutors.shutdownNow();
+        for(Runnable r : runnables2){
+            if (!(r instanceof JobTask)) {
+                continue;
+            }
+
+            final JobTask job = (JobTask) r;
+            job.cancelledFromOutside();
+        }
+
         setRunning(false);
     }
 
@@ -63,7 +80,7 @@ public class TaskExecutor  extends BackgroundThreadService {
      * Submit a job to the executor.
      * @param job
      */
-    public JobFuture<?> submit(String name, JobRunnable job, final JobFinishedListener listener){
+    public JobFuture<?> submit(String name, Object stripe, JobRunnable job, final JobFinishedListener listener){
         final JobTask xjob = new JobTask(name, job);
         JobTaskFinishedListener finishListener = null;
         if (listener != null){
@@ -79,11 +96,21 @@ public class TaskExecutor  extends BackgroundThreadService {
         }
 
         xjob.setListener(finishListener);
-        final Future<?> future =  executor.submit(xjob);
+        xjob.setStripe(stripe);
+
+        final Future<?> future = executor.submit(xjob);
         final JobFuture<?> jobFuture = new JobFuture(future);
         jobFuture.setJob(xjob);
 
         return jobFuture;
+    }
+
+    /**
+     * Submit a job to the executor.
+     * @param job
+     */
+    public JobFuture<?> submit(String name, JobRunnable job, final JobFinishedListener listener){
+        return submit(name, null, job, listener);
     }
 
     @Transactional
@@ -103,8 +130,7 @@ public class TaskExecutor  extends BackgroundThreadService {
 
             // Job queue is empty --> wait a second.
             try {
-                // TODO: decrease sleep interval once this thread has meaningful purpose.
-                Thread.sleep(1000);
+                Thread.sleep(10);
             } catch (Exception e) {
                 log.error("Sleep interrupted", e);
                 break;
@@ -123,7 +149,7 @@ public class TaskExecutor  extends BackgroundThreadService {
             }
 
             try {
-                Thread.sleep(1000);
+                Thread.sleep(10);
             } catch (InterruptedException ex) {
                 log.error("Interrupted", ex);
                 break;
