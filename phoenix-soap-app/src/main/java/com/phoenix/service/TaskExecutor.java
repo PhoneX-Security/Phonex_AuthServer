@@ -20,7 +20,7 @@ import java.util.concurrent.Future;
 /**
  * Executor engine. Enables to submit a job for parallel background execution or
  * when using a strip object to execute in a serial queue corresponding to the strip object.
- * 
+ *
  * Created by dusanklinec on 13.03.15.
  */
 @Service

@@ -5,6 +5,8 @@
 package com.phoenix.soap;
 
 import com.phoenix.accounting.AccountingManager;
+import com.phoenix.accounts.AccountManager;
+import com.phoenix.accounts.UserPairingManager;
 import com.phoenix.db.*;
 import com.phoenix.db.extra.*;
 import com.phoenix.db.opensips.Subscriber;
@@ -557,6 +559,10 @@ public class PhoenixEndpoint {
              */ 
             
             response.getContactlistEntry().add(elem);
+
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
+
             logAction(ownerSip, "contactlistGetRequest", null);
         }
         
@@ -791,6 +797,9 @@ public class PhoenixEndpoint {
                 }
             }
 
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
+
             logAction(ownerSip, "contactlistChangeRequest", null);
             
         } catch(Exception e){
@@ -889,6 +898,9 @@ public class PhoenixEndpoint {
                 log.error("Exception when processing contact list element", e);
             }
         }
+
+        // New activity detected.
+        accountMgr.onActivityDetected(owner);
 
         logAction(ownerSip, "clistGetV2", null);
         response.setErrCode(0);
@@ -1608,6 +1620,10 @@ public class PhoenixEndpoint {
 
             // Logic for setting first user added field.
             updateStatsForCertGet(sub, askingForDifferentThanOurs);
+
+            // New activity detected.
+            accountMgr.onActivityDetected(sub);
+
             logAction(owner, "getCert", null);
 
             // Statistics for debugging.
@@ -2032,8 +2048,12 @@ public class PhoenixEndpoint {
                 // Logged in, delete logout flag.
                 localUser.setDateCurrentLogout(null);
 
+                // New activity detected.
+                accountMgr.onActivityDetected(localUser);
+
                 em.persist(localUser);
                 logAction(certSip, "authCheck3", null);
+
             } catch (Throwable e){
                 // no certificate, just return response, exception is 
                 // actually really expected :)
@@ -2197,6 +2217,9 @@ public class PhoenixEndpoint {
 
             // Account info -> must be logged in
             localUser.setDateCurrentLogout(null);
+
+            // New activity detected.
+            accountMgr.onActivityDetected(localUser);
 
             logAction(sip, "accountInfoV1", null);
             localUser.setDateLastActivity(Calendar.getInstance());
@@ -2501,6 +2524,9 @@ public class PhoenixEndpoint {
                 revocationExecutor.addNewCrlEntryAsync(userCert.getSerial(), false);
             }
 
+            // New activity detected.
+            accountMgr.onActivityDetected(localUser);
+
             logAction(reqUser, "signCert", null);
         } catch (InvalidKeyException ex) {
             log.warn("Problem with signing - invalid key", ex);
@@ -2627,6 +2653,10 @@ public class PhoenixEndpoint {
             }
             
             errCode=1;
+
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
+
             logAction(ownerSip, "ftAddDHKeys", null);
             
         } catch(Exception e){
@@ -2742,6 +2772,9 @@ public class PhoenixEndpoint {
                 
                 result = 1;
             }
+
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
 
             logAction(ownerSip, "ftRemoveDHKeys", null);
             response.setErrCode(result);
@@ -2871,6 +2904,9 @@ public class PhoenixEndpoint {
                 response.setStats(statsArr);
             }
 
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
+
             logAction(ownerSip, "ftGetStoredDHKeysInfo", null);
             result = 1;
         } catch(Exception e){
@@ -2937,6 +2973,9 @@ public class PhoenixEndpoint {
             response.setSEncBlock(e.getsAncBlock());
             response.setSig1(e.getSig1());
             response.setErrCode(1);
+
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
 
             logAction(caller, "ftGetDHKey", null);
             return response;
@@ -3011,6 +3050,9 @@ public class PhoenixEndpoint {
             } catch(Exception ex){
                 log.error("Error in pushing dh key used event", ex);
             }
+
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
 
             logAction(caller, "ftGetDHKeyPart2", null);
             return response;
@@ -3110,6 +3152,9 @@ public class PhoenixEndpoint {
             List<String> nc = fmanager.getStoredFilesNonces(owner);
             pmanager.notifyNewFiles(ownerSip, nc);
 
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
+
             logAction(ownerSip, "ftDeleteFiles", null);
             response.setErrCode(0);
             return response;
@@ -3207,6 +3252,9 @@ public class PhoenixEndpoint {
                 storedFiles.add(sf2send);
             }
 
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
+
             logAction(ownerSip, "ftGetStoredFiles", null);
             return response;
         } catch(Exception e){
@@ -3250,6 +3298,9 @@ public class PhoenixEndpoint {
             te.setEtype(request.getEtype());
             em.persist(te);
 
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
+
             logAction(ownerSip, "trialEventSave", null);
             return response;
         } catch(Exception e){
@@ -3285,6 +3336,9 @@ public class PhoenixEndpoint {
             final List<TrialEventLog> logs = dataService.getTrialEventLogs(owner, etype == null || etype == -1 ? null : etype);
             final JSONObject jsonObj = dataService.eventLogToJson(logs, owner);
             response.setRespJSON(jsonObj.toString());
+
+            // New activity detected.
+            accountMgr.onActivityDetected(owner);
 
             logAction(ownerSip, "trialEventGet", null);
             return response;
@@ -3372,6 +3426,10 @@ public class PhoenixEndpoint {
             }
 
             response.setErrCode(0);
+
+            // New activity detected.
+            accountMgr.onActivityDetected(caller);
+
             logAction(callerSip, "pairingRequestFetch", null);
 
         } catch(Exception e){
@@ -3866,6 +3924,9 @@ public class PhoenixEndpoint {
             em.persist(as);
             response.setErrCode(0);
 
+            // New activity detected.
+            accountMgr.onActivityDetected(caller);
+
             logAction(callerSip, "authStateSave", "");
 
         } catch(Throwable e){
@@ -3906,6 +3967,9 @@ public class PhoenixEndpoint {
                 response.setErrCode(-3);
                 return response;
             }
+
+            // New activity detected.
+            accountMgr.onActivityDetected(caller);
 
             logAction(userName, "authStateFetch", null);
 
@@ -3982,6 +4046,9 @@ public class PhoenixEndpoint {
         try {
             accMgr.processSaveRequest(caller, request, response);
 
+            // New activity detected.
+            accountMgr.onActivityDetected(caller);
+
             logAction(callerSip, "accountingSave", "");
         } catch(Throwable e){
             log.error("Exception in saving auth state", e);
@@ -4015,6 +4082,9 @@ public class PhoenixEndpoint {
         try {
             accMgr.processFetchRequest(caller, request, response);
 
+            // New activity detected.
+            accountMgr.onActivityDetected(caller);
+
             logAction(callerSip, "accountingFetch", "");
         } catch(Throwable e){
             log.error("Exception in saving auth state", e);
@@ -4047,6 +4117,9 @@ public class PhoenixEndpoint {
 
         try {
             accountMgr.processSettingsUpdateRequest(caller, request, response, this.request);
+
+            // New activity detected.
+            accountMgr.onActivityDetected(caller);
 
             logAction(callerSip, "accountSettingsUpdate", "");
         } catch(Throwable e){

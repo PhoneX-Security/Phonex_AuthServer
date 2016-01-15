@@ -12,7 +12,7 @@ import com.phoenix.db.PhxErrorReport;
 import com.phoenix.db.StoredFiles;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.rest.json.TestReturn;
-import com.phoenix.service.AccountManager;
+import com.phoenix.accounts.AccountManager;
 import com.phoenix.service.EndpointAuth;
 import com.phoenix.service.files.FileManager;
 import com.phoenix.service.PhoenixDataService;

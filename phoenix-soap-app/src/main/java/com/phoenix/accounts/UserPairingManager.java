@@ -1,9 +1,11 @@
-package com.phoenix.service;
+package com.phoenix.accounts;
 
 import com.phoenix.db.PairingRequest;
 import com.phoenix.db.RemoteUser;
 import com.phoenix.db.extra.PairingRequestResolution;
 import com.phoenix.db.opensips.Subscriber;
+import com.phoenix.service.AMQPListener;
+import com.phoenix.service.PhoenixDataService;
 import com.phoenix.utils.AccountUtils;
 import com.phoenix.utils.MiscUtils;
 import org.slf4j.Logger;

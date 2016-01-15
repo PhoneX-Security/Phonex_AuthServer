@@ -5,6 +5,7 @@
  */
 package com.phoenix.service;
 
+import com.phoenix.accounts.AccountManager;
 import com.phoenix.service.push.*;
 import com.phoenix.utils.JiveGlobals;
 import com.rabbitmq.client.Channel;
@@ -213,10 +214,7 @@ public class AMQPListener extends BackgroundThreadService {
                 dataService.resyncRoster(userName);
 
                 // Contactlist refresh push notification to XMPP.
-                JSONObject jsonPush = this.buildClistSyncNotification(userName);
-                final String jsonPushString = jsonPush.toString();
-                this.xmppPublish(jsonPushString.getBytes("UTF-8"));
-                log.info("Push message sent: " + jsonPushString);
+                pushClistSync(userName);
 
             } else if ("versionUpdated".equalsIgnoreCase(job)) {
                 // TODO: TBD.
@@ -283,6 +281,19 @@ public class AMQPListener extends BackgroundThreadService {
      */
     public void pushNewCertificate(String user, long certNotBefore, String certHashPrefix) throws JSONException, IOException {
         JSONObject jsonPush = this.buildLoginPushMsg(user, certNotBefore, certHashPrefix);
+        final String jsonPushString = jsonPush.toString();
+        this.xmppPublish(jsonPushString.getBytes("UTF-8"));
+        log.info("Push message sent: " + jsonPushString);
+    }
+
+    /**
+     * Pushes notification to sync contact list.
+     * @param user
+     * @throws JSONException
+     * @throws IOException
+     */
+    public void pushClistSync(String user) throws JSONException, IOException {
+        JSONObject jsonPush = this.buildClistSyncNotification(user);
         final String jsonPushString = jsonPush.toString();
         this.xmppPublish(jsonPushString.getBytes("UTF-8"));
         log.info("Push message sent: " + jsonPushString);

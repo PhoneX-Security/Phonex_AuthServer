@@ -1,14 +1,19 @@
-package com.phoenix.service;
+package com.phoenix.accounts;
 
 import com.phoenix.db.*;
+import com.phoenix.db.extra.ContactlistObjType;
+import com.phoenix.db.extra.ContactlistStatus;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.geoip.GeoIpManager;
 import com.phoenix.rest.RecoveryCodeResponse;
 import com.phoenix.rest.VerifyRecoveryCodeResponse;
+import com.phoenix.service.*;
+import com.phoenix.service.executor.JobRunnable;
 import com.phoenix.service.mail.MailNotificationManager;
 import com.phoenix.service.mail.MailSender;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Request;
 import com.phoenix.soap.beans.AccountSettingsUpdateV1Response;
+import com.phoenix.soap.beans.WhitelistAction;
 import com.phoenix.utils.AccountUtils;
 import com.phoenix.utils.MiscUtils;
 import com.phoenix.utils.PasswordGenerator;
@@ -62,6 +67,8 @@ public class AccountManager {
 
     public static final String RECOVERY_CODE_CHARSET = "123456789abcdefghijkmnopqrstuvwxz";
 
+    public static final String STRIPE_CONTACT_LIST = "net.phonex.contactlist";
+
     @PersistenceContext
     protected EntityManager em;
 
@@ -86,6 +93,9 @@ public class AccountManager {
     @Autowired
     private MailNotificationManager mailNotif;
 
+    @Autowired
+    private TaskExecutor executor;
+
     /**
      * Username+IP -> last recovery attempt in milliseconds, throttling recovery code requests.
      */
@@ -108,6 +118,12 @@ public class AccountManager {
     private final LRUMap recoveryIpConfirmMap = new LRUMap(1024);
     private final Object recoveryConfirmMapsLock = new Object();
 
+    /**
+     * Username -> last support contact check in milliseconds.
+     */
+    private final LRUMap supportContactCheckMap = new LRUMap(4096);
+    private final Object supportContactCheckMapLock = new Object();
+
     @PostConstruct
     public synchronized void init() {
         log.info("Initializing AccountManager");
@@ -116,6 +132,106 @@ public class AccountManager {
     @PreDestroy
     public synchronized void deinit(){
         log.info("Shutting down AccountManager");
+    }
+
+    /**
+     * Called when any of the calls is triggered by the client.
+     * @param caller
+     */
+    public void onActivityDetected(final Subscriber caller){
+        if (caller == null){
+            return;
+        }
+
+        final long now = System.currentTimeMillis();
+
+        // Check if support contact for this account has it in its contact list.
+        final String sip = AccountUtils.getSIP(caller);
+        boolean doCallerSupportCheck = false;
+        synchronized (supportContactCheckMapLock){
+            final Long lastSupportContactCheck = (Long) supportContactCheckMap.get(sip);
+            if (lastSupportContactCheck != null && (now - lastSupportContactCheck) > 1000*60*60){
+                supportContactCheckMap.put(sip, now);
+                doCallerSupportCheck = true;
+            }
+        }
+
+        if (doCallerSupportCheck){
+            executor.submit("addSupportContact", STRIPE_CONTACT_LIST, new JobRunnable() {
+                @Override
+                public void run() {
+                    addCallerToSupportContactList(caller);
+                }
+            }, null);
+        }
+    }
+
+    /**
+     * Checks if given caller's support contact has caller in contact list and adds him there if not.
+     * @param caller
+     */
+    public void addCallerToSupportContactList(Subscriber caller){
+        if (caller == null){
+            return;
+        }
+
+        final String support = getSupportContactLink(caller);
+        if (StringUtils.isEmpty(support)){
+            return;
+        }
+
+        // Local user for support contact.
+        final Subscriber supportUser = dataService.getLocalUser(support);
+        if (supportUser == null){
+            return;
+        }
+
+        // Check if $to has $from in contactlist.
+        final Contactlist toContactFrom = dataService.getContactlistForSubscriber(supportUser, caller);
+        if (toContactFrom != null){
+            // Contact is already present, nothing to do.
+            // TODO: if later a special flag indicating whether or not enable this user will be visible on client, switch this flag on.
+            return;
+        }
+
+        // Add a new entry to support contact list.
+        final String newDispName = caller.getUsername();
+        final Contactlist cl = new Contactlist();
+        cl.setDateCreated(new Date());
+        cl.setDateLastEdit(new Date());
+        cl.setOwner(supportUser);
+        cl.setObjType(ContactlistObjType.INTERNAL_USER);
+        cl.setObj(new ContactlistDstObj(caller));
+        cl.setEntryState(ContactlistStatus.ENABLED);
+        cl.setDisplayName(newDispName);
+        cl.setInWhitelist(true);
+        dataService.persist(cl, true);
+
+        // Resync roster on push server.
+        try {
+            dataService.resyncRoster(supportUser);
+        } catch(Exception ex){
+            log.error("Exception during presence rules generation for: " + support, ex);
+        }
+
+        // Broadcast notification.
+        try {
+            amqpListener.pushClistSync(support);
+        } catch (Exception ex){
+            log.error("Exception in pushing clist change for: " + support, ex);
+        }
+
+        log.info(String.format("Support contact clist updated %s with user %s", support, AccountUtils.getSIP(caller)));
+    }
+
+    /**
+     * Returns phonex support contact SIP address for given caller.
+     * Static for now.
+     * @param caller
+     * @return
+     */
+    public String getSupportContactLink(Subscriber caller){
+        return "phonex-support@phone-x.net";
     }
 
     /**
@@ -316,7 +432,7 @@ public class AccountManager {
      */
     public void setSupportContacts(Subscriber s, JSONObject objToSet) throws JSONException {
         JSONArray arr = new JSONArray();
-        arr.put("phonex-support@phone-x.net");
+        arr.put(getSupportContactLink(s));
         objToSet.put("support_contacts", arr);
     }
 
