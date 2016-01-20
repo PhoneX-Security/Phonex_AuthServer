@@ -43,7 +43,7 @@ public class StringsManager {
         final List<Locale> realLocales = fixupLocales(locales, true);
         final ArrayList<String> localeString = new ArrayList<String>();
         for (Locale l : realLocales){
-            localeString.add(l.toString());
+            localeString.add(l.getLanguage());
         }
 
         // Load recovery.
