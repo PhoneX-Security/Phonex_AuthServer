@@ -261,8 +261,8 @@ public class AMQPListener extends BackgroundThreadService {
      * @throws JSONException
      * @throws IOException
      */
-    public void pushNewOfflineMessage(String from, String to, long timestamp) throws JSONException, IOException {
-        JSONObject jsonPush = this.buildNewOfflineMessage(from, to, timestamp);
+    public void pushNewOfflineMessage(String from, String to, long timestamp, String msgType) throws JSONException, IOException {
+        JSONObject jsonPush = this.buildNewOfflineMessage(from, to, timestamp, msgType);
 
         final String jsonPushString = jsonPush.toString();
         this.xmppPublish(jsonPushString.getBytes("UTF-8"));
@@ -506,17 +506,26 @@ public class AMQPListener extends BackgroundThreadService {
      * @return
      * @throws JSONException
      */
-    public JSONObject buildNewOfflineMessage(String from, String to, long timestamp) throws JSONException {
-        final long tstamp = System.currentTimeMillis();
+    public JSONObject buildNewOfflineMessage(String from, String to, long timestamp, String msgType) throws JSONException {
         final JSONObject jObj = new JSONObject();
         jObj.put("action", "pushReq");
         jObj.put("user", from);
 
         final JSONArray pushreq = new JSONArray();
         final JSONObject pushMsg = new JSONObject();
-        pushMsg.put("push", "newOfflineMsg");
         pushMsg.put("target", to);
         pushMsg.put("tstamp", timestamp);
+
+        if ("m".equals(msgType)){
+            pushMsg.put("push", "newMessageOffline");
+            pushMsg.put("mtype", msgType);
+        } else if ("c".equals(msgType)){
+            pushMsg.put("push", "newMissedCallOffline");
+            pushMsg.put("mtype", msgType);
+        } else {
+            pushMsg.put("push", "newOfflineMsg");
+            pushMsg.put("mtype", msgType);
+        }
         pushreq.put(pushMsg);
 
         jObj.put("pushreq", pushreq);

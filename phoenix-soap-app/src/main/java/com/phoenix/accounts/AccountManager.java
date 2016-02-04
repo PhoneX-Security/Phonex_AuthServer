@@ -506,7 +506,7 @@ public class AccountManager {
         String from = data.getString(AMQP_OFFLINE_FROM);
         String to = data.getString(AMQP_OFFLINE_TO);
         final String msgType = data.has(AMQP_OFFLINE_MSG_TYPE) ? data.getString(AMQP_OFFLINE_MSG_TYPE) : null;
-        final long timestamp = MiscUtils.getAsLong(data, AMQP_OFFLINE_TIMESTAMP_SECONDS) * 1000l;
+        final long timestamp = MiscUtils.getAsLong(data, AMQP_OFFLINE_TIMESTAMP_SECONDS) * 1000L;
 
         from = from.replaceFirst("sips:", "");
         from = from.replaceFirst("sip:", "");
@@ -546,8 +546,18 @@ public class AccountManager {
                 log.info(String.format("User %s is muted %s's contact list until %d", from, to, toContactFrom.getPrefMuteUntil()));
             }
 
+            // Parse message type, make it understandable for push server.
+            String msgTypePush = "u"; // unknown
+            if ("1;0".equals(msgType)){
+                msgTypePush = "m";    // New message / file.
+            } else if ("2;1".equals(msgType)){
+                msgTypePush = "c";    // Missed call
+            } else if ("2;4".equals(msgType)){
+                msgTypePush = "r";    // Read notification
+            }
+
             // Send AMQP message to XMPP server, with pushReq.
-            amqpListener.pushNewOfflineMessage(from, to, timestamp);
+            amqpListener.pushNewOfflineMessage(from, to, timestamp, msgTypePush);
 
         }catch (Exception e){
             log.error("Exception when processing new offline message event", e);
