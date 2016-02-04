@@ -45,7 +45,11 @@ public class AccountUtils {
 
             for(int i=0; i<len; i++){
                 try {
-                    final String locString = locales.getString(i);
+                    String locString = locales.getString(i);
+                    if (locString!=null){
+                        locString = locString.replace("-", "_");
+                    }
+
                     final Locale curLoc = LocaleUtils.toLocale(locString);
                     localesToReturn.add(curLoc);
 
