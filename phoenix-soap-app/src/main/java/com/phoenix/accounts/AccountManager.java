@@ -587,14 +587,14 @@ public class AccountManager {
             final long now = System.currentTimeMillis();
             synchronized (recoveryMapsLock) {
                 final Long userIpTime = (Long)recoveryMap.get(userIpKey);
-                if (userIpTime != null && now-userIpTime < 1000*5){
+                if (userIpTime != null && now-userIpTime < 1000*60*3){
                     resp.setStatusCode(-4);
                     resp.setStatusText("RecoveryTooOften");
                     return;
                 }
 
                 final Long ipTime = (Long) recoveryIpMap.get(ip);
-                if (ipTime != null && now-ipTime < 1000*5){
+                if (ipTime != null && now-ipTime < 1000*60*3){
                     resp.setStatusCode(-5);
                     resp.setStatusText("RecoveryTooOftenIp");
                     return;
@@ -673,14 +673,14 @@ public class AccountManager {
             // Throttling requests.
             synchronized (recoveryConfirmMapsLock) {
                 final Long userIpTime = (Long)recoveryConfirmMap.get(userIpKey);
-                if (userIpTime != null && now-userIpTime < 1000*5){
+                if (userIpTime != null && now-userIpTime < 1000*10){
                     resp.setStatusCode(-4);
                     resp.setStatusText("RecoveryTooOften");
                     return;
                 }
 
                 final Long ipTime = (Long) recoveryIpConfirmMap.get(ip);
-                if (ipTime != null && now-ipTime < 1000*5){
+                if (ipTime != null && now-ipTime < 1000*10){
                     resp.setStatusCode(-5);
                     resp.setStatusText("RecoveryTooOftenIp");
                     return;
