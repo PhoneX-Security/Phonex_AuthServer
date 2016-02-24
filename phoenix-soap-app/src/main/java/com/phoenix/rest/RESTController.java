@@ -297,6 +297,30 @@ public class RESTController {
     }
 
     /**
+     * Query to obtain all logout records
+     *
+     * @return
+     * @throws IOException
+     * @throws java.security.cert.CertificateException
+     */
+    @RequestMapping(value = "/rest/getLogouts", method=RequestMethod.GET, produces=MediaType.TEXT_PLAIN_VALUE)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public  @ResponseBody String getLogouts(HttpServletRequest request, HttpServletResponse response) throws IOException, CertificateException {
+        // Some SSL check at first
+        final Subscriber caller = this.authUserFromCert(request);
+        final String callerSip = AccountUtils.getSIP(caller);
+        log.info("Remote user connected (getLogouts): " + callerSip);
+
+        // Prepare JSON response body
+        final UserActivityResponse resp = new UserActivityResponse();
+        resp.setStatusCode(-1);
+        resp.setStatusText("GeneralError");
+
+        accountMgr.getLastActivityOfMyContacts(caller, resp, request);
+        return resp.tryToJSONString();
+    }
+
+    /**
      * Procedure for log file upload from device.
      *
      * @param version

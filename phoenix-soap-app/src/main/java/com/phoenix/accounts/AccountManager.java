@@ -6,6 +6,8 @@ import com.phoenix.db.extra.ContactlistStatus;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.geoip.GeoIpManager;
 import com.phoenix.rest.RecoveryCodeResponse;
+import com.phoenix.rest.UserActivityRecord;
+import com.phoenix.rest.UserActivityResponse;
 import com.phoenix.rest.VerifyRecoveryCodeResponse;
 import com.phoenix.service.*;
 import com.phoenix.service.executor.JobRunnable;
@@ -749,6 +751,88 @@ public class AccountManager {
 
         } catch(Exception e){
             log.error("Exception in processing verification of a recovery code.", e);
+            resp.setStatusCode(-1);
+        }
+    }
+
+    /**
+     * Get last activity metrics for caller contactlist.
+     * This is the main wrapping function loading the data and setting the response.
+     *
+     * TODO: when multiserver is supported, make REST calls to all phonex domains in CL such as: getLogouts?users=[...list...]
+     *
+     * @param caller
+     * @param resp
+     * @param request
+     */
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.DEFAULT, readOnly = false)
+    public void getLastActivityOfMyContacts(Subscriber caller, UserActivityResponse resp, HttpServletRequest request)
+    {
+        try {
+            if (caller == null){
+                resp.setStatusCode(-3);
+                resp.setStatusText("NotAvailable");
+                return;
+            }
+
+            // TODO: refactor SQL query to one after upgrading to hibernate 5.1.
+            final List<UserActivityRecord> userRecords = resp.getList();
+            final Set<Integer> subscribersHavingCaller = new HashSet<Integer>();
+
+            // One query load. Load whole contact list + fetch last logout column for them.
+            final String getContactListQuery = "" +
+                    "SELECT s, cl FROM contactlist cl "
+                    + "LEFT OUTER JOIN cl.obj.intern_user s "
+                    + "WHERE cl.objType=:objtype AND cl.owner=:owner ";
+            TypedQuery<Object[]> query = em.createQuery(getContactListQuery, Object[].class);
+            query.setParameter("objtype", ContactlistObjType.INTERNAL_USER);
+            query.setParameter("owner", caller);
+
+            // Security/privacy measure: for each loaded user check if the caller is in their contact list.
+            // TODO: when MongoDB/Redis is deployed cache privacy lists like this one. Contacts are relatively time stable. Worth caching.
+            final String privacyQuery = "" +
+                    "SELECT s.id FROM contactlist cl "
+                    + "LEFT OUTER JOIN cl.owner s "
+                    + "WHERE cl.objType=:objtype AND cl.obj.intern_user=:owner ";
+            TypedQuery<Integer> queryPriv = em.createQuery(privacyQuery, Integer.class);
+            queryPriv.setParameter("objtype", ContactlistObjType.INTERNAL_USER);
+            queryPriv.setParameter("owner", caller);
+            final List<Integer> havingCallerResult = queryPriv.getResultList();
+            subscribersHavingCaller.addAll(havingCallerResult);
+
+            // TODO: when MongoDB/Redis is deployed, fetch also number of active push tokens. Or more push data.
+            final List<Object[]> resultList = query.getResultList();
+            for(Object[] o : resultList){
+                try {
+                    final Subscriber t = (Subscriber) o[0];
+                    final Contactlist cl = (Contactlist) o[1];
+                    final String userSIP = AccountUtils.getSIP(t);
+
+                    // Check if this caller contact already has caller in his contact list, so no privacy info is leaked.
+                    if (!subscribersHavingCaller.contains(t.getId())){
+                        continue;
+                    }
+
+                    final UserActivityRecord rec = new UserActivityRecord();
+                    final Calendar dateCurrentLogout = t.getDateCurrentLogout();
+                    final Calendar dateLastActivity = t.getDateLastActivity();
+
+
+                    rec.setUser(userSIP);
+                    rec.setLastLogoutTimestamp(dateCurrentLogout == null ? null : dateCurrentLogout.getTimeInMillis());
+                    rec.setLastCallTimestamp(dateLastActivity == null ? null : dateLastActivity.getTimeInMillis());
+                    userRecords.add(rec);
+
+                } catch(Exception ex){
+                    log.error("Exception in processing current contact", ex);
+                }
+            }
+
+            resp.setStatusCode(0);
+            resp.setStatusText("OK");
+
+        } catch(Exception e){
+            log.error("Exception in get last activity query.", e);
             resp.setStatusCode(-1);
         }
     }
