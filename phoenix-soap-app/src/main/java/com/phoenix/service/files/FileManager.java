@@ -55,8 +55,8 @@ public class FileManager {
     public static final String FTYPE_META="meta";
     public static final String FTYPE_PACK="pack";
     public static final String PATH_VALID_REGEX="[a-zA-Z0-9_\\-+=@\\.]*";
-    public static final long PACK_FILE_SIZE_LIMIT = 1024*1024*100; // 100MB
-    public static final long META_FILE_SIZE_LIMIT = 1024*1024*5; // 5MB
+    public static final long PACK_FILE_SIZE_LIMIT = 1024*1024*200; // 200MB
+    public static final long META_FILE_SIZE_LIMIT = 1024*1024*15; // 15MB
     public static final int  MAX_NUMBER_FILES = 50; // Maximum number of stored files for one subscriber per one user.
     
     @Autowired
