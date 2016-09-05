@@ -1997,7 +1997,7 @@ public class PhoenixEndpoint {
             Calendar fAuthCheck = localUser.getDateFirstAuthCheck();
             if (fAuthCheck == null || fAuthCheck.before(get1971())){
                 localUser.setDateFirstAuthCheck(Calendar.getInstance());
-                log.info(String.format("First auth check set to: %s", localUser.getDateFirstAuthCheck()));
+                log.info(String.format("First auth check [%s] set to: %s", sip, localUser.getDateFirstAuthCheck()));
             }
             
             // if we have some certificate, we can continue with checks
@@ -2012,7 +2012,7 @@ public class PhoenixEndpoint {
             try {
                 Subscriber owner = this.authUserFromCert(context, this.request);
                 String certSip = auth.getSIPFromCertificate(context, this.request);
-                log.info("User provided also certificate: " + owner);
+                log.info(String.format("User [%s] provided also certificate: %s, certSip: %s", sip, owner, certSip));
                 if (owner == null || certSip == null){
                     return resp;
                 }
@@ -2020,6 +2020,7 @@ public class PhoenixEndpoint {
                 // check user validity
                 if (!certSip.equals(sip)){
                     resp.setCertValid(TrueFalseNA.FALSE);
+                    log.warn(String.format("Certificate does not match CN [%s] vs. [%s]", sip, certSip));
                     return resp;
                 }
                 
@@ -2037,7 +2038,7 @@ public class PhoenixEndpoint {
                 // is revoked?
                 Boolean certificateRevoked = this.signer.isCertificateRevoked(cert509);
                 if (certificateRevoked!=null && certificateRevoked.booleanValue()==true){
-                    log.info("Certificate for user is revoked: " + cert509.getSerialNumber().longValue());
+                    log.info(String.format("Certificate for user [%s] is revoked: %s", sip, cert509.getSerialNumber().longValue()));
                     resp.setCertValid(TrueFalseNA.FALSE);
                     resp.setCertStatus(CertificateStatus.REVOKED);
                 } else {
@@ -2057,7 +2058,7 @@ public class PhoenixEndpoint {
             } catch (Throwable e){
                 // no certificate, just return response, exception is 
                 // actually really expected :)
-                log.info("Certificate was not valid: ", e);
+                log.info(String.format("Certificate was not valid [%s]: ", sip), e);
                 resp.setCertValid(TrueFalseNA.FALSE);
                 resp.setCertStatus(CertificateStatus.INVALID);
                 logAction(sip, "authCheck3.crtfail", null);
@@ -2066,7 +2067,7 @@ public class PhoenixEndpoint {
             
             // Unregister if auth is OK?
             if (request.getUnregisterIfOK() == TrueFalse.TRUE && passwdChange!=true){
-                log.info("Unregistering user, auth was OK so far");
+                log.info(String.format("Unregistering user [%s], auth was OK so far", sip));
                 
                 /*ServerMICommand cmd = new ServerMICommand("ul_rm");
                 cmd.addParameter("location").addParameter(sip);
@@ -2077,7 +2078,7 @@ public class PhoenixEndpoint {
             resp.setAuxJSON(jsonAuxObj.toString());
 
          } catch(Throwable e){
-             log.warn("Exception in password change procedure", e);
+             log.warn("Exception in authcheckV3", e);
              throw new RuntimeException(e);
          }
 
