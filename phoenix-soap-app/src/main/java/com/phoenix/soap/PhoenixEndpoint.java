@@ -2127,7 +2127,7 @@ public class PhoenixEndpoint {
             
             // user is provided in request thus try to load it from database
             String sip = request.getTargetUser();
-            log.info(String.format("User [%s] is asking for details, reqVer: %d", sip, reqVersion));
+            log.info(String.format("User [%s] owner [%s] is asking for details, reqVer: %d", sip, owner, reqVersion));
             if (!StringUtils.isEmpty(sip) && !owner.equalsIgnoreCase(sip)){
                 log.error(String.format("Requesting a different user than in certificate. cert=%s, req=%s", owner, sip));
                 resp.setErrCode(-10);
