@@ -3,6 +3,7 @@ package com.phoenix.db;
 import com.phoenix.db.opensips.Subscriber;
 import com.phoenix.service.PhoenixServerCASigner;
 import com.phoenix.utils.MiscUtils;
+import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.annotations.Index;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +66,7 @@ public class CrlHolder implements Serializable {
         return "CrlHolder{" +
                 "id=" + id +
                 ", domain='" + domain + '\'' +
-                ", rawCrl=" + Arrays.toString(rawCrl) +
+                ", rawCrl=" + new String(Base64.encode(rawCrl)) +
                 ", pemCrl='" + pemCrl + '\'' +
                 ", crl=" + crl +
                 ", timeGenerated=" + timeGenerated +
