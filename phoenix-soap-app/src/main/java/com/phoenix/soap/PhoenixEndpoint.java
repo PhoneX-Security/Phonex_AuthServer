@@ -2454,7 +2454,12 @@ public class PhoenixEndpoint {
             // by low level engine for signing. This should be run in transaction
             // thus if something will fail during signing, transaction with
             // revocation.
-            Date notBefore = new Date(System.currentTimeMillis());
+            // Before date is shifted 10 min in the past so if there is a time drift on the client
+            // certificate is still valid. This is potential security risk as attacker can reset
+            // password, regenerate certificate and pretend he sent a message 15 min back -
+            // pretending original user sent it. But we know how certificates are generated so be it...
+            // Reliability has to win :)
+            Date notBefore = new Date(System.currentTimeMillis() - (15L * 60L * 1000L));
             Date notAfter  = new Date(System.currentTimeMillis() + (2L * 365L * 24L * 60L * 60L * 1000L));
             CAcertsSigned cacertsSigned = new CAcertsSigned();
             cacertsSigned.setCN(certCN);
