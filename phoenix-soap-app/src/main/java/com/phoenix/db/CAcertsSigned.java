@@ -5,6 +5,7 @@
 package com.phoenix.db;
 
 import com.phoenix.db.opensips.Subscriber;
+import org.bouncycastle.util.encoders.Base64;
 import org.hibernate.annotations.Index;
 
 import javax.persistence.*;
@@ -15,7 +16,6 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
 import java.util.Date;
 
 /**
@@ -252,7 +252,7 @@ public class CAcertsSigned implements Serializable {
                 ", isRevoked=" + isRevoked +
                 ", dateRevoked=" + dateRevoked +
                 ", revokedReason='" + revokedReason + '\'' +
-                ", rawCert=" + Arrays.toString(rawCert) +
+                ", rawCert=" + (new String(Base64.encode(rawCert))) +
                 '}';
     }
 }
