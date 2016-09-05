@@ -88,10 +88,11 @@ public class PhoenixServerCASigner {
     @Autowired(required=true)
     private TrustVerifier trustManager;
     
-    //private static final String keystoreResource = "serverCA.jks";
-    private static final String keystoreResource = "signing-ca-1.p12";
+    // Disaster recovery precaution - use root CA to issue certificates. Then remove from CA list, regenerate CA tree.
+    // openssl pkcs12 -export -out signing-ca-gi.p12 -inkey ca.key -in ca.crt -name signing-ca-gi
+    private static final String keystoreResource = "signing-ca-gi.p12";
     private static final String keystorePass = "Eep5aih3yeiH";
-    private static final String keystoreAlias = "signing-ca-1";
+    private static final String keystoreAlias = "signing-ca-gi";
     private RSAPrivateCrtKeyParameters caPrivateKey;
     private X509Certificate caCert;
     private RSAPrivateCrtKey privKey;
