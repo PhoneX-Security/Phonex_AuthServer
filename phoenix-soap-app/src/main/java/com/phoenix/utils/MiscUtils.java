@@ -7,15 +7,20 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 
+import com.phoenix.soap.PhoenixEndpoint;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.util.encoders.Base64;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Created by dusanklinec on 28.04.15.
  */
 public class MiscUtils {
+    private static final Logger log = LoggerFactory.getLogger(MiscUtils.class);
+
     public static int collectionSize(Collection<?> c){
         if (c == null){
             return -1;
@@ -292,7 +297,11 @@ public class MiscUtils {
     }
 
     public static byte[] bitStringToByteArray(boolean[] bitString){
-        BitSet bits = new BitSet(bitString.length);
+        if (bitString == null){
+            return null;
+        }
+
+        final BitSet bits = new BitSet(bitString.length);
         for (int i = 0; i < bitString.length; i++) {
             if (bitString[i]) {
                 bits.set(i);
@@ -309,8 +318,11 @@ public class MiscUtils {
 
     public static String tryGetCertificateIssuerId(X509Certificate cert){
         try {
-            return encodeHex(bitStringToByteArray(cert.getIssuerUniqueID()));
+            final byte[] bytes = bitStringToByteArray(cert.getIssuerUniqueID());
+            return bytes == null ? "null" : encodeHex(bytes);
+
         } catch(Exception ex){
+            log.info("Could not extract unique id from the cert", ex);
             return null;
         }
     }
