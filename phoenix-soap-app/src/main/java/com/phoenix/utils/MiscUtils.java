@@ -2,7 +2,12 @@ package com.phoenix.utils;
 
 import java.io.*;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.X509Certificate;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
+
+import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.util.encoders.Base64;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -283,6 +288,38 @@ public class MiscUtils {
             return writer.toString();
         } else {
             return "";
+        }
+    }
+
+    public static byte[] bitStringToByteArray(boolean[] bitString){
+        BitSet bits = new BitSet(bitString.length);
+        for (int i = 0; i < bitString.length; i++) {
+            if (bitString[i]) {
+                bits.set(i);
+            }
+        }
+
+        byte[] bytes = bits.toByteArray();
+        if (bytes.length * 8 >= bitString.length) {
+            return bytes;
+        } else {
+            return Arrays.copyOf(bytes, bitString.length / 8 + (bitString.length % 8 == 0 ? 0 : 1));
+        }
+    }
+
+    public static String tryGetCertificateIssuerId(X509Certificate cert){
+        try {
+            return encodeHex(bitStringToByteArray(cert.getIssuerUniqueID()));
+        } catch(Exception ex){
+            return null;
+        }
+    }
+
+    public static String tryGetCertificateIssuerDn(X509Certificate cert){
+        try {
+            return cert.getIssuerDN().toString();
+        } catch(Exception ex){
+            return null;
         }
     }
 }

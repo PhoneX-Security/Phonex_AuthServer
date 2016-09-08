@@ -2012,8 +2012,8 @@ public class PhoenixEndpoint {
             try {
                 Subscriber owner = this.authUserFromCert(context, this.request);
                 String certSip = auth.getSIPFromCertificate(context, this.request);
-                log.info(String.format("User [%s] provided also certificate: %s, certSip: %s", sip, owner, certSip));
                 if (owner == null || certSip == null){
+                    log.warn(String.format("User [%s] provided certificate, owner not found or empty certSip. certSip: %s", sip, certSip));
                     return resp;
                 }
                 
@@ -2029,6 +2029,14 @@ public class PhoenixEndpoint {
                 X509Certificate certChain[] = auth.getCertChain(context, this.request);
                 // client certificate SHOULD be stored first here, so assume it
                 X509Certificate cert509 = certChain[0];
+                log.info(String.format("User [%s] provided also certificate: %s, certSip: %s, serial: %s, " +
+                                "issued: %s, issuerID: %s, issuer: %s",
+                        sip, owner, certSip,
+                        cert509.getSerialNumber().toString(),
+                        cert509.getNotBefore(),
+                        MiscUtils.tryGetCertificateIssuerId(cert509),
+                        MiscUtils.tryGetCertificateIssuerDn(cert509)));
+
                 // time-date validity
                 cert509.checkValidity();
                 // is signed by server CA?

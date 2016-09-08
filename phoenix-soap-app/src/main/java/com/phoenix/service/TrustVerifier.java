@@ -60,7 +60,7 @@ public class TrustVerifier implements X509TrustManager {
      */
     private KeyStore trustStoreCA = null;
     private KeyStore trustStoreWeb = null;
-    private PKIXParameters params = null;   // cerification parameters
+    private PKIXParameters params = null;   // certificate path validation parameters
     private X509Certificate[] trustedCerts = null;    
     
     private static final String rootCAresource = "ca.crt";
