@@ -286,6 +286,9 @@ public class TrustVerifier implements X509TrustManager {
             CertPath certPath = cf.generateCertPath(certList);
             
             // Validate cert path against trusted store
+            // Note that CertPathValidator does not check certificate expiration
+            // on its own. E.g., if some of the issuing certiticates is expired
+            // the check still passes without Exception.
             CertPathValidator validator = CertPathValidator.getInstance("PKIX");
             CertPathValidatorResult result = validator.validate(certPath, params);
         } catch(Exception e){
