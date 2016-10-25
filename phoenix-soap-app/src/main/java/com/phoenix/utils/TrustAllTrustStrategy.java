@@ -6,6 +6,8 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 /**
+ * Only for testing, do not use in the production!!!
+ *
  * Created by dusanklinec on 04.09.15.
  */
 public class TrustAllTrustStrategy implements TrustStrategy {
