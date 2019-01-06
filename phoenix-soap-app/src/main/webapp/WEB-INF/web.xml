@@ -46,7 +46,7 @@
         <listener-class>com.phoenix.service.DaemonStarter</listener-class>
     </listener>
     
-    <!-- Needed for reques/session scoped entities -->
+    <!-- Needed for request/session scoped entities -->
     <listener>
         <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
     </listener>
